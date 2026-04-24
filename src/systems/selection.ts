@@ -14,6 +14,7 @@ export class SelectionSystem implements ISystem {
       if (id === null) return;
       const u = w.units.findById(id);
       if (u && u.faction === w.playerFaction) {
+        w.selectedBuildings.clear();
         w.selectedUnits.add(u.id);
         return;
       }
@@ -21,6 +22,7 @@ export class SelectionSystem implements ISystem {
       if (b && b.faction === w.playerFaction) {
         // Allow selecting own incomplete buildings too — player wants to watch
         // construction progress. Command card gates actions by `b.completed`.
+        w.selectedUnits.clear();
         w.selectedBuildings.clear();
         w.selectedBuildings.add(b.id);
       }
@@ -51,6 +53,7 @@ export class SelectionSystem implements ISystem {
 
     w.bus.on('input:select', ({ ids, additive }) => {
       if (!additive) w.selectedUnits.clear();
+      w.selectedBuildings.clear();
       for (const id of ids) {
         const u = w.units.findById(id);
         if (u && u.faction === w.playerFaction) w.selectedUnits.add(id);

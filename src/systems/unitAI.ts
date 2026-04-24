@@ -2,7 +2,7 @@ import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Unit, Building, ResourceNode } from '@entities/types';
 import { ECONOMY, MAP } from '@config/gameplay';
-import { dist, dist2 } from '@utils/math';
+import { dist, dist2, TAU } from '@utils/math';
 import { BUILDING_STATS } from '@config/buildings';
 import { spawnBuilding } from '@systems/production';
 
@@ -203,9 +203,11 @@ export class UnitAISystem implements ISystem {
       u.destX = next.x; u.destY = next.y;
       return;
     }
-    const d = dist(u.x, u.y, node.x, node.y);
-    if (d > 1.5) {
-      u.destX = node.x; u.destY = node.y;
+    const [harvestX, harvestY] = harvestSlot(node, u);
+    const dToSlot = dist(u.x, u.y, harvestX, harvestY);
+    const dToNode = dist(u.x, u.y, node.x, node.y);
+    if (dToSlot > 0.45 || dToNode > 1.5) {
+      u.destX = harvestX; u.destY = harvestY;
       return;
     }
     u.vx = 0; u.vy = 0;
@@ -250,6 +252,13 @@ export class UnitAISystem implements ISystem {
   }
 }
 
+function harvestSlot(node: ResourceNode, u: Unit): [number, number] {
+  const slots = 8;
+  const angle = ((u.id % slots) / slots) * TAU;
+  const r = 1.05;
+  return [node.x + Math.cos(angle) * r, node.y + Math.sin(angle) * r];
+}
+
 // Consume a Swarm drone into its pending building — at the worker's current
 // tile. Used by tickMove when the drone reaches the queued morph destination.
 function performMorph(w: World, u: Unit): void {
@@ -286,6 +295,11 @@ function performMorph(w: World, u: Unit): void {
   const b = spawnBuilding(w, u.faction, kind, placeTx, placeTy, false);
   if (b) {
     b.builderUnitId = null; // autonomous build
+    if (u.faction === w.playerFaction && w.selectedUnits.has(u.id)) {
+      w.selectedUnits.delete(u.id);
+      w.selectedBuildings.clear();
+      w.selectedBuildings.add(b.id);
+    }
   }
   u.hp = 0; // cleanup releases the pool slot next tick
   u.pendingMorphKind = null;

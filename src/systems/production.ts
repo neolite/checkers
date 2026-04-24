@@ -196,11 +196,13 @@ function pickBuilder(w: World, wx: number, wy: number): import('@entities/types'
     if (u.faction !== w.playerFaction) continue;
     if (u.stats.role !== 'worker') continue;
     if (u.state === 'build') continue; // already locked to a site
+    if (u.pendingMorphKind !== null) continue;
     candidates.push(u);
   }
   if (candidates.length === 0) {
     w.units.forEachAlive((u) => {
       if (u.faction === w.playerFaction && u.stats.role === 'worker' && u.state !== 'build') {
+        if (u.pendingMorphKind !== null) return;
         candidates.push(u);
       }
     });

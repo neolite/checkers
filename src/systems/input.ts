@@ -12,6 +12,7 @@ const CUR_ATTACK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2
 const CUR_RESOURCE = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='28' viewBox='0 0 24 28'><polygon points='12,2 22,14 12,26 2,14' fill='%2355e0c6' stroke='%23ffffff' stroke-width='1.5'/></svg>") 12 26, cell`;
 const CUR_MOVE = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2v20M2 12h20M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3' fill='none' stroke='%237ef5b3' stroke-width='2'/></svg>") 12 12, crosshair`;
 const CUR_PLACE = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><rect x='4' y='4' width='16' height='16' fill='none' stroke='%237ef5b3' stroke-width='2'/><line x1='12' y1='1' x2='12' y2='7' stroke='%237ef5b3' stroke-width='2'/><line x1='12' y1='17' x2='12' y2='23' stroke='%237ef5b3' stroke-width='2'/><line x1='1' y1='12' x2='7' y2='12' stroke='%237ef5b3' stroke-width='2'/><line x1='17' y1='12' x2='23' y2='12' stroke='%237ef5b3' stroke-width='2'/></svg>") 12 12, cell`;
+const CUR_SELECT = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><rect x='5' y='5' width='14' height='14' fill='%237ef5b3' fill-opacity='0.18' stroke='%237ef5b3' stroke-width='2' stroke-dasharray='3,2'/><path d='M12 2v5M12 17v5M2 12h5M17 12h5' stroke='%237ef5b3' stroke-width='2'/></svg>") 12 12, crosshair`;
 
 // Input system converts DOM events into typed game events and handles box-select.
 // It owns the select-box DOM layer and the placement-ghost state.
@@ -26,6 +27,8 @@ export class InputSystem implements ISystem {
   private hostEl: HTMLElement;
   private ghostDiv: HTMLDivElement | null = null;
   private ghostMesh: BuildingGhost | null = null;
+  private dragMoveOff: ((e: MouseEvent) => void) | null = null;
+  private dragUpOff: ((e: MouseEvent) => void) | null = null;
   // Cursor type cache: DOM `style.cursor` writes re-render the OS cursor even when
   // value is identical in Chrome, which produces the visible "jump" on mousemove.
   // Track the last-applied value and only write when it changes.
@@ -46,7 +49,7 @@ export class InputSystem implements ISystem {
         if (this.placement) {
           this.commitPlacement(w);
         } else {
-          this.boxStart = { x: e.clientX, y: e.clientY };
+          this.beginSelectionDrag(w, canvas, e);
         }
       } else if (e.button === 2 /* RMB */) {
         if (this.placement) {
@@ -59,32 +62,14 @@ export class InputSystem implements ISystem {
 
     canvas.addEventListener('mousemove', (e) => {
       if (this.boxStart) {
-        this.drawBox(e.clientX, e.clientY);
+        this.setCursor(canvas, CUR_SELECT);
+        return;
       }
       if (this.placement) {
         this.updatePlacementGhost(w, e.clientX, e.clientY);
         this.setCursor(canvas, this.placementValid ? CUR_PLACE : 'not-allowed');
       } else {
         this.updateCursor(w, canvas, e.clientX, e.clientY);
-      }
-    });
-
-    canvas.addEventListener('mouseup', (e) => {
-      if (e.button === 0 && this.boxStart) {
-        const endX = e.clientX, endY = e.clientY;
-        const minX = Math.min(this.boxStart.x, endX);
-        const minY = Math.min(this.boxStart.y, endY);
-        const maxX = Math.max(this.boxStart.x, endX);
-        const maxY = Math.max(this.boxStart.y, endY);
-        this.clearBox();
-        const additive = e.shiftKey;
-        if ((maxX - minX) < UI.selectionMinPx && (maxY - minY) < UI.selectionMinPx) {
-          // Click-select at endX/endY.
-          this.singleSelectAt(w, endX, endY, additive);
-        } else {
-          w.bus.emit('input:selectBox', { minX, minY, maxX, maxY, additive });
-        }
-        this.boxStart = null;
       }
     });
 
@@ -118,6 +103,53 @@ export class InputSystem implements ISystem {
 
   update(_w: World, _dtMs: number): void {
     // No per-frame work; all input is event-driven.
+  }
+
+  private beginSelectionDrag(w: World, canvas: HTMLCanvasElement, e: MouseEvent): void {
+    this.endSelectionDragListeners();
+    this.boxStart = { x: e.clientX, y: e.clientY };
+    this.drawBox(e.clientX, e.clientY);
+    this.setCursor(canvas, CUR_SELECT);
+
+    const onMove = (ev: MouseEvent): void => {
+      if (!this.boxStart) return;
+      this.drawBox(ev.clientX, ev.clientY);
+    };
+    const onUp = (ev: MouseEvent): void => {
+      if (ev.button !== 0 || !this.boxStart) return;
+      const endX = ev.clientX, endY = ev.clientY;
+      const minX = Math.min(this.boxStart.x, endX);
+      const minY = Math.min(this.boxStart.y, endY);
+      const maxX = Math.max(this.boxStart.x, endX);
+      const maxY = Math.max(this.boxStart.y, endY);
+      this.clearBox();
+      this.endSelectionDragListeners();
+      this.boxStart = null;
+
+      const additive = ev.shiftKey;
+      if ((maxX - minX) < UI.selectionMinPx && (maxY - minY) < UI.selectionMinPx) {
+        this.singleSelectAt(w, endX, endY, additive);
+      } else {
+        w.bus.emit('input:selectBox', { minX, minY, maxX, maxY, additive });
+      }
+      this.updateCursor(w, canvas, endX, endY);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    this.dragMoveOff = onMove;
+    this.dragUpOff = onUp;
+  }
+
+  private endSelectionDragListeners(): void {
+    if (this.dragMoveOff) {
+      window.removeEventListener('mousemove', this.dragMoveOff);
+      this.dragMoveOff = null;
+    }
+    if (this.dragUpOff) {
+      window.removeEventListener('mouseup', this.dragUpOff);
+      this.dragUpOff = null;
+    }
   }
 
   private setCursor(canvas: HTMLCanvasElement, value: string): void {
@@ -256,6 +288,7 @@ export class InputSystem implements ISystem {
     if (!this.boxEl) {
       const el = document.createElement('div');
       el.className = 'select-box';
+      el.style.zIndex = '30';
       this.hostEl.appendChild(el);
       this.boxEl = el;
     }

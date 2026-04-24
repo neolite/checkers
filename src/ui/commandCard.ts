@@ -223,7 +223,8 @@ export function mountCommandCard(world: World): CommandCardHandle {
 
     // Selected unit(s) — show build options for workers, else unit commands.
     const selectedUnits = [...w.selectedUnits].map((id) => w.units.findById(id)).filter((u) => u !== null);
-    const hasWorker = selectedUnits.some((u) => u!.stats.role === 'worker');
+    const actionableUnits = selectedUnits.filter((u) => u!.pendingMorphKind === null && u!.state !== 'build');
+    const hasWorker = actionableUnits.some((u) => u!.stats.role === 'worker');
 
     if (hasWorker) {
       const meta = FACTIONS[w.playerFaction];
@@ -246,7 +247,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
       }
     }
 
-    if (selectedUnits.length > 0) {
+    if (actionableUnits.length > 0) {
       cells.push({ key: 'cmd:move', icon: 'move', label: 'Move', hint: 'RMB on ground',
                    onClick: () => {} });
       cells.push({ key: 'cmd:attack', icon: 'attack', label: 'Attack',

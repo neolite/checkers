@@ -113,6 +113,8 @@ export class CommandSystem implements ISystem {
       if (!u || u.faction !== w.playerFaction) continue;
       // Supervised builders are locked to their site — players can't redirect them mid-build.
       if (u.state === 'build') continue;
+      // Swarm morph drones are already committed to becoming a building.
+      if (u.pendingMorphKind !== null) continue;
       out.push(u);
     }
     return out;

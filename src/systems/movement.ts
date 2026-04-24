@@ -93,10 +93,10 @@ export class MovementSystem implements ISystem {
       }
     }
 
-    // Also push units out of building tiles if they stepped inside.
+    // Also push units out of building footprints if they stepped inside.
     w.buildings.forEachAlive((b) => {
-      if (!b.completed) return;
       for (const u of alive) {
+        if (u.hp <= 0) continue;
         const dx = u.x - b.x;
         const dy = u.y - b.y;
         const d2 = dx * dx + dy * dy;
