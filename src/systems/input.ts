@@ -26,6 +26,10 @@ export class InputSystem implements ISystem {
   private hostEl: HTMLElement;
   private ghostDiv: HTMLDivElement | null = null;
   private ghostMesh: BuildingGhost | null = null;
+  // Cursor type cache: DOM `style.cursor` writes re-render the OS cursor even when
+  // value is identical in Chrome, which produces the visible "jump" on mousemove.
+  // Track the last-applied value and only write when it changes.
+  private lastCursor: string = '';
 
   constructor(hostEl: HTMLElement) {
     this.hostEl = hostEl;
@@ -59,7 +63,7 @@ export class InputSystem implements ISystem {
       }
       if (this.placement) {
         this.updatePlacementGhost(w, e.clientX, e.clientY);
-        canvas.style.cursor = this.placementValid ? CUR_PLACE : 'not-allowed';
+        this.setCursor(canvas, this.placementValid ? CUR_PLACE : 'not-allowed');
       } else {
         this.updateCursor(w, canvas, e.clientX, e.clientY);
       }
@@ -116,18 +120,24 @@ export class InputSystem implements ISystem {
     // No per-frame work; all input is event-driven.
   }
 
+  private setCursor(canvas: HTMLCanvasElement, value: string): void {
+    if (this.lastCursor === value) return;
+    this.lastCursor = value;
+    canvas.style.cursor = value;
+  }
+
   private updateCursor(w: World, canvas: HTMLCanvasElement, cx: number, cy: number): void {
     const ground = screenToGround(w.three.camera!, cx, cy, window.innerWidth, window.innerHeight);
-    if (!ground) { canvas.style.cursor = ''; return; }
+    if (!ground) { this.setCursor(canvas, ''); return; }
     const pick = this.pickEntityUnderCursor(w, ground.x, ground.z);
     if (pick && pick.hostile) {
-      canvas.style.cursor = CUR_ATTACK;
+      this.setCursor(canvas, CUR_ATTACK);
     } else if (pick && pick.isResource) {
-      canvas.style.cursor = CUR_RESOURCE;
+      this.setCursor(canvas, CUR_RESOURCE);
     } else if (w.selectedUnits.size > 0 || w.selectedBuildings.size > 0) {
-      canvas.style.cursor = CUR_MOVE;
+      this.setCursor(canvas, CUR_MOVE);
     } else {
-      canvas.style.cursor = '';
+      this.setCursor(canvas, '');
     }
   }
 

@@ -2,25 +2,29 @@ import type { WeaponClass, ArmorClass } from '@config/gameplay';
 
 // Single source of balance truth. Every combat calc runs through this.
 // Rows: attacker weapon class. Cols: defender armor class.
-// Multipliers chosen so each weapon class has a clear hard-counter and soft target.
+// Sharpened rock-paper-scissors: each weapon class has exactly one "hard counter"
+// target and one "useless against" target, with a >4× spread inside every row.
+//   aInfantry  (bullets)  → shreds light infantry, bounces off armor/structures
+//   aArmor     (cannons)  → poor vs fast infantry, devastates medium/heavy armor
+//   aStructure (siege/AT) → cannot track light infantry, wrecks heavy and structures
 export const DAMAGE_MATRIX: Record<WeaponClass, Record<ArmorClass, number>> = {
   aInfantry: {
-    light: 1.4,
-    medium: 0.55,
-    heavy: 0.3,
-    structure: 0.25,
+    light: 1.6,
+    medium: 0.45,
+    heavy: 0.15,
+    structure: 0.1,
   },
   aArmor: {
-    light: 0.6,
-    medium: 1.0,
-    heavy: 1.3,
-    structure: 0.8,
+    light: 0.35,
+    medium: 1.2,
+    heavy: 1.5,
+    structure: 0.85,
   },
   aStructure: {
-    light: 0.5,
-    medium: 0.75,
-    heavy: 0.85,
-    structure: 2.0,
+    light: 0.2,
+    medium: 0.7,
+    heavy: 1.4,
+    structure: 2.3,
   },
 };
 

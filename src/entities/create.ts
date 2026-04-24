@@ -43,6 +43,7 @@ export function resetUnit(u: Unit): void {
   u.flowGoalTy = -1;
   u.holdPosition = false;
   u.buildTargetId = null;
+  u.pendingMorphKind = null;
 }
 
 export function makeUnitSeed(id: number): Unit {
@@ -56,6 +57,7 @@ export function makeUnitSeed(id: number): Unit {
     cargo: 0, gatherMs: 0, resourceNodeId: null, homeRefineryId: null,
     flowGoalTx: -1, flowGoalTy: -1,
     holdPosition: false, buildTargetId: null,
+    pendingMorphKind: null,
   };
   return u;
 }
@@ -82,6 +84,7 @@ export function initUnit(u: Unit, kind: UnitKind, faction: FactionId, stats: Uni
   u.flowGoalTy = -1;
   u.holdPosition = false;
   u.buildTargetId = null;
+  u.pendingMorphKind = null;
 }
 
 export function resetBuilding(b: Building): void {

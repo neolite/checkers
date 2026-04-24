@@ -42,20 +42,19 @@ export class ProductionSystem implements ISystem {
       fs.credits -= cost;
 
       if (faction.buildMode === 'morph') {
-        // The drone IS the building. Consume the worker, spawn building at drone position.
-        const wx = worker.x, wy = worker.y;
-        const mtx = Math.floor(wx / MAP.tileSize) - Math.floor(stats.tileW / 2);
-        const mty = Math.floor(wy / MAP.tileSize) - Math.floor(stats.tileH / 2);
-        // Fall back to clicked tiles if the morph position would be OOB.
-        const useTx = gridValid(w, mtx, mty, stats.tileW, stats.tileH) ? mtx : tx;
-        const useTy = gridValid(w, mtx, mty, stats.tileW, stats.tileH) ? mty : ty;
-        // Release the worker from its pool.
-        worker.hp = 0; // let cleanup sweep it
-        const b = spawnBuilding(w, w.playerFaction, kind, useTx, useTy, false);
-        if (b) {
-          // Morph builds autonomously — no builder handoff.
-          b.builderUnitId = null;
-        }
+        // Zerg-style: the click names the spot; the drone walks there and THEN
+        // transforms into the building. UnitAI picks up pendingMorphKind on arrival.
+        // Place the goal at the tile center the player clicked (stats-aware).
+        const goalX = (tx + stats.tileW / 2) * MAP.tileSize;
+        const goalY = (ty + stats.tileH / 2) * MAP.tileSize;
+        worker.state = 'move';
+        worker.destX = goalX;
+        worker.destY = goalY;
+        worker.pendingMorphKind = kind;
+        worker.resourceNodeId = null;
+        worker.holdPosition = false;
+        worker.targetId = null;
+        worker.targetLocked = false;
         return;
       }
 

@@ -39,6 +39,9 @@ export interface Unit {
   holdPosition: boolean;
   // Supervised-build linkage: if set, this worker is locked to a building site.
   buildTargetId: number | null;
+  // Morph mode (Swarm): when set, the drone will consume itself into a building
+  // of this kind as soon as it reaches destX/destY.
+  pendingMorphKind: import('@config/buildings').BuildingKind | null;
 }
 
 export interface Building {

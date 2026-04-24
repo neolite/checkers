@@ -4,6 +4,7 @@ import { BUILDING_STATS, type BuildingKind } from '@config/buildings';
 import type { Role } from '@config/gameplay';
 import { UNIT_STATS, type UnitKind } from '@config/units';
 import { icon, type IconName } from '@ui/icons';
+import type { ArmorClass, WeaponClass } from '@config/gameplay';
 
 interface CommandContext {
   world: World;
@@ -117,8 +118,8 @@ export function mountCommandCard(world: World): CommandCardHandle {
       if (b) {
         info.innerHTML = `
           <h4>${escapeHtml(b.stats.displayName)}${b.completed ? '' : ' (building…)'}</h4>
-          <div class="meta">HP ${Math.ceil(b.hp)} / ${b.stats.maxHp}${
-            b.stats.weapon ? ` · rng ${b.stats.weapon.range}` : ''
+          <div class="meta">HP ${Math.ceil(b.hp)} / ${b.stats.maxHp} · armor: ${armorLabel(b.stats.armor)}${
+            b.stats.weapon ? ` · wpn: ${weaponLabel(b.stats.weapon.klass)} · rng ${b.stats.weapon.range}` : ''
           }${b.productionQueue.length > 0 ? ` · queue ${b.productionQueue.length}` : ''}</div>
         `;
         return;
@@ -130,7 +131,9 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const u = list[0]!;
         info.innerHTML = `
           <h4>${escapeHtml(u.stats.displayName)}</h4>
-          <div class="meta">HP ${Math.ceil(u.hp)} / ${u.stats.maxHp} · state: ${u.state}${
+          <div class="meta">HP ${Math.ceil(u.hp)} / ${u.stats.maxHp} · armor: ${armorLabel(u.stats.armor)}${
+            u.stats.weapon ? ` · wpn: ${weaponLabel(u.stats.weapon.klass)}` : ''
+          } · state: ${u.state}${
             u.cargo > 0 ? ` · cargo ${u.cargo}` : ''
           }</div>
         `;
@@ -305,4 +308,16 @@ function clamp01(v: number): number { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+}
+
+// Short labels for the selection info panel. These surface the RPS matrix
+// axes (armor on defender, weapon class on attacker) so the player can read
+// matchups at a glance without opening a separate tooltip.
+function armorLabel(a: ArmorClass): string {
+  return ({ light: 'Light', medium: 'Medium', heavy: 'Heavy', structure: 'Structure' } as const)[a];
+}
+
+function weaponLabel(w: WeaponClass): string {
+  // AP = anti-personnel, AT = anti-tank, Siege = structure/demolition
+  return ({ aInfantry: 'AP', aArmor: 'AT', aStructure: 'Siege' } as const)[w];
 }

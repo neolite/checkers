@@ -1,8 +1,10 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Unit, Building, ResourceNode } from '@entities/types';
-import { ECONOMY } from '@config/gameplay';
+import { ECONOMY, MAP } from '@config/gameplay';
 import { dist, dist2 } from '@utils/math';
+import { BUILDING_STATS } from '@config/buildings';
+import { spawnBuilding } from '@systems/production';
 
 // FSM transitions run here. Movement/combat systems consume the resulting fields.
 export class UnitAISystem implements ISystem {
@@ -83,7 +85,13 @@ export class UnitAISystem implements ISystem {
   private tickMove(w: World, u: Unit): void {
     if (u.destX === null || u.destY === null) { u.state = 'idle'; return; }
     const d = dist(u.x, u.y, u.destX, u.destY);
-    if (d < 0.8) {
+    if (d < 1.2) {
+      // If a morph is pending (Swarm drone), perform the transformation here:
+      // consume the drone, spawn the building at this tile.
+      if (u.pendingMorphKind) {
+        performMorph(w, u);
+        return;
+      }
       u.state = 'idle';
       u.destX = null; u.destY = null;
       u.vx = 0; u.vy = 0;
@@ -239,6 +247,57 @@ export class UnitAISystem implements ISystem {
       u.resourceNodeId = null; // force re-pick fresh node
     }
   }
+}
+
+// Consume a Swarm drone into its pending building — at the worker's current
+// tile. Used by tickMove when the drone reaches the queued morph destination.
+function performMorph(w: World, u: Unit): void {
+  const kind = u.pendingMorphKind!;
+  const stats = BUILDING_STATS[kind];
+  const tx = Math.floor(u.x / MAP.tileSize) - Math.floor(stats.tileW / 2);
+  const ty = Math.floor(u.y / MAP.tileSize) - Math.floor(stats.tileH / 2);
+  // If the exact tile is no longer placeable (building went up between click and
+  // arrival), scan a small neighborhood for the nearest valid footprint.
+  let placeTx = tx, placeTy = ty;
+  if (!footprintClear(w, tx, ty, stats.tileW, stats.tileH)) {
+    let found = false;
+    outer:
+    for (let r = 1; r <= 4 && !found; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+          if (footprintClear(w, tx + dx, ty + dy, stats.tileW, stats.tileH)) {
+            placeTx = tx + dx; placeTy = ty + dy;
+            found = true;
+            break outer;
+          }
+        }
+      }
+    }
+    if (!found) {
+      // Drop the morph intent — drone keeps living as an idle worker.
+      u.pendingMorphKind = null;
+      u.state = 'idle';
+      u.destX = null; u.destY = null;
+      return;
+    }
+  }
+  const b = spawnBuilding(w, u.faction, kind, placeTx, placeTy, false);
+  if (b) {
+    b.builderUnitId = null; // autonomous build
+  }
+  u.hp = 0; // cleanup releases the pool slot next tick
+  u.pendingMorphKind = null;
+}
+
+function footprintClear(w: World, tx: number, ty: number, tw: number, th: number): boolean {
+  for (let dy = 0; dy < th; dy++) {
+    for (let dx = 0; dx < tw; dx++) {
+      if (!w.navGrid.inBounds(tx + dx, ty + dy)) return false;
+      if (w.navGrid.isBlocked(tx + dx, ty + dy)) return false;
+    }
+  }
+  return true;
 }
 
 function pickNearestResource(w: World, u: Unit): ResourceNode | null {
