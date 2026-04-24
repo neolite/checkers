@@ -177,27 +177,46 @@ export class InputSystem implements ISystem {
   private pickEntityUnderCursor(w: World, wx: number, wy: number): {
     id: number; isBuilding: boolean; isResource: boolean; ownedByPlayer: boolean; hostile: boolean;
   } | null {
-    let bestUnit: { id: number; dist: number; own: boolean; hostile: boolean } | null = null;
+    // Tiered lookup. Previously: units-first with `radius + 0.6` padding always won
+    // over buildings, so a worker locked to a construction site (or just parked by
+    // a barracks) stole every click meant for the structure, and the player could
+    // never switch selection off the worker. New order:
+    //   1. Unit whose TIGHT radius contains the cursor — player clearly meant that unit.
+    //   2. Building whose radius contains the cursor — click inside footprint wins.
+    //   3. Unit within padded radius — forgiving fallback for small targets.
+    //   4. Resource node.
+    type UnitHit = { id: number; dist: number; own: boolean; hostile: boolean };
+    type BuildingHit = { id: number; dist: number; own: boolean; hostile: boolean };
+
+    const wrapUnit = (hit: UnitHit) =>
+      ({ id: hit.id, isBuilding: false, isResource: false, ownedByPlayer: hit.own, hostile: hit.hostile });
+    const wrapBuilding = (hit: BuildingHit) =>
+      ({ id: hit.id, isBuilding: true, isResource: false, ownedByPlayer: hit.own, hostile: hit.hostile });
+
+    let tightUnit: UnitHit | null = null;
+    let paddedUnit: UnitHit | null = null;
     w.units.forEachAlive((u) => {
       const d = Math.hypot(u.x - wx, u.y - wy);
-      const threshold = u.stats.radius + 0.6;
-      if (d < threshold) {
-        const fogV = sampleFog(w.factions[w.playerFaction].fog, u.x, u.y);
-        const visible = u.faction === w.playerFaction || fogV === 2;
-        if (!visible) return;
-        if (!bestUnit || d < bestUnit.dist) bestUnit = {
-          id: u.id, dist: d,
-          own: u.faction === w.playerFaction,
-          hostile: w.areHostile(u.faction, w.playerFaction),
-        };
+      const tight = u.stats.radius;
+      const padded = u.stats.radius + 0.6;
+      if (d >= padded) return;
+      const fogV = sampleFog(w.factions[w.playerFaction].fog, u.x, u.y);
+      const visible = u.faction === w.playerFaction || fogV === 2;
+      if (!visible) return;
+      const candidate: UnitHit = {
+        id: u.id, dist: d,
+        own: u.faction === w.playerFaction,
+        hostile: w.areHostile(u.faction, w.playerFaction),
+      };
+      if (d < tight) {
+        if (!tightUnit || d < tightUnit.dist) tightUnit = candidate;
+      } else {
+        if (!paddedUnit || d < paddedUnit.dist) paddedUnit = candidate;
       }
     });
-    if (bestUnit !== null) {
-      const bu = bestUnit as { id: number; dist: number; own: boolean; hostile: boolean };
-      return { id: bu.id, isBuilding: false, isResource: false, ownedByPlayer: bu.own, hostile: bu.hostile };
-    }
-    // Buildings.
-    let bestB: { id: number; dist: number; own: boolean; hostile: boolean } | null = null;
+    if (tightUnit !== null) return wrapUnit(tightUnit);
+
+    let bestB: BuildingHit | null = null;
     w.buildings.forEachAlive((b) => {
       const d = Math.hypot(b.x - wx, b.y - wy);
       if (d < b.stats.radius) {
@@ -211,10 +230,10 @@ export class InputSystem implements ISystem {
         };
       }
     });
-    if (bestB !== null) {
-      const bb = bestB as { id: number; dist: number; own: boolean; hostile: boolean };
-      return { id: bb.id, isBuilding: true, isResource: false, ownedByPlayer: bb.own, hostile: bb.hostile };
-    }
+    if (bestB !== null) return wrapBuilding(bestB);
+
+    if (paddedUnit !== null) return wrapUnit(paddedUnit);
+
     // Resource nodes (always neutral).
     let bestR: { id: number; dist: number } | null = null;
     w.resources.forEachAlive((r) => {

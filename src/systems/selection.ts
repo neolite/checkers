@@ -18,7 +18,9 @@ export class SelectionSystem implements ISystem {
         return;
       }
       const b = w.buildings.findById(id);
-      if (b && b.faction === w.playerFaction && b.completed) {
+      if (b && b.faction === w.playerFaction) {
+        // Allow selecting own incomplete buildings too — player wants to watch
+        // construction progress. Command card gates actions by `b.completed`.
         w.selectedBuildings.clear();
         w.selectedBuildings.add(b.id);
       }
