@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Three Factions — RTS Prototype</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --hud-bg: rgba(10, 14, 22, 0.82);
+        --hud-border: rgba(120, 140, 170, 0.35);
+        --hud-fg: #d8e2ee;
+        --hud-accent: #6fd0ff;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; height: 100%; background: #05070b; color: var(--hud-fg); font-family: "Inter", system-ui, sans-serif; overflow: hidden; user-select: none; }
+      #app { position: fixed; inset: 0; }
+      canvas { display: block; }
+      .overlay { position: absolute; inset: 0; pointer-events: none; }
+      .overlay > * { pointer-events: auto; }
+
+      /* Menu */
+      .menu {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(ellipse at center, #1a2336 0%, #05070b 70%);
+        z-index: 10;
+      }
+      .menu-panel { background: var(--hud-bg); border: 1px solid var(--hud-border); padding: 32px 40px; border-radius: 12px; max-width: 780px; width: 90%; }
+      .menu h1 { margin: 0 0 6px 0; font-size: 28px; letter-spacing: 0.06em; }
+      .menu h1 .accent { color: var(--hud-accent); }
+      .menu p { margin: 0 0 24px 0; opacity: 0.7; font-size: 13px; line-height: 1.5; }
+      .faction-row { display: flex; gap: 14px; flex-wrap: wrap; }
+      .faction-card { flex: 1 1 200px; background: rgba(255,255,255,0.03); border: 1px solid var(--hud-border); border-radius: 8px; padding: 14px; cursor: pointer; transition: background 120ms, border-color 120ms; }
+      .faction-card:hover { background: rgba(255,255,255,0.07); border-color: var(--hud-accent); }
+      .faction-card h3 { margin: 0 0 4px 0; font-size: 15px; }
+      .faction-card .tag { font-size: 11px; opacity: 0.7; display: block; margin-bottom: 8px; }
+      .faction-card .desc { font-size: 12px; line-height: 1.4; opacity: 0.85; }
+      .menu-actions { margin-top: 24px; display: flex; align-items: center; gap: 14px; }
+      .menu-actions .hint { font-size: 12px; opacity: 0.6; flex: 1; }
+      .btn { background: var(--hud-accent); color: #041321; border: 0; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+      .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* HUD */
+      .hud-top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 12px; }
+      .hud-resources { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 14px; font-size: 13px; display: flex; gap: 18px; }
+      .hud-resources .metric { display: flex; flex-direction: column; }
+      .hud-resources .label { font-size: 10px; opacity: 0.6; letter-spacing: 0.08em; text-transform: uppercase; }
+      .hud-resources .value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+      .hud-resources .value.low { color: #ff8a8a; }
+      .hud-minimap { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 4px; }
+      .hud-minimap canvas { display: block; border-radius: 4px; }
+
+      /* Command card (bottom-right) */
+      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+      .selection-info { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px 14px; font-size: 12px; min-width: 220px; min-height: 60px; }
+      .selection-info h4 { margin: 0 0 4px 0; font-size: 13px; }
+      .selection-info .meta { opacity: 0.75; font-size: 11px; }
+      .command-card { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; }
+      .cmd-cell { position: relative; width: 52px; height: 52px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+      .cmd-cell:hover { background: rgba(255,255,255,0.1); border-color: var(--hud-accent); }
+      .cmd-cell.disabled { opacity: 0.35; cursor: not-allowed; }
+      .cmd-cell svg { width: 28px; height: 28px; }
+      .cmd-cell .cost { position: absolute; bottom: 2px; right: 4px; font-size: 9px; color: #ffdd88; font-weight: 600; }
+      .cmd-cell .label { position: absolute; top: 2px; left: 4px; font-size: 8px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.04em; }
+      .cmd-cell .progress { position: absolute; inset: 0; background: linear-gradient(to top, rgba(111,208,255,0.35), transparent); transform-origin: bottom; pointer-events: none; }
+      .cmd-cell .badge { position: absolute; top: 2px; right: 4px; font-size: 9px; font-weight: 700; color: #8fd0ff; background: rgba(10,14,22,0.85); border-radius: 8px; padding: 1px 5px; }
+
+      /* Floating text */
+      .float-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+      .float-text { position: absolute; font-size: 13px; font-weight: 700; text-shadow: 0 0 4px rgba(0,0,0,0.9); transition: transform 900ms ease-out, opacity 900ms ease-out; }
+      .float-text.dmg { color: #ff6e6e; }
+      .float-text.credit { color: #ffd863; }
+      .float-text.info { color: #8fd0ff; }
+
+      /* Game over */
+      .game-over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(4,6,10,0.75); z-index: 20; }
+      .game-over .panel { background: var(--hud-bg); border: 1px solid var(--hud-border); padding: 30px 44px; border-radius: 10px; text-align: center; }
+      .game-over h2 { margin: 0 0 14px 0; }
+      .game-over.victory h2 { color: #7ef5b3; }
+      .game-over.defeat h2 { color: #ff7c7c; }
+
+      /* Cursors */
+      .cursor-default { cursor: default; }
+      .cursor-move { cursor: crosshair; }
+      .cursor-attack { cursor: crosshair; }
+      .cursor-place { cursor: cell; }
+
+      /* Select box */
+      .select-box { position: absolute; border: 1px solid #7ef5b3; background: rgba(126, 245, 179, 0.12); pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

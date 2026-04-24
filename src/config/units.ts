@@ -1,0 +1,109 @@
+import type { Role, WeaponClass, ArmorClass } from '@config/gameplay';
+
+// Kinds are the concrete flavors that a faction role → kind mapping resolves to.
+// Gameplay code reasons in roles; rendering + stats use kinds.
+export type UnitKind =
+  // worker
+  | 'harvesterHuman' | 'harvesterSwarm' | 'harvesterTitan'
+  // infantry
+  | 'ranger' | 'raider' | 'paladin'
+  // tank
+  | 'battleTank' | 'scorpionBike' | 'siegeWalker'
+  // special
+  | 'commando' | 'burrower' | 'railgun'
+  // extras
+  | 'atTrooper'  // vanguard extraBarracksUnit
+  | 'swarmlet'   // swarm extraBarracksUnit (drone/suicide)
+  | 'flakTruck'; // titan extraFactoryUnit (AA)
+
+export interface Weapon {
+  klass: WeaponClass;
+  damage: number;
+  range: number;
+  cdMs: number;
+  projectileSpeed: number; // 0 = contact-fuse
+  splash?: number;
+  targetsAir?: boolean;
+  targetsGround?: boolean;
+}
+
+export interface Harvest {
+  capacity: number;
+  gatherMs: number;
+}
+
+export interface UnitStats {
+  kind: UnitKind;
+  role: Role;
+  displayName: string;
+  maxHp: number;
+  armor: ArmorClass;
+  radius: number;   // world-space collision radius
+  speed: number;    // world units per sec
+  altitude: number; // 0 ground; > 0 flying (Y height in three.js)
+  cost: number;
+  buildMs: number;
+  builtBy: 'barracks' | 'factory' | 'hq' | 'airpad';
+  sightRange?: number;
+  weapon?: Weapon;
+  harvest?: Harvest;
+}
+
+const inf = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName'>): UnitStats => ({
+  role: 'infantry', maxHp: 60, armor: 'light', radius: 0.5, speed: 5, altitude: 0,
+  cost: 100, buildMs: 4000, builtBy: 'barracks', sightRange: 14,
+  weapon: { klass: 'aInfantry', damage: 10, range: 10, cdMs: 900, projectileSpeed: 30, targetsGround: true },
+  ...over,
+});
+
+const tank = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName'>): UnitStats => ({
+  role: 'tank', maxHp: 180, armor: 'heavy', radius: 0.9, speed: 4, altitude: 0,
+  cost: 400, buildMs: 7000, builtBy: 'factory', sightRange: 13,
+  weapon: { klass: 'aArmor', damage: 28, range: 11, cdMs: 1400, projectileSpeed: 40, targetsGround: true },
+  ...over,
+});
+
+const worker = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName'>): UnitStats => ({
+  role: 'worker', maxHp: 80, armor: 'light', radius: 0.55, speed: 4.5, altitude: 0,
+  cost: 120, buildMs: 3500, builtBy: 'hq', sightRange: 10,
+  harvest: { capacity: 90, gatherMs: 4500 },
+  ...over,
+});
+
+export const UNIT_STATS: Record<UnitKind, UnitStats> = {
+  // Workers
+  harvesterHuman: worker({ kind: 'harvesterHuman', displayName: 'Harvester' }),
+  harvesterSwarm: worker({ kind: 'harvesterSwarm', displayName: 'Drone Miner', speed: 5.2, maxHp: 65, harvest: { capacity: 70, gatherMs: 4200 } }),
+  harvesterTitan: worker({ kind: 'harvesterTitan', displayName: 'Reclaimer', speed: 4.0, maxHp: 100, harvest: { capacity: 110, gatherMs: 4800 } }),
+
+  // Infantry
+  ranger:   inf({ kind: 'ranger',   displayName: 'Ranger' }),
+  raider:   inf({ kind: 'raider',   displayName: 'Raider',   maxHp: 45, speed: 6.0,
+                  weapon: { klass: 'aInfantry', damage: 8, range: 9, cdMs: 700, projectileSpeed: 32, targetsGround: true } }),
+  paladin:  inf({ kind: 'paladin',  displayName: 'Paladin',  maxHp: 90, armor: 'medium', speed: 4.2, cost: 140,
+                  weapon: { klass: 'aInfantry', damage: 14, range: 11, cdMs: 1100, projectileSpeed: 28, targetsGround: true } }),
+
+  // Tanks
+  battleTank:   tank({ kind: 'battleTank',   displayName: 'Battle Tank' }),
+  scorpionBike: tank({ kind: 'scorpionBike', displayName: 'Scorpion Bike', maxHp: 140, armor: 'medium', speed: 6.0, cost: 340, buildMs: 6200,
+                       weapon: { klass: 'aArmor', damage: 20, range: 10, cdMs: 1000, projectileSpeed: 42, targetsGround: true } }),
+  siegeWalker:  tank({ kind: 'siegeWalker',  displayName: 'Siege Walker', maxHp: 240, speed: 3.0, cost: 520, buildMs: 9000,
+                       weapon: { klass: 'aArmor', damage: 40, range: 14, cdMs: 2000, projectileSpeed: 26, splash: 2.4, targetsGround: true } }),
+
+  // Specials
+  commando: inf({ kind: 'commando', displayName: 'Commando', role: 'special', maxHp: 120, armor: 'medium', speed: 5.2, cost: 500, buildMs: 8000,
+                  weapon: { klass: 'aStructure', damage: 36, range: 9, cdMs: 1300, projectileSpeed: 32, targetsGround: true } }),
+  burrower: inf({ kind: 'burrower', displayName: 'Burrower', role: 'special', maxHp: 55, armor: 'light', speed: 7.0, cost: 320, buildMs: 6500, radius: 0.5,
+                  weapon: { klass: 'aArmor', damage: 18, range: 1.8, cdMs: 900, projectileSpeed: 0, targetsGround: true } }),
+  railgun:  inf({ kind: 'railgun',  displayName: 'Railgun Frame', role: 'special', maxHp: 200, armor: 'heavy', speed: 3.4, cost: 620, buildMs: 9500, radius: 0.9,
+                  weapon: { klass: 'aArmor', damage: 55, range: 17, cdMs: 2200, projectileSpeed: 80, targetsGround: true } }),
+
+  // Faction-unique extras
+  atTrooper: inf({ kind: 'atTrooper', displayName: 'AT Trooper', maxHp: 55, cost: 180, buildMs: 5000,
+                   weapon: { klass: 'aArmor', damage: 14, range: 10, cdMs: 1100, projectileSpeed: 26, targetsGround: true } }),
+  swarmlet:  inf({ kind: 'swarmlet',  displayName: 'Swarmlet', role: 'drone', maxHp: 18, armor: 'light', speed: 8.0, cost: 60, buildMs: 1600,
+                   radius: 0.35,
+                   weapon: { klass: 'aInfantry', damage: 22, range: 1.2, cdMs: 600, projectileSpeed: 0, targetsGround: true } }),
+  flakTruck: tank({ kind: 'flakTruck', displayName: 'Flak Truck', maxHp: 140, armor: 'medium', speed: 4.8, cost: 380, buildMs: 6000,
+                    weapon: { klass: 'aInfantry', damage: 12, range: 12, cdMs: 500, projectileSpeed: 38, targetsGround: true, targetsAir: true } }),
+};
