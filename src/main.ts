@@ -8,10 +8,10 @@ if (!host) {
 }
 
 function showMenu(): void {
-  renderMenu(host!, (faction: FactionId) => {
+  renderMenu(host!, (faction: FactionId, mode) => {
     // Clear menu + launch game.
     host!.innerHTML = '';
-    startGameScene(host!, faction, () => {
+    startGameScene(host!, faction, mode, () => {
       host!.innerHTML = '';
       showMenu();
     });

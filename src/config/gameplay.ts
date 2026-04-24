@@ -46,6 +46,18 @@ export const VICTORY = {
   hqKindKey: 'hq' as const,
 } as const;
 
+// AI difficulty knobs. Lower numbers = gentler AI.
+export const AI_TUNING = {
+  thinkIntervalMs: 4500,       // how often the bot re-plans (was 2500)
+  buildTimeMul: 1.35,          // scales productionMsLeft for AI factions only
+  aggressionCooldownMs: 18000, // delay between attack-moves
+  armyCapInfantry: 7,
+  armyCapTank: 4,
+  armyCapSpecial: 2,
+  workerTarget: 4,
+  warmupMs: 45_000,            // do not push aggression for the first 45 s
+} as const;
+
 export const UI = {
   selectionMinPx: 5,
 } as const;

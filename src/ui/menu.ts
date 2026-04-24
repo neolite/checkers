@@ -1,7 +1,9 @@
 import { FACTIONS } from '@config/factions';
 import { FACTION_COLORS, type FactionId } from '@config/palette';
 
-export function renderMenu(host: HTMLElement, onStart: (faction: FactionId) => void): void {
+export type GameMode = 'ffa' | 'allVsYou';
+
+export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode: GameMode) => void): void {
   host.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'menu';
@@ -9,10 +11,25 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId) => v
     <div class="menu-panel">
       <h1><span class="accent">Three Factions</span> — RTS Prototype</h1>
       <p>
-        Pick a faction. A single enemy from each other faction starts at opposite corners.
-        <br/>LMB drag = box select · LMB click = pick · RMB = move/attack · Ctrl+RMB = attack-move · S = stop · WASD/Edge = pan · Wheel = zoom.
+        Pick a faction and a game mode. Controls: LMB drag = box select · LMB click = pick ·
+        RMB = move/attack/harvest · Ctrl+RMB = attack-move · RMB on ground while HQ/Barracks
+        selected = rally point · X = stop · H = hold · M = mute · WASD/Edge = pan · Wheel = zoom.
       </p>
+
+      <div class="mode-row" id="menu-modes">
+        <div class="mode-card" data-mode="ffa">
+          <h3>Free-for-all</h3>
+          <div class="desc">Three teams, one each. Everyone fights everyone.</div>
+        </div>
+        <div class="mode-card" data-mode="allVsYou">
+          <h3>All vs You</h3>
+          <div class="desc">Both AI factions are allied against you. Harder start.</div>
+        </div>
+      </div>
+
+      <div class="section-label">Faction</div>
       <div class="faction-row" id="menu-factions"></div>
+
       <div class="menu-actions">
         <div class="hint">Single-player · procedurally rendered · no textures.</div>
         <button class="btn" id="start-btn" disabled>Start</button>
@@ -21,8 +38,26 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId) => v
   `;
   host.appendChild(wrap);
   const row = wrap.querySelector('#menu-factions') as HTMLDivElement;
+  const modeRow = wrap.querySelector('#menu-modes') as HTMLDivElement;
   const btn = wrap.querySelector('#start-btn') as HTMLButtonElement;
   let chosen: FactionId | null = null;
+  let mode: GameMode = 'ffa';
+
+  function highlightMode(): void {
+    for (const c of modeRow.children) {
+      const el = c as HTMLDivElement;
+      const active = el.dataset['mode'] === mode;
+      el.style.outline = active ? '2px solid #6fd0ff' : '';
+    }
+  }
+  for (const c of modeRow.children) {
+    const el = c as HTMLDivElement;
+    el.addEventListener('click', () => {
+      mode = (el.dataset['mode'] as GameMode) ?? 'ffa';
+      highlightMode();
+    });
+  }
+  highlightMode();
 
   for (const id of Object.keys(FACTIONS) as FactionId[]) {
     const meta = FACTIONS[id];
@@ -48,7 +83,7 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId) => v
   }
 
   btn.addEventListener('click', () => {
-    if (chosen) onStart(chosen);
+    if (chosen) onStart(chosen, mode);
   });
 }
 

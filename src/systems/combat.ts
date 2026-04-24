@@ -113,7 +113,7 @@ function pickNearestEnemyUnit(w: World, b: Building, range: number): Unit | null
   let best: Unit | null = null;
   let bestD = range * range;
   w.units.forEachAlive((u) => {
-    if (u.faction === b.faction) return;
+    if (!w.areHostile(u.faction, b.faction)) return;
     const d = dist2(u.x, u.y, b.x, b.y);
     if (d < bestD) { best = u; bestD = d; }
   });

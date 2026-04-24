@@ -10,14 +10,21 @@ interface CommandContext {
 }
 
 interface CommandCell {
+  key: string;        // stable identity so we can diff across refreshes
   icon: IconName;
   label: string;
   cost?: number;
   hint?: string;
   disabled?: boolean;
-  progress?: number; // 0..1 progress bar (production queue in flight)
-  badge?: string; // e.g. "×3" queue counter
+  badge?: string;     // e.g. "×3" queue counter
   onClick: () => void;
+}
+
+interface MountedCell {
+  spec: CommandCell;
+  el: HTMLDivElement;
+  progressEl: HTMLDivElement | null;
+  badgeEl: HTMLSpanElement | null;
 }
 
 export interface CommandCardHandle {
@@ -25,34 +32,79 @@ export interface CommandCardHandle {
   destroy(): void;
 }
 
+// Two-layer render pattern:
+//  - rebuild(): structural render; called when the command list changes (selection
+//    changed, a prereq became available, a cell appeared/disappeared). Tears
+//    the DOM and rebuilds. Relatively rare.
+//  - refresh(): fast path; called at ~10 Hz so progress bars slide smoothly.
+//    Touches only .progress scaleY, .badge text, .disabled class on existing
+//    cells. Keeps the cursor's :hover target intact — no flicker.
 export function mountCommandCard(world: World): CommandCardHandle {
   const host = document.querySelector('#command-card') as HTMLDivElement;
   const info = document.querySelector('#selection-info') as HTMLDivElement;
   const ctx: CommandContext = { world };
 
-  function render(): void {
-    const cells: CommandCell[] = buildCells(ctx);
+  let mounted: Map<string, MountedCell> = new Map();
+  let lastKeys = '';
+
+  function rebuild(specs: CommandCell[]): void {
     host.innerHTML = '';
-    for (const c of cells) {
+    mounted = new Map();
+    for (const c of specs) {
       const div = document.createElement('div');
       div.className = 'cmd-cell';
       if (c.disabled) div.classList.add('disabled');
-      const progressPart = c.progress !== undefined
-        ? `<div class="progress" style="transform: scaleY(${Math.max(0, Math.min(1, c.progress))})"></div>`
-        : '';
-      const badge = c.badge ? `<span class="badge">${escapeHtml(c.badge)}</span>` : '';
-      const hint = c.hint ? ` title="${escapeHtml(c.label)} — ${escapeHtml(c.hint)}"` : ` title="${escapeHtml(c.label)}"`;
+      const badgePart = c.badge ? `<span class="badge">${escapeHtml(c.badge)}</span>` : '';
       div.innerHTML = `
-        ${progressPart}
         <span class="label">${escapeHtml(c.label)}</span>
         ${icon(c.icon)}
         ${c.cost !== undefined ? `<span class="cost">${c.cost}</span>` : ''}
-        ${badge}
+        ${badgePart}
       `;
       div.setAttribute('title', c.hint ? `${c.label} — ${c.hint}` : c.label);
-      void hint;
-      div.addEventListener('click', () => { if (!c.disabled) c.onClick(); });
+      div.addEventListener('click', () => { if (!mounted.get(c.key)?.spec.disabled) c.onClick(); });
       host.appendChild(div);
+      mounted.set(c.key, {
+        spec: c,
+        el: div,
+        progressEl: null, // progress is shown in the bottom panel instead, not on the button
+        badgeEl: div.querySelector('.badge'),
+      });
+    }
+  }
+
+  function refreshExisting(specs: CommandCell[]): void {
+    for (const c of specs) {
+      const m = mounted.get(c.key);
+      if (!m) continue;
+      m.spec = c;
+      // disabled state
+      if (c.disabled) m.el.classList.add('disabled');
+      else m.el.classList.remove('disabled');
+      // badge
+      if (c.badge) {
+        if (!m.badgeEl) {
+          const b = document.createElement('span');
+          b.className = 'badge';
+          m.el.appendChild(b);
+          m.badgeEl = b;
+        }
+        m.badgeEl.textContent = c.badge;
+      } else if (m.badgeEl) {
+        m.badgeEl.remove();
+        m.badgeEl = null;
+      }
+    }
+  }
+
+  function render(): void {
+    const cells = buildCells(ctx);
+    const keys = cells.map((c) => c.key).join('|');
+    if (keys !== lastKeys) {
+      lastKeys = keys;
+      rebuild(cells);
+    } else {
+      refreshExisting(cells);
     }
     renderInfo();
   }
@@ -115,17 +167,15 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const stats = UNIT_STATS[kind];
         const cost = Math.round(stats.cost * meta.mods.costMul);
         const inQueue = b.productionQueue.filter((r) => r === role).length;
-        const active = b.productionQueue[0] === role && b.productionMsLeft > 0;
-        const totalMs = Math.round(stats.buildMs * meta.mods.costMul);
         const cell: CommandCell = {
+          key: `train:${role}`,
           icon: roleIcon(role),
           label: stats.displayName,
           cost,
           disabled: w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role, kindKey: null }),
         };
-        if (active) cell.progress = 1 - (b.productionMsLeft / Math.max(1, totalMs));
-        if (inQueue > 1) cell.badge = `×${inQueue}`;
+        if (inQueue > 0) cell.badge = `×${inQueue}`;
         cells.push(cell);
       }
       // Extra units on this building.
@@ -133,6 +183,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const stats = UNIT_STATS[meta.extraBarracksUnit];
         const cost = Math.round(stats.cost * meta.mods.costMul);
         cells.push({
+          key: `extra:barracks:${meta.extraBarracksUnit}`,
           icon: stats.role === 'drone' ? 'drone' : 'infantry',
           label: stats.displayName,
           cost,
@@ -144,6 +195,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const stats = UNIT_STATS[meta.extraFactoryUnit];
         const cost = Math.round(stats.cost * meta.mods.costMul);
         cells.push({
+          key: `extra:factory:${meta.extraFactoryUnit}`,
           icon: 'tank',
           label: stats.displayName,
           cost,
@@ -153,6 +205,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
       }
       // Rally marker toggle — visual hint that RMB on ground sets rally.
       cells.push({
+        key: 'rally',
         icon: 'move',
         label: b.rallyX !== null ? 'Rally set' : 'Set rally',
         hint: 'RMB on ground',
@@ -177,6 +230,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         if (stats.prereq && !hasCompleted(w, stats.prereq)) continue;
         const cost = Math.round(stats.cost * meta.mods.costMul);
         cells.push({
+          key: `build:${kind}`,
           icon: buildingIcon(kind),
           label: stats.displayName,
           cost,
@@ -190,27 +244,14 @@ export function mountCommandCard(world: World): CommandCardHandle {
     }
 
     if (selectedUnits.length > 0) {
-      // Standard movement/combat commands for any selection of player units.
-      cells.push({
-        icon: 'move', label: 'Move',
-        hint: 'RMB on ground',
-        onClick: () => { /* move is RMB-driven; the button just showcases the binding */ },
-      });
-      cells.push({
-        icon: 'attack', label: 'Attack',
-        hint: 'RMB on enemy · Ctrl+RMB = A-move',
-        onClick: () => { /* idem */ },
-      });
-      cells.push({
-        icon: 'stop', label: 'Stop',
-        hint: 'X',
-        onClick: () => w.bus.emit('input:commandStop', {}),
-      });
-      cells.push({
-        icon: 'special', label: 'Hold',
-        hint: 'H',
-        onClick: () => w.bus.emit('input:commandHold', {}),
-      });
+      cells.push({ key: 'cmd:move', icon: 'move', label: 'Move', hint: 'RMB on ground',
+                   onClick: () => {} });
+      cells.push({ key: 'cmd:attack', icon: 'attack', label: 'Attack',
+                   hint: 'RMB on enemy · Ctrl+RMB = A-move', onClick: () => {} });
+      cells.push({ key: 'cmd:stop', icon: 'stop', label: 'Stop', hint: 'X',
+                   onClick: () => w.bus.emit('input:commandStop', {}) });
+      cells.push({ key: 'cmd:hold', icon: 'special', label: 'Hold', hint: 'H',
+                   onClick: () => w.bus.emit('input:commandHold', {}) });
     }
     return cells;
   }
@@ -259,6 +300,8 @@ function roleIcon(role: Role): IconName {
 function buildingIcon(kind: BuildingKind): IconName {
   return kind;
 }
+
+function clamp01(v: number): number { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));

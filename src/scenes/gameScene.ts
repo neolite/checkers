@@ -26,20 +26,32 @@ import { createHud, type HudHandle } from '@ui/hud';
 import { mountCommandCard, type CommandCardHandle } from '@ui/commandCard';
 import { mountFloatingText, type FloatingTextHandle } from '@ui/floatingText';
 import { showGameOver } from '@ui/gameOver';
+import { mountAudio, type AudioKernelHandle } from '@render/audio';
 import { initUnit, applyFactionMods } from '@entities/create';
 import { FACTION_COLORS as _ } from '@config/palette';
 void _;
+
+export type GameMode = 'ffa' | 'allVsYou';
 
 export interface GameSceneHandle {
   destroy(): void;
 }
 
-export function startGameScene(host: HTMLElement, playerFaction: FactionId, onExit: () => void): GameSceneHandle {
+export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode: GameMode, onExit: () => void): GameSceneHandle {
   const world = new World();
   world.playerFaction = playerFaction;
   world.factions[playerFaction].isHuman = true;
   // Starting credits for everyone so the AI actually plays.
   for (const id of FACTION_IDS) world.factions[id].credits = ECONOMY.startingCredits;
+
+  // Team setup. World defaults each faction to its own team id (FFA). For
+  // "allVsYou" we merge the two AI factions into a shared team opposite the player.
+  if (mode === 'allVsYou') {
+    world.factions[playerFaction].team = 1;
+    for (const id of FACTION_IDS) {
+      if (id !== playerFaction) world.factions[id].team = 2;
+    }
+  }
 
   // three.js render context.
   const rc = createRenderContext(host);
@@ -131,6 +143,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, onEx
   const hud: HudHandle = createHud(host, world, cameraSystem);
   const card: CommandCardHandle = mountCommandCard(world);
   const floaters: FloatingTextHandle = mountFloatingText(world);
+  const audio: AudioKernelHandle = mountAudio(world);
 
   // Re-render command card on selection changes. We subscribe to events that imply selection change.
   const offSelChange = world.bus.on('unit:died', () => card.tick());
@@ -196,6 +209,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, onEx
       card.tick();
     }
     floaters.tick();
+    audio.updateListener();
 
     rc.renderer.render(rc.scene, rc.camera);
     animFrame = requestAnimationFrame(frame);
@@ -211,6 +225,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, onEx
     hud.destroy();
     card.destroy();
     floaters.destroy();
+    audio.destroy();
     // Drop three.js.
     rc.renderer.dispose();
     if (rc.renderer.domElement.parentElement) {

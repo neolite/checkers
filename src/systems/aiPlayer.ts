@@ -7,7 +7,7 @@ import type { Role } from '@config/gameplay';
 import { BUILDING_STATS } from '@config/buildings';
 import { FACTIONS } from '@config/factions';
 import { UNIT_STATS } from '@config/units';
-import { MAP } from '@config/gameplay';
+import { MAP, AI_TUNING } from '@config/gameplay';
 import { spawnBuilding } from '@systems/production';
 import { dist } from '@utils/math';
 
@@ -26,7 +26,7 @@ export class AIPlayerSystem implements ISystem {
       const fs = w.factions[id];
       if (fs.isHuman) continue;
       if (!fs.alive) continue;
-      if (w.tNow - fs.aiLastThinkMs < 2500) continue;
+      if (w.tNow - fs.aiLastThinkMs < AI_TUNING.thinkIntervalMs) continue;
       fs.aiLastThinkMs = w.tNow;
       this.think(w, id);
     }
@@ -62,28 +62,29 @@ export class AIPlayerSystem implements ISystem {
       if (this.tryPlace(w, id, want.kind, hq)) break;
     }
 
-    // Train workers up to 4.
-    if (workerCount < 4) {
+    // Train workers up to cap.
+    if (workerCount < AI_TUNING.workerTarget) {
       this.tryTrain(w, hq, 'worker');
     }
 
-    // Train army. Cap to avoid pool exhaustion.
-    const barracks = ownBuildings.find((b) => b.kind === 'barracks' && b.completed && b.productionQueue.length < 3);
-    if (barracks && inf < 10) {
+    // Train army. Caps keep the bot sane and prevent pool exhaustion.
+    const barracks = ownBuildings.find((b) => b.kind === 'barracks' && b.completed && b.productionQueue.length < 2);
+    if (barracks && inf < AI_TUNING.armyCapInfantry) {
       this.tryTrain(w, barracks, 'infantry');
     }
-    const factory = ownBuildings.find((b) => b.kind === 'factory' && b.completed && b.productionQueue.length < 2);
-    if (factory && tank < 6) {
+    const factory = ownBuildings.find((b) => b.kind === 'factory' && b.completed && b.productionQueue.length < 1);
+    if (factory && tank < AI_TUNING.armyCapTank) {
       this.tryTrain(w, factory, 'tank');
     }
     const tech = ownBuildings.find((b) => b.kind === 'tech' && b.completed && b.productionQueue.length < 1);
-    if (tech && ownUnits.filter((u) => u.stats.role === 'special').length < 2) {
+    if (tech && ownUnits.filter((u) => u.stats.role === 'special').length < AI_TUNING.armyCapSpecial) {
       this.tryTrain(w, tech, 'special');
     }
 
-    // Aggression: attack-move army towards nearest enemy HQ once threshold met.
-    if ((inf >= 6 || tank >= 3) && w.tNow > fs.aiStage) {
-      fs.aiStage = w.tNow + 9000; // cooldown
+    // Aggression: only after warmup, and only at a calmer cadence.
+    const warm = w.tNow >= AI_TUNING.warmupMs;
+    if (warm && (inf >= AI_TUNING.armyCapInfantry - 1 || tank >= AI_TUNING.armyCapTank - 1) && w.tNow > fs.aiStage) {
+      fs.aiStage = w.tNow + AI_TUNING.aggressionCooldownMs;
       const targetHq = this.findEnemyHq(w, id);
       if (targetHq) {
         ownUnits.forEach((u) => {
@@ -178,7 +179,7 @@ export class AIPlayerSystem implements ISystem {
     fs.credits -= cost;
     b.productionQueue.push(role);
     if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {
-      b.productionMsLeft = Math.round(stats.buildMs * meta.mods.costMul);
+      b.productionMsLeft = Math.round(stats.buildMs * meta.mods.costMul * AI_TUNING.buildTimeMul);
       w.bus.emit('production:started', { buildingId: b.id, role });
     }
   }
@@ -189,7 +190,7 @@ export class AIPlayerSystem implements ISystem {
     const origin = this.findOwnHq(w, ownId);
     if (!origin) return null;
     w.buildings.forEachAlive((b) => {
-      if (b.faction === ownId) return;
+      if (!w.areHostile(b.faction, ownId)) return;
       if (b.kind !== 'hq') return;
       const d = dist(b.x, b.y, origin.x, origin.y);
       if (d < bestD) { best = b; bestD = d; }

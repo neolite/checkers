@@ -268,16 +268,14 @@ function findOwnRefinery(w: World, u: Unit): Building | null {
 function pickNearestEnemy(w: World, u: Unit, sight: number): { id: number; x: number; y: number; isBuilding: boolean } | null {
   let best: { id: number; x: number; y: number; isBuilding: boolean } | null = null;
   let bestD = sight * sight;
-  // Check units first
   w.units.forEachAlive((o) => {
-    if (o.faction === u.faction) return;
+    if (!w.areHostile(o.faction, u.faction)) return;
     const d = dist2(u.x, u.y, o.x, o.y);
     if (d < bestD) { best = { id: o.id, x: o.x, y: o.y, isBuilding: false }; bestD = d; }
   });
-  // If no units in sight, attack buildings in sight for attack-move.
   if (!best) {
     w.buildings.forEachAlive((b) => {
-      if (b.faction === u.faction) return;
+      if (!w.areHostile(b.faction, u.faction)) return;
       if (!b.completed) return;
       const d = dist2(u.x, u.y, b.x, b.y);
       if (d < bestD) { best = { id: b.id, x: b.x, y: b.y, isBuilding: true }; bestD = d; }
@@ -290,7 +288,7 @@ function pickNearestArmedEnemy(w: World, u: Unit, sight: number): { id: number; 
   let best: { id: number; x: number; y: number } | null = null;
   let bestD = sight * sight;
   w.units.forEachAlive((o) => {
-    if (o.faction === u.faction) return;
+    if (!w.areHostile(o.faction, u.faction)) return;
     if (!o.stats.weapon) return;
     const d = dist2(u.x, u.y, o.x, o.y);
     if (d < bestD) { best = { id: o.id, x: o.x, y: o.y }; bestD = d; }

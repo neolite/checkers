@@ -10,6 +10,7 @@ import { BUILDING_STATS } from '@config/buildings';
 import { MAP } from '@config/gameplay';
 import { initUnit } from '@entities/create';
 import { initBuilding } from '@entities/create';
+import { AI_TUNING } from '@config/gameplay';
 
 // Building construction + unit training.
 // NOTE: "production" in this codebase covers BOTH finishing buildings under construction
@@ -155,7 +156,8 @@ export class ProductionSystem implements ISystem {
           const nextRole = b.productionQueue[0]!;
           const nextKind = resolveKind(nextRole, FACTIONS[b.faction], null);
           if (nextKind) {
-            b.productionMsLeft = Math.round(UNIT_STATS[nextKind].buildMs * FACTIONS[b.faction].mods.costMul);
+            const aiMul = w.factions[b.faction].isHuman ? 1 : AI_TUNING.buildTimeMul;
+            b.productionMsLeft = Math.round(UNIT_STATS[nextKind].buildMs * FACTIONS[b.faction].mods.costMul * aiMul);
             w.bus.emit('production:started', { buildingId: b.id, role: nextRole });
           }
         } else {

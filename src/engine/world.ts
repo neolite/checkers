@@ -22,6 +22,9 @@ export interface FactionState {
   powerConsumed: number;
   alive: boolean;
   isHuman: boolean;
+  // Team id — factions on the same team are allied (never attack each other,
+  // share victory). In FFA each faction has its own team number.
+  team: number;
   // Basic AI bookkeeping.
   aiLastThinkMs: number;
   aiStage: number;
@@ -61,6 +64,7 @@ export class World {
     this.resources = new ObjectPool<ResourceNode>(POOL.resources, makeResourceNodeSeed, resetResourceNode);
     this.navGrid = new NavGrid();
     const factions = {} as Record<FactionId, FactionState>;
+    let t = 1;
     for (const id of FACTION_IDS) {
       factions[id] = {
         id,
@@ -69,12 +73,19 @@ export class World {
         powerConsumed: 0,
         alive: true,
         isHuman: false,
+        team: t++,          // FFA default; scene can rewrite to set up alliances
         aiLastThinkMs: 0,
         aiStage: 0,
         fog: new Uint8Array(FOG.gridW * FOG.gridH),
       };
     }
     this.factions = factions;
+  }
+
+  // Are these two factions hostile to each other? Shared team = no.
+  areHostile(a: FactionId, b: FactionId): boolean {
+    if (a === b) return false;
+    return this.factions[a].team !== this.factions[b].team;
   }
 
   // Get or build a flow field for the given goal tile. Reuses fields for 3 seconds.

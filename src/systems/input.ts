@@ -5,6 +5,7 @@ import type { BuildingKind } from '@config/buildings';
 import { UI, MAP, WORLD } from '@config/gameplay';
 import { sampleFog } from '@render/fogOverlay';
 import { BUILDING_STATS } from '@config/buildings';
+import { BuildingGhost } from '@render/ghost';
 
 // Inline-SVG cursors. Hotspot for "diamond" resource cursor is at bottom tip (spec).
 const CUR_ATTACK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><circle cx='14' cy='14' r='10' fill='none' stroke='%23ff6e6e' stroke-width='2'/><line x1='14' y1='2' x2='14' y2='26' stroke='%23ff6e6e' stroke-width='2'/><line x1='2' y1='14' x2='26' y2='14' stroke='%23ff6e6e' stroke-width='2'/></svg>") 14 14, crosshair`;
@@ -24,6 +25,7 @@ export class InputSystem implements ISystem {
   private placementY = 0;
   private hostEl: HTMLElement;
   private ghostDiv: HTMLDivElement | null = null;
+  private ghostMesh: BuildingGhost | null = null;
 
   constructor(hostEl: HTMLElement) {
     this.hostEl = hostEl;
@@ -100,6 +102,10 @@ export class InputSystem implements ISystem {
     w.bus.on('input:startPlacement', ({ kind }) => {
       this.placement = kind;
       this.ensureGhost();
+      if (!this.ghostMesh && w.three.scene) {
+        this.ghostMesh = new BuildingGhost(w.three.scene, w.playerFaction);
+      }
+      if (this.ghostMesh) this.ghostMesh.show(kind);
     });
     w.bus.on('input:cancelPlacement', () => {
       this.cancelPlacement(w);
@@ -161,7 +167,7 @@ export class InputSystem implements ISystem {
   private pickEntityUnderCursor(w: World, wx: number, wy: number): {
     id: number; isBuilding: boolean; isResource: boolean; ownedByPlayer: boolean; hostile: boolean;
   } | null {
-    let bestUnit: { id: number; dist: number; own: boolean } | null = null;
+    let bestUnit: { id: number; dist: number; own: boolean; hostile: boolean } | null = null;
     w.units.forEachAlive((u) => {
       const d = Math.hypot(u.x - wx, u.y - wy);
       const threshold = u.stats.radius + 0.6;
@@ -169,27 +175,35 @@ export class InputSystem implements ISystem {
         const fogV = sampleFog(w.factions[w.playerFaction].fog, u.x, u.y);
         const visible = u.faction === w.playerFaction || fogV === 2;
         if (!visible) return;
-        if (!bestUnit || d < bestUnit.dist) bestUnit = { id: u.id, dist: d, own: u.faction === w.playerFaction };
+        if (!bestUnit || d < bestUnit.dist) bestUnit = {
+          id: u.id, dist: d,
+          own: u.faction === w.playerFaction,
+          hostile: w.areHostile(u.faction, w.playerFaction),
+        };
       }
     });
     if (bestUnit !== null) {
-      const bu = bestUnit as { id: number; dist: number; own: boolean };
-      return { id: bu.id, isBuilding: false, isResource: false, ownedByPlayer: bu.own, hostile: !bu.own };
+      const bu = bestUnit as { id: number; dist: number; own: boolean; hostile: boolean };
+      return { id: bu.id, isBuilding: false, isResource: false, ownedByPlayer: bu.own, hostile: bu.hostile };
     }
     // Buildings.
-    let bestB: { id: number; dist: number; own: boolean } | null = null;
+    let bestB: { id: number; dist: number; own: boolean; hostile: boolean } | null = null;
     w.buildings.forEachAlive((b) => {
       const d = Math.hypot(b.x - wx, b.y - wy);
       if (d < b.stats.radius) {
         const fogV = sampleFog(w.factions[w.playerFaction].fog, b.x, b.y);
         const visible = b.faction === w.playerFaction || fogV === 2 || fogV === 1;
         if (!visible) return;
-        if (!bestB || d < bestB.dist) bestB = { id: b.id, dist: d, own: b.faction === w.playerFaction };
+        if (!bestB || d < bestB.dist) bestB = {
+          id: b.id, dist: d,
+          own: b.faction === w.playerFaction,
+          hostile: w.areHostile(b.faction, w.playerFaction),
+        };
       }
     });
     if (bestB !== null) {
-      const bb = bestB as { id: number; dist: number; own: boolean };
-      return { id: bb.id, isBuilding: true, isResource: false, ownedByPlayer: bb.own, hostile: !bb.own };
+      const bb = bestB as { id: number; dist: number; own: boolean; hostile: boolean };
+      return { id: bb.id, isBuilding: true, isResource: false, ownedByPlayer: bb.own, hostile: bb.hostile };
     }
     // Resource nodes (always neutral).
     let bestR: { id: number; dist: number } | null = null;
@@ -260,11 +274,11 @@ export class InputSystem implements ISystem {
     if (!ground) return;
     this.placementX = ground.x;
     this.placementY = ground.z;
-    // Validation handled at commit.
     this.placementValid = this.validatePlacement(w, ground.x, ground.z);
     if (this.ghostDiv) {
       this.ghostDiv.style.borderColor = this.placementValid ? 'rgba(126,245,179,0.8)' : 'rgba(255,110,110,0.8)';
     }
+    if (this.ghostMesh) this.ghostMesh.update(ground.x, ground.z, this.placementValid);
   }
 
   private validatePlacement(w: World, wx: number, wz: number): boolean {
@@ -308,5 +322,6 @@ export class InputSystem implements ISystem {
       this.ghostDiv.parentElement.removeChild(this.ghostDiv);
     }
     this.ghostDiv = null;
+    if (this.ghostMesh) this.ghostMesh.hide();
   }
 }

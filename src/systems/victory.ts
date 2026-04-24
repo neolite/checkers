@@ -23,20 +23,25 @@ export class VictorySystem implements ISystem {
       if (fs.alive && !hqAlive[id]) {
         fs.alive = false;
         w.bus.emit('hq:destroyed', { faction: id });
-        if (id === w.playerFaction) {
-          w.bus.emit('game:defeat', { loser: id });
-          w.victoryDetermined = true;
-        }
       }
     }
 
-    // Count surviving factions.
-    const survivors = FACTION_IDS.filter((id) => w.factions[id].alive);
-    if (survivors.length <= 1 && !w.victoryDetermined) {
-      const winner = survivors[0];
-      if (winner) {
-        w.bus.emit('game:victory', { winner });
-      }
+    // Team-level win condition. Last team standing wins; if the player's team is
+    // extinct, game over. Works for both FFA (3 teams) and All-vs-You (2 teams).
+    const aliveTeams = new Set<number>();
+    for (const id of FACTION_IDS) {
+      if (w.factions[id].alive) aliveTeams.add(w.factions[id].team);
+    }
+    const playerTeam = w.factions[w.playerFaction].team;
+    if (!aliveTeams.has(playerTeam)) {
+      w.bus.emit('game:defeat', { loser: w.playerFaction });
+      w.victoryDetermined = true;
+      return;
+    }
+    if (aliveTeams.size <= 1) {
+      // Someone won — pick any surviving faction on that team as the visible winner.
+      const winner = FACTION_IDS.find((id) => w.factions[id].alive) ?? null;
+      if (winner) w.bus.emit('game:victory', { winner });
       w.victoryDetermined = true;
     }
   }

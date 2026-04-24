@@ -29,6 +29,12 @@
       .menu h1 { margin: 0 0 6px 0; font-size: 28px; letter-spacing: 0.06em; }
       .menu h1 .accent { color: var(--hud-accent); }
       .menu p { margin: 0 0 24px 0; opacity: 0.7; font-size: 13px; line-height: 1.5; }
+      .section-label { margin-top: 18px; margin-bottom: 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.55; }
+      .mode-row { display: flex; gap: 12px; margin-bottom: 4px; }
+      .mode-card { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid var(--hud-border); border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: background 120ms, border-color 120ms; }
+      .mode-card:hover { background: rgba(255,255,255,0.07); border-color: var(--hud-accent); }
+      .mode-card h3 { margin: 0 0 3px 0; font-size: 14px; }
+      .mode-card .desc { font-size: 11px; opacity: 0.75; line-height: 1.4; }
       .faction-row { display: flex; gap: 14px; flex-wrap: wrap; }
       .faction-card { flex: 1 1 200px; background: rgba(255,255,255,0.03); border: 1px solid var(--hud-border); border-radius: 8px; padding: 14px; cursor: pointer; transition: background 120ms, border-color 120ms; }
       .faction-card:hover { background: rgba(255,255,255,0.07); border-color: var(--hud-accent); }
@@ -55,6 +61,26 @@
       .selection-info { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px 14px; font-size: 12px; min-width: 220px; min-height: 60px; }
       .selection-info h4 { margin: 0 0 4px 0; font-size: 13px; }
       .selection-info .meta { opacity: 0.75; font-size: 11px; }
+
+      /* Middle HUD panel — queues + unit avatars */
+      .hud-middle { flex: 1; max-width: 600px; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+      .hud-middle .mid-section { display: flex; flex-direction: column; gap: 4px; }
+      .hud-middle .mid-title { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55; }
+      .hud-middle .tile-row { display: flex; gap: 5px; flex-wrap: wrap; }
+      .hud-middle .q-tile { position: relative; width: 46px; height: 46px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+      .hud-middle .q-tile.active { border-color: var(--hud-accent); }
+      .hud-middle .q-tile svg { width: 26px; height: 26px; }
+      /* Horizontal progress strip under the icon (replaces the old vertical bar on the command card). */
+      .hud-middle .q-progress-track { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; pointer-events: none; }
+      .hud-middle .q-progress-track .q-progress-fill { height: 100%; width: 0%; background: var(--hud-accent); box-shadow: 0 0 6px var(--hud-accent); transition: width 160ms linear; }
+      .hud-middle .q-tile .q-index { position: absolute; top: 1px; left: 4px; font-size: 9px; opacity: 0.6; }
+      .hud-middle .avatar-tile { position: relative; width: 46px; height: 46px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+      .hud-middle .avatar-tile:hover { background: rgba(255,255,255,0.09); border-color: var(--hud-accent); }
+      .hud-middle .avatar-tile svg { width: 28px; height: 28px; }
+      .hud-middle .avatar-tile .a-count { position: absolute; bottom: 2px; right: 4px; font-size: 10px; font-weight: 700; color: var(--hud-accent); }
+      .hud-middle .avatar-tile .hp-mini { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(0,0,0,0.4); }
+      .hud-middle .avatar-tile .hp-mini .fill { height: 100%; }
+      .hud-middle .empty { opacity: 0.45; font-size: 11px; padding: 6px 0; }
       .command-card { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; }
       .cmd-cell { position: relative; width: 52px; height: 52px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .cmd-cell:hover { background: rgba(255,255,255,0.1); border-color: var(--hud-accent); }
@@ -62,8 +88,7 @@
       .cmd-cell svg { width: 28px; height: 28px; }
       .cmd-cell .cost { position: absolute; bottom: 2px; right: 4px; font-size: 9px; color: #ffdd88; font-weight: 600; }
       .cmd-cell .label { position: absolute; top: 2px; left: 4px; font-size: 8px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.04em; }
-      .cmd-cell .progress { position: absolute; inset: 0; background: linear-gradient(to top, rgba(111,208,255,0.35), transparent); transform-origin: bottom; pointer-events: none; }
-      .cmd-cell .badge { position: absolute; top: 2px; right: 4px; font-size: 9px; font-weight: 700; color: #8fd0ff; background: rgba(10,14,22,0.85); border-radius: 8px; padding: 1px 5px; }
+      .cmd-cell .badge { position: absolute; top: 2px; right: 4px; font-size: 9px; font-weight: 700; color: #8fd0ff; background: rgba(10,14,22,0.85); border-radius: 8px; padding: 1px 5px; z-index: 2; }
 
       /* Floating text */
       .float-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
