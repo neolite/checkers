@@ -65,11 +65,8 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
 
     // -------- Infantry --------
     case 'ranger':
-    case 'raider':
-    case 'paladin':
     case 'atTrooper':
     case 'commando': {
-      // Shared "soldier" archetype; silhouette varies by color/accent pauldrons.
       const helm = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.28, 0), mat(accent)));
       helm.position.y = 1.55;
       const torso = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.3), mat(primary)));
@@ -79,7 +76,7 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       const rifle = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.9), mat(0x1b1f25)));
       rifle.position.set(0.35, 1.2, 0.45);
       g.add(helm, torso, legs, rifle);
-      if (kind === 'paladin' || kind === 'commando') {
+      if (kind === 'commando') {
         // Heavy shoulder pads.
         const padL = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.35), mat(accent)));
         padL.position.set(-0.38, 1.35, 0);
@@ -93,15 +90,60 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
         tube.position.set(-0.35, 1.25, 0.45);
         g.add(tube);
       }
-      if (kind === 'raider') {
-        // Skinny + accent stripe.
-        torso.scale.set(0.9, 0.95, 0.95);
-      }
       if (kind === 'commando') {
         const cape = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.5, 0.06), mat(accent)));
         cape.position.set(0, 1.15, -0.2);
         g.add(cape);
       }
+      break;
+    }
+    case 'raider': {
+      const body = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.0, 6), mat(primary)));
+      body.position.y = 0.85;
+      body.rotation.x = Math.PI;
+      const head = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), mat(accent, { emissive: accent })));
+      head.position.set(0, 1.35, 0.18);
+      const clawGeom = new THREE.ConeGeometry(0.08, 0.55, 6);
+      clawGeom.rotateX(Math.PI / 2);
+      for (const x of [-0.28, 0.28]) {
+        const claw = withShadow(new THREE.Mesh(clawGeom, mat(0x1b1f25)));
+        claw.position.set(x, 0.95, 0.42);
+        g.add(claw);
+      }
+      g.add(body, head);
+      break;
+    }
+    case 'paladin': {
+      const legs = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.8, 0.42), mat(0x2a313c)));
+      legs.position.y = 0.55;
+      const torso = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.78, 0.52), mat(primary)));
+      torso.position.y = 1.25;
+      const helm = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.4), mat(accent)));
+      helm.position.y = 1.82;
+      const launcher = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.78, 10), mat(0x1b1f25)));
+      launcher.rotation.x = Math.PI / 2;
+      launcher.position.set(0.42, 1.28, 0.5);
+      for (const x of [-0.55, 0.55]) {
+        const pad = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.24, 0.5), mat(accent)));
+        pad.position.set(x, 1.47, 0);
+        g.add(pad);
+      }
+      g.add(legs, torso, helm, launcher);
+      break;
+    }
+    case 'atGrenadier': {
+      const legs = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.72, 0.36), mat(0x2a313c)));
+      legs.position.y = 0.5;
+      const torso = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.7, 0.42), mat(primary)));
+      torso.position.y = 1.16;
+      const helm = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), mat(accent)));
+      helm.position.y = 1.62;
+      const pack = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.68, 0.22), mat(0x1b2330)));
+      pack.position.set(0, 1.1, -0.36);
+      const launcher = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.95, 10), mat(0x1b1f25)));
+      launcher.rotation.x = Math.PI / 2;
+      launcher.position.set(0.36, 1.22, 0.46);
+      g.add(legs, torso, helm, pack, launcher);
       break;
     }
     case 'burrower': {
@@ -129,15 +171,16 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       body.position.y = 0.4;
       const wing = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.2), mat(accent)));
       wing.position.y = 0.45;
-      g.add(body, wing);
+      const fuse = withShadow(new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), mat(accent, { emissive: accent })));
+      fuse.position.set(0, 0.52, 0.42);
+      g.add(body, wing, fuse);
       break;
     }
 
     // -------- Tanks --------
     case 'battleTank':
     case 'scorpionBike':
-    case 'siegeWalker':
-    case 'flakTruck': {
+    case 'siegeWalker': {
       const chassis = withShadow(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.7, 2.6), mat(primary)));
       chassis.position.y = 0.7;
       g.add(chassis);
@@ -172,7 +215,6 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       let barrelRadius = 0.12;
       if (kind === 'siegeWalker') { barrelLen = 2.2; barrelRadius = 0.2; }
       if (kind === 'scorpionBike') { barrelLen = 1.3; barrelRadius = 0.1; }
-      if (kind === 'flakTruck') { barrelLen = 1.4; barrelRadius = 0.14; }
       const barrel = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(barrelRadius, barrelRadius, barrelLen, 10), mat(0x1b1f25)));
       barrel.rotation.x = Math.PI / 2;
       barrel.position.set(0, 0.3, barrelLen / 2);

@@ -19,20 +19,21 @@ export class CombatSystem implements ISystem {
       if (u.targetId === null) return;
       if (u.cooldownMs > 0) return;
       // Target data.
-      let tx = 0, ty = 0, targetHp = 0, dead = false;
+      let tx = 0, ty = 0, targetHp = 0, targetRadius = 0, dead = false;
       if (u.targetIsBuilding) {
         const b = w.buildings.findById(u.targetId);
         if (!b) dead = true;
-        else { tx = b.x; ty = b.y; targetHp = b.hp; }
+        else { tx = b.x; ty = b.y; targetHp = b.hp; targetRadius = b.stats.radius; }
       } else {
         const t = w.units.findById(u.targetId);
         if (!t) dead = true;
-        else { tx = t.x; ty = t.y; targetHp = t.hp; }
+        else { tx = t.x; ty = t.y; targetHp = t.hp; targetRadius = t.stats.radius; }
       }
       if (dead || targetHp <= 0) return;
       // Range check.
       const d = dist(u.x, u.y, tx, ty);
-      if (d > u.stats.weapon.range + 0.2) return;
+      const edgeDistance = Math.max(0, d - targetRadius - u.stats.radius);
+      if (edgeDistance > u.stats.weapon.range + 0.2) return;
 
       // Fire.
       u.cooldownMs = u.stats.weapon.cdMs;
@@ -40,12 +41,12 @@ export class CombatSystem implements ISystem {
       w.bus.emit('weapon:fired', { attackerId: u.id, targetId: u.targetId });
 
       if (u.stats.weapon.projectileSpeed === 0) {
-        // Contact-fuse (e.g. melee, suicide drone, burrower): apply damage directly and self-destruct if suicide.
-        applyDamage(w, u.targetId, u.targetIsBuilding, u.stats.weapon.damage, u.stats.weapon.klass, u.x, u.y);
-        // Swarmlets go kamikaze: die on impact.
-        if (u.kind === 'swarmlet') {
-          u.hp = 0;
+        // Contact-fuse weapons apply on impact immediately; suicide is declarative on the weapon.
+        applyDamage(w, u.targetId, u.targetIsBuilding, u.stats.weapon.damage, u.stats.weapon.klass, tx, ty);
+        if ((u.stats.weapon.splash ?? 0) > 0) {
+          applySplashDamage(w, u.faction, u.targetId, u.targetIsBuilding, u.stats.weapon.damage, u.stats.weapon.klass, u.stats.weapon.splash!, tx, ty);
         }
+        if (u.stats.weapon.selfDestruct) u.hp = 0;
       } else {
         // Spawn projectile.
         const p = w.projectiles.acquire();
@@ -58,6 +59,7 @@ export class CombatSystem implements ISystem {
         p.vy = (dy / dirLen) * u.stats.weapon.projectileSpeed;
         p.vz = 0;
         p.ownerId = u.id;
+        p.ownerFaction = u.faction;
         p.targetId = u.targetId;
         p.targetIsBuilding = u.targetIsBuilding;
         p.damage = u.stats.weapon.damage;
@@ -99,6 +101,7 @@ export class CombatSystem implements ISystem {
       p.vy = (dy / dirLen) * b.stats.weapon.projectileSpeed;
       p.vz = 0;
       p.ownerId = b.id;
+      p.ownerFaction = b.faction;
       p.targetId = t.id;
       p.targetIsBuilding = false;
       p.damage = b.stats.weapon.damage;
@@ -107,6 +110,29 @@ export class CombatSystem implements ISystem {
       p.ttlMs = 4000;
     });
   }
+}
+
+export function applySplashDamage(
+  w: World,
+  attackerFaction: import('@config/palette').FactionId,
+  primaryTargetId: number,
+  primaryTargetIsBuilding: boolean,
+  rawDamage: number,
+  klass: 'aInfantry' | 'aArmor' | 'aStructure',
+  splash: number,
+  impactX: number,
+  impactY: number,
+): void {
+  const rawPct = 0.6;
+  const r2 = splash * splash;
+  w.units.forEachAlive((u) => {
+    if (!w.areHostile(u.faction, attackerFaction)) return;
+    if (!primaryTargetIsBuilding && u.id === primaryTargetId) return;
+    const d = (u.x - impactX) * (u.x - impactX) + (u.y - impactY) * (u.y - impactY);
+    if (d <= r2) {
+      applyDamage(w, u.id, false, rawDamage * rawPct, klass, u.x, u.y);
+    }
+  });
 }
 
 function pickNearestEnemyUnit(w: World, b: Building, range: number): Unit | null {

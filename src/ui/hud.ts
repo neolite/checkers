@@ -277,18 +277,11 @@ function renderMidPanel(
     const b = world.buildings.findById(id);
     if (b && b.completed && b.productionQueue.length > 0) {
       const meta = FACTIONS[b.faction];
-      const items = b.productionQueue.map((role, idx) => {
-        const kind: UnitKind | null =
-          role === 'worker' ? meta.workerKind :
-          role === 'infantry' ? meta.infantryKind :
-          role === 'tank' ? meta.tankKind :
-          role === 'special' ? meta.specialKind : null;
-        return { role, kind, idx };
-      }).filter((x) => x.kind !== null);
-      const keys = items.map((x) => `${x.idx}:${x.role}`).join('|') + `|b:${b.id}`;
+      const items = b.productionQueue.map((order, idx) => ({ ...order, idx }));
+      const keys = items.map((x) => `${x.idx}:${x.kind}`).join('|') + `|b:${b.id}`;
       const cache = ensureRow(queueRow, midCache.queue, keys);
       for (const it of items) {
-        const key = `${it.idx}:${it.role}`;
+        const key = `${it.idx}:${it.kind}`;
         let el = cache.tiles.get(key);
         if (!el) {
           el = document.createElement('div');

@@ -45,6 +45,7 @@ export class AIPlayerSystem implements ISystem {
     const completedOf = (k: BuildingKind) => ownBuildings.filter((b) => b.kind === k && b.completed).length;
     const totalOf = (k: BuildingKind) => ownBuildings.filter((b) => b.kind === k).length;
     const workerCount = ownUnits.filter((u) => u.stats.role === 'worker').length;
+    const infantryCap = id === 'swarm' ? 12 : AI_TUNING.armyCapInfantry;
     const inf = ownUnits.filter((u) => u.stats.role === 'infantry' || u.stats.role === 'drone').length;
     const tank = ownUnits.filter((u) => u.stats.role === 'tank').length;
 
@@ -69,8 +70,8 @@ export class AIPlayerSystem implements ISystem {
 
     // Train army. Caps keep the bot sane and prevent pool exhaustion.
     const barracks = ownBuildings.find((b) => b.kind === 'barracks' && b.completed && b.productionQueue.length < 2);
-    if (barracks && inf < AI_TUNING.armyCapInfantry) {
-      this.tryTrain(w, barracks, 'infantry');
+    if (barracks && inf < infantryCap) {
+      this.tryTrainKind(w, barracks, this.pickBarracksKind(id, ownUnits, inf));
     }
     const factory = ownBuildings.find((b) => b.kind === 'factory' && b.completed && b.productionQueue.length < 1);
     if (factory && tank < AI_TUNING.armyCapTank) {
@@ -83,7 +84,7 @@ export class AIPlayerSystem implements ISystem {
 
     // Aggression: only after warmup, and only at a calmer cadence.
     const warm = w.tNow >= AI_TUNING.warmupMs;
-    if (warm && (inf >= AI_TUNING.armyCapInfantry - 1 || tank >= AI_TUNING.armyCapTank - 1) && w.tNow > fs.aiStage) {
+    if (warm && (inf >= infantryCap - 1 || tank >= AI_TUNING.armyCapTank - 1) && w.tNow > fs.aiStage) {
       fs.aiStage = w.tNow + AI_TUNING.aggressionCooldownMs;
       const targetHq = this.findEnemyHq(w, id);
       if (targetHq) {
@@ -161,6 +162,23 @@ export class AIPlayerSystem implements ISystem {
     return out;
   }
 
+  private pickBarracksKind(id: FactionId, ownUnits: Unit[], infantryCount: number): import('@config/units').UnitKind {
+    const meta = FACTIONS[id];
+    const extra = meta.extraBarracksUnit;
+    if (!extra) return meta.infantryKind;
+
+    const extraCount = ownUnits.filter((u) => u.kind === extra).length;
+    const coreCount = ownUnits.filter((u) => u.kind === meta.infantryKind).length;
+    if (id === 'swarm') {
+      if (coreCount < 4) return meta.infantryKind;
+      if (extraCount < 3) return extra;
+      return infantryCount % 3 === 2 ? extra : meta.infantryKind;
+    }
+    if (coreCount < 3) return meta.infantryKind;
+    if (extraCount < 2) return extra;
+    return infantryCount % 4 === 3 ? extra : meta.infantryKind;
+  }
+
   private tryTrain(w: World, b: Building, role: Role): void {
     if (!b.completed) return;
     if (!b.stats.trains || !b.stats.trains.includes(role)) return;
@@ -172,12 +190,21 @@ export class AIPlayerSystem implements ISystem {
       role === 'tank' ? meta.tankKind :
       role === 'special' ? meta.specialKind : null;
     if (!kind) return;
+    this.tryTrainKind(w, b, kind);
+  }
+
+  private tryTrainKind(w: World, b: Building, kind: import('@config/units').UnitKind): void {
+    if (!b.completed) return;
+    if (b.productionQueue.length >= 3) return;
+    const meta = FACTIONS[b.faction];
     const stats = UNIT_STATS[kind];
+    const role = stats.role;
+    if (!b.stats.trains?.includes(role) && meta.extraBarracksUnit !== kind && meta.extraFactoryUnit !== kind) return;
     const cost = Math.round(stats.cost * meta.mods.costMul);
     const fs = w.factions[b.faction];
     if (fs.credits < cost) return;
     fs.credits -= cost;
-    b.productionQueue.push(role);
+    b.productionQueue.push({ role, kind });
     if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {
       b.productionMsLeft = Math.round(stats.buildMs * meta.mods.costMul * AI_TUNING.buildTimeMul);
       w.bus.emit('production:started', { buildingId: b.id, role });

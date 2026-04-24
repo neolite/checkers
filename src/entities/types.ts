@@ -5,6 +5,11 @@ import type { Role } from '@config/gameplay';
 
 export type UnitStateName = 'idle' | 'move' | 'attackMove' | 'attack' | 'harvest' | 'returnCargo' | 'build';
 
+export interface ProductionOrder {
+  role: Role;
+  kind: UnitKind;
+}
+
 export interface Unit {
   id: number;
   alive: boolean;
@@ -59,11 +64,9 @@ export interface Building {
   hp: number;
   completed: boolean;   // false while under construction
   buildMsLeft: number;
-  // Production queue (roles, FIFO).
-  productionQueue: Role[];
+  // Production queue (concrete unit kind, FIFO).
+  productionQueue: ProductionOrder[];
   productionMsLeft: number;
-  // Optional per-building unit-kind override (for barracks extra buttons etc.)
-  productionKindOverride: UnitKind | null;
   // Turret combat
   cooldownMs: number;
   targetId: number | null;
@@ -85,6 +88,7 @@ export interface Projectile {
   vy: number;
   vz: number;
   ownerId: number;
+  ownerFaction: FactionId;
   targetId: number;
   targetIsBuilding: boolean;
   damage: number;

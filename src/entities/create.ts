@@ -98,7 +98,6 @@ export function resetBuilding(b: Building): void {
   b.buildMsLeft = 0;
   b.productionQueue = [];
   b.productionMsLeft = 0;
-  b.productionKindOverride = null;
   b.cooldownMs = 0;
   b.targetId = null;
   b.targetIsBuilding = false;
@@ -112,7 +111,7 @@ export function makeBuildingSeed(id: number): Building {
     kind: 'power', faction: 'vanguard', stats: BUILDING_STATS.power,
     tileX: 0, tileY: 0, x: 0, y: 0,
     hp: 1, completed: false, buildMsLeft: 0,
-    productionQueue: [], productionMsLeft: 0, productionKindOverride: null,
+    productionQueue: [], productionMsLeft: 0,
     cooldownMs: 0, targetId: null, targetIsBuilding: false,
     rallyX: null, rallyY: null,
     builderUnitId: null,
@@ -132,7 +131,6 @@ export function initBuilding(b: Building, kind: BuildingKind, faction: FactionId
   b.buildMsLeft = preBuilt ? 0 : stats.buildMs;
   b.productionQueue = [];
   b.productionMsLeft = 0;
-  b.productionKindOverride = null;
   b.cooldownMs = 0;
   b.targetId = null;
   b.targetIsBuilding = false;
@@ -143,7 +141,7 @@ export function initBuilding(b: Building, kind: BuildingKind, faction: FactionId
 export function resetProjectile(p: Projectile): void {
   p.x = 0; p.y = 0; p.z = 0;
   p.vx = 0; p.vy = 0; p.vz = 0;
-  p.ownerId = 0; p.targetId = 0; p.targetIsBuilding = false;
+  p.ownerId = 0; p.ownerFaction = 'vanguard'; p.targetId = 0; p.targetIsBuilding = false;
   p.damage = 0; p.klass = 'aInfantry'; p.splash = 0;
   p.ttlMs = 0;
 }
@@ -153,7 +151,7 @@ export function makeProjectileSeed(id: number): Projectile {
     id, alive: false,
     x: 0, y: 0, z: 0,
     vx: 0, vy: 0, vz: 0,
-    ownerId: 0, targetId: 0, targetIsBuilding: false,
+    ownerId: 0, ownerFaction: 'vanguard', targetId: 0, targetIsBuilding: false,
     damage: 0, klass: 'aInfantry', splash: 0, ttlMs: 0,
   };
 }

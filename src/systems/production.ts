@@ -104,8 +104,7 @@ export class ProductionSystem implements ISystem {
       const fs = w.factions[w.playerFaction];
       if (fs.credits < cost) return;
       fs.credits -= cost;
-      b.productionQueue.push(role);
-      if (kindKey) b.productionKindOverride = kindKey;
+      b.productionQueue.push({ role, kind });
       if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {
         b.productionMsLeft = Math.round(baseStats.buildMs * faction.mods.costMul);
         w.bus.emit('production:started', { buildingId: b.id, role });
@@ -143,22 +142,15 @@ export class ProductionSystem implements ISystem {
       if (b.productionQueue.length === 0) return;
       b.productionMsLeft -= dtMs;
       if (b.productionMsLeft <= 0) {
-        const role = b.productionQueue.shift()!;
+        const order = b.productionQueue.shift()!;
         const faction = FACTIONS[b.faction];
-        const kind = resolveKind(role, faction, b.productionKindOverride);
-        if (kind) {
-          spawnUnit(w, b, kind);
-        }
-        b.productionKindOverride = null;
+        spawnUnit(w, b, order.kind);
         // Kick off next in queue.
         if (b.productionQueue.length > 0) {
-          const nextRole = b.productionQueue[0]!;
-          const nextKind = resolveKind(nextRole, FACTIONS[b.faction], null);
-          if (nextKind) {
-            const aiMul = w.factions[b.faction].isHuman ? 1 : AI_TUNING.buildTimeMul;
-            b.productionMsLeft = Math.round(UNIT_STATS[nextKind].buildMs * FACTIONS[b.faction].mods.costMul * aiMul);
-            w.bus.emit('production:started', { buildingId: b.id, role: nextRole });
-          }
+          const next = b.productionQueue[0]!;
+          const aiMul = w.factions[b.faction].isHuman ? 1 : AI_TUNING.buildTimeMul;
+          b.productionMsLeft = Math.round(UNIT_STATS[next.kind].buildMs * faction.mods.costMul * aiMul);
+          w.bus.emit('production:started', { buildingId: b.id, role: next.role });
         } else {
           b.productionMsLeft = 0;
           w.bus.emit('production:completed', { buildingId: b.id });

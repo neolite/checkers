@@ -1,6 +1,6 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
-import { applyDamage } from '@systems/combat';
+import { applyDamage, applySplashDamage } from '@systems/combat';
 
 export class ProjectileSystem implements ISystem {
   readonly name = 'projectile';
@@ -51,17 +51,7 @@ function detonate(w: World, p: import('@entities/types').Projectile, x: number, 
   w.bus.emit('projectile:impact', { x, y, targetId: p.targetId, damage: p.damage });
   applyDamage(w, p.targetId, p.targetIsBuilding, p.damage, p.klass, x, y);
   if (p.splash > 0) {
-    // Splash to nearby units of opposing faction.
-    const splash = p.splash;
-    const rawPct = 0.6;
-    const r2 = splash * splash;
-    w.units.forEachAlive((u) => {
-      if (u.id === p.targetId && !p.targetIsBuilding) return;
-      const d = (u.x - x) * (u.x - x) + (u.y - y) * (u.y - y);
-      if (d <= r2) {
-        applyDamage(w, u.id, false, p.damage * rawPct, p.klass, u.x, u.y);
-      }
-    });
+    applySplashDamage(w, p.ownerFaction, p.targetId, p.targetIsBuilding, p.damage, p.klass, p.splash, x, y);
   }
   w.projectiles.release(p);
 }

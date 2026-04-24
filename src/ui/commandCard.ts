@@ -132,7 +132,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         info.innerHTML = `
           <h4>${escapeHtml(u.stats.displayName)}</h4>
           <div class="meta">HP ${Math.ceil(u.hp)} / ${u.stats.maxHp} · armor: ${armorLabel(u.stats.armor)}${
-            u.stats.weapon ? ` · wpn: ${weaponLabel(u.stats.weapon.klass)}` : ''
+            u.stats.weapon ? ` · wpn: ${weaponLabel(u.stats.weapon.klass)} · rng ${u.stats.weapon.range}${(u.stats.weapon.splash ?? 0) > 0 ? ` · splash ${u.stats.weapon.splash}` : ''}` : ''
           } · state: ${u.state}${
             u.cargo > 0 ? ` · cargo ${u.cargo}` : ''
           }</div>
@@ -169,7 +169,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         if (!kind) continue;
         const stats = UNIT_STATS[kind];
         const cost = Math.round(stats.cost * meta.mods.costMul);
-        const inQueue = b.productionQueue.filter((r) => r === role).length;
+        const inQueue = b.productionQueue.filter((q) => q.role === role && q.kind === kind).length;
         const cell: CommandCell = {
           key: `train:${role}`,
           icon: roleIcon(role),
@@ -187,7 +187,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const cost = Math.round(stats.cost * meta.mods.costMul);
         cells.push({
           key: `extra:barracks:${meta.extraBarracksUnit}`,
-          icon: stats.role === 'drone' ? 'drone' : 'infantry',
+          icon: unitIcon(meta.extraBarracksUnit, stats.role),
           label: stats.displayName,
           cost,
           disabled: w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
@@ -298,6 +298,11 @@ function roleIcon(role: Role): IconName {
     case 'special': return 'special';
     case 'drone': return 'drone';
   }
+}
+
+function unitIcon(kind: UnitKind, role: Role): IconName {
+  if (kind === 'atGrenadier') return 'atGrenadier';
+  return roleIcon(role);
 }
 
 function buildingIcon(kind: BuildingKind): IconName {

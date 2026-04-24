@@ -165,9 +165,10 @@ export class UnitAISystem implements ISystem {
     const range = w2.range;
     const standoff = Math.max(targetRadius + u.stats.radius + 0.5, range - 1.0);
     const d = dist(u.x, u.y, tx, ty);
+    const edgeDistance = Math.max(0, d - targetRadius - u.stats.radius);
     if (u.holdPosition) {
       // Fire only if in range; drop target otherwise.
-      if (d > range) {
+      if (edgeDistance > range) {
         u.targetId = null;
         u.state = 'idle';
       } else {

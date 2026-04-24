@@ -2,7 +2,7 @@
 // Kept compact: one small motif per action.
 
 export type IconName =
-  | 'worker' | 'infantry' | 'tank' | 'special' | 'drone'
+  | 'worker' | 'infantry' | 'tank' | 'special' | 'drone' | 'atGrenadier'
   | 'hq' | 'power' | 'refinery' | 'barracks' | 'factory' | 'tech' | 'turret'
   | 'stop' | 'attack' | 'move';
 
@@ -18,6 +18,8 @@ export function icon(name: IconName): string {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 10l6-1z"/></svg>';
     case 'drone':
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="2.5"/><path d="M6 6h5M13 6h5M6 18h5M13 18h5M6 6l2 3M18 6l-2 3M6 18l2-3M18 18l-2-3"/></svg>';
+    case 'atGrenadier':
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10" cy="6" r="2.4"/><path d="M7 20l1-7h5l1 7M15 8l4 3-3 4M14 10l5 4M6 12h8"/></svg>';
     case 'hq':
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="9" width="14" height="11"/><path d="M12 3v6M8 20v-4h8v4"/></svg>';
     case 'power':

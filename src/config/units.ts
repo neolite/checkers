@@ -14,7 +14,7 @@ export type UnitKind =
   // extras
   | 'atTrooper'  // vanguard extraBarracksUnit
   | 'swarmlet'   // swarm extraBarracksUnit (drone/suicide)
-  | 'flakTruck'; // titan extraFactoryUnit (AA)
+  | 'atGrenadier'; // titan extraBarracksUnit
 
 export interface Weapon {
   klass: WeaponClass;
@@ -23,6 +23,7 @@ export interface Weapon {
   cdMs: number;
   projectileSpeed: number; // 0 = contact-fuse
   splash?: number;
+  selfDestruct?: boolean;
   targetsAir?: boolean;
   targetsGround?: boolean;
 }
@@ -73,37 +74,38 @@ const worker = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName
 export const UNIT_STATS: Record<UnitKind, UnitStats> = {
   // Workers
   harvesterHuman: worker({ kind: 'harvesterHuman', displayName: 'Harvester' }),
-  harvesterSwarm: worker({ kind: 'harvesterSwarm', displayName: 'Drone Miner', speed: 5.2, maxHp: 65, harvest: { capacity: 70, gatherMs: 4200 } }),
+  harvesterSwarm: worker({ kind: 'harvesterSwarm', displayName: 'Drone Miner', speed: 5.2, maxHp: 60, cost: 100, harvest: { capacity: 70, gatherMs: 4200 } }),
   harvesterTitan: worker({ kind: 'harvesterTitan', displayName: 'Reclaimer', speed: 4.0, maxHp: 100, harvest: { capacity: 110, gatherMs: 4800 } }),
 
   // Infantry
   ranger:   inf({ kind: 'ranger',   displayName: 'Ranger' }),
-  raider:   inf({ kind: 'raider',   displayName: 'Raider',   maxHp: 45, speed: 6.0,
-                  weapon: { klass: 'aInfantry', damage: 8, range: 9, cdMs: 700, projectileSpeed: 32, targetsGround: true } }),
-  paladin:  inf({ kind: 'paladin',  displayName: 'Paladin',  maxHp: 90, armor: 'medium', speed: 4.2, cost: 140,
-                  weapon: { klass: 'aInfantry', damage: 14, range: 11, cdMs: 1100, projectileSpeed: 28, targetsGround: true } }),
+  raider:   inf({ kind: 'raider',   displayName: 'Raider',   maxHp: 35, speed: 7.5, cost: 80, radius: 0.42,
+                  weapon: { klass: 'aInfantry', damage: 12, range: 1.5, cdMs: 600, projectileSpeed: 0, targetsGround: true } }),
+  paladin:  inf({ kind: 'paladin',  displayName: 'Paladin',  maxHp: 130, armor: 'medium', speed: 3.8, cost: 170, radius: 0.62,
+                  weapon: { klass: 'aInfantry', damage: 13, range: 7, cdMs: 1000, projectileSpeed: 24, splash: 1.0, targetsGround: true } }),
 
   // Tanks
-  battleTank:   tank({ kind: 'battleTank',   displayName: 'Battle Tank' }),
-  scorpionBike: tank({ kind: 'scorpionBike', displayName: 'Scorpion Bike', maxHp: 140, armor: 'medium', speed: 6.0, cost: 340, buildMs: 6200,
-                       weapon: { klass: 'aArmor', damage: 20, range: 10, cdMs: 1000, projectileSpeed: 42, targetsGround: true } }),
-  siegeWalker:  tank({ kind: 'siegeWalker',  displayName: 'Siege Walker', maxHp: 240, speed: 3.0, cost: 520, buildMs: 9000,
-                       weapon: { klass: 'aArmor', damage: 40, range: 14, cdMs: 2000, projectileSpeed: 26, splash: 2.4, targetsGround: true } }),
+  battleTank:   tank({ kind: 'battleTank',   displayName: 'Battle Tank',
+                       weapon: { klass: 'aArmor', damage: 28, range: 11, cdMs: 1400, projectileSpeed: 40, splash: 0.8, targetsGround: true } }),
+  scorpionBike: tank({ kind: 'scorpionBike', displayName: 'Scorpion Bike', maxHp: 110, armor: 'medium', speed: 6.5, cost: 300, buildMs: 6200, radius: 0.75,
+                       weapon: { klass: 'aArmor', damage: 22, range: 10, cdMs: 1000, projectileSpeed: 42, targetsGround: true } }),
+  siegeWalker:  tank({ kind: 'siegeWalker',  displayName: 'Siege Walker', maxHp: 260, speed: 2.8, cost: 520, buildMs: 9000, radius: 1.0,
+                       weapon: { klass: 'aStructure', damage: 44, range: 14, cdMs: 2000, projectileSpeed: 26, splash: 2.4, targetsGround: true } }),
 
   // Specials
-  commando: inf({ kind: 'commando', displayName: 'Commando', role: 'special', maxHp: 120, armor: 'medium', speed: 5.2, cost: 500, buildMs: 8000,
-                  weapon: { klass: 'aStructure', damage: 36, range: 9, cdMs: 1300, projectileSpeed: 32, targetsGround: true } }),
-  burrower: inf({ kind: 'burrower', displayName: 'Burrower', role: 'special', maxHp: 55, armor: 'light', speed: 7.0, cost: 320, buildMs: 6500, radius: 0.5,
-                  weapon: { klass: 'aArmor', damage: 18, range: 1.8, cdMs: 900, projectileSpeed: 0, targetsGround: true } }),
-  railgun:  inf({ kind: 'railgun',  displayName: 'Railgun Frame', role: 'special', maxHp: 200, armor: 'heavy', speed: 3.4, cost: 620, buildMs: 9500, radius: 0.9,
-                  weapon: { klass: 'aArmor', damage: 55, range: 17, cdMs: 2200, projectileSpeed: 80, targetsGround: true } }),
+  commando: inf({ kind: 'commando', displayName: 'Commando', role: 'special', maxHp: 130, armor: 'medium', speed: 5.0, cost: 500, buildMs: 8000,
+                  weapon: { klass: 'aStructure', damage: 35, range: 9, cdMs: 1300, projectileSpeed: 32, targetsGround: true } }),
+  burrower: inf({ kind: 'burrower', displayName: 'Burrower', role: 'special', maxHp: 70, armor: 'light', speed: 7.0, cost: 320, buildMs: 6500, radius: 0.5,
+                  weapon: { klass: 'aArmor', damage: 20, range: 1.8, cdMs: 900, projectileSpeed: 0, targetsGround: true } }),
+  railgun:  inf({ kind: 'railgun',  displayName: 'Railgun Frame', role: 'special', maxHp: 200, armor: 'heavy', speed: 3.2, cost: 620, buildMs: 9500, radius: 0.9,
+                  weapon: { klass: 'aArmor', damage: 62, range: 18, cdMs: 2200, projectileSpeed: 80, targetsGround: true } }),
 
   // Faction-unique extras
   atTrooper: inf({ kind: 'atTrooper', displayName: 'AT Trooper', maxHp: 55, cost: 180, buildMs: 5000,
-                   weapon: { klass: 'aArmor', damage: 14, range: 10, cdMs: 1100, projectileSpeed: 26, targetsGround: true } }),
-  swarmlet:  inf({ kind: 'swarmlet',  displayName: 'Swarmlet', role: 'drone', maxHp: 18, armor: 'light', speed: 8.0, cost: 60, buildMs: 1600,
+                   weapon: { klass: 'aArmor', damage: 14, range: 9, cdMs: 1100, projectileSpeed: 26, targetsGround: true } }),
+  swarmlet:  inf({ kind: 'swarmlet',  displayName: 'Swarmlet', role: 'drone', maxHp: 18, armor: 'light', speed: 8.5, cost: 70, buildMs: 1600,
                    radius: 0.35,
-                   weapon: { klass: 'aInfantry', damage: 22, range: 1.2, cdMs: 600, projectileSpeed: 0, targetsGround: true } }),
-  flakTruck: tank({ kind: 'flakTruck', displayName: 'Flak Truck', maxHp: 140, armor: 'medium', speed: 4.8, cost: 380, buildMs: 6000,
-                    weapon: { klass: 'aInfantry', damage: 12, range: 12, cdMs: 500, projectileSpeed: 38, targetsGround: true, targetsAir: true } }),
+                   weapon: { klass: 'aStructure', damage: 80, range: 1.2, cdMs: 1000, projectileSpeed: 0, splash: 1.5, selfDestruct: true, targetsGround: true } }),
+  atGrenadier: inf({ kind: 'atGrenadier', displayName: 'AT Grenadier', maxHp: 80, armor: 'medium', speed: 3.5, cost: 200, buildMs: 5200, radius: 0.58,
+                     weapon: { klass: 'aArmor', damage: 20, range: 4, cdMs: 1100, projectileSpeed: 24, splash: 0.5, targetsGround: true } }),
 };
