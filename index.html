@@ -47,23 +47,23 @@
       .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
       /* HUD */
-      .hud-top { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 12px; }
-      .hud-resources { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 14px; font-size: 13px; display: flex; gap: 18px; }
+      .hud-top { position: absolute; top: 12px; left: 16px; right: 16px; display: flex; justify-content: flex-start; gap: 12px; pointer-events: none; }
+      .hud-resources { font-size: 13px; display: flex; gap: 18px; text-shadow: 0 1px 3px rgba(0,0,0,0.95); }
       .hud-resources .metric { display: flex; flex-direction: column; }
-      .hud-resources .label { font-size: 10px; opacity: 0.6; letter-spacing: 0.08em; text-transform: uppercase; }
+      .hud-resources .label { font-size: 10px; opacity: 0.7; letter-spacing: 0.08em; text-transform: uppercase; }
       .hud-resources .value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
       .hud-resources .value.low { color: #ff8a8a; }
       .hud-minimap { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 4px; }
       .hud-minimap canvas { display: block; border-radius: 4px; }
 
       /* Command card (bottom-right) */
-      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
-      .selection-info { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px 14px; font-size: 12px; min-width: 220px; min-height: 60px; }
+      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: grid; grid-template-columns: 170px minmax(360px, 620px) auto; align-items: end; gap: 12px; }
+      .selection-info { padding: 0 0 4px 0; font-size: 12px; border-bottom: 1px solid rgba(120, 140, 170, 0.22); }
       .selection-info h4 { margin: 0 0 4px 0; font-size: 13px; }
-      .selection-info .meta { opacity: 0.75; font-size: 11px; }
+      .selection-info .meta { opacity: 0.75; font-size: 11px; line-height: 1.35; }
 
       /* Middle HUD panel — queues + unit avatars */
-      .hud-middle { flex: 1; max-width: 600px; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+      .hud-middle { width: 100%; justify-self: center; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
       .hud-middle .mid-section { display: flex; flex-direction: column; gap: 4px; }
       .hud-middle .mid-title { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55; }
       .hud-middle .tile-row { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -81,7 +81,7 @@
       .hud-middle .avatar-tile .hp-mini { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(0,0,0,0.4); }
       .hud-middle .avatar-tile .hp-mini .fill { height: 100%; }
       .hud-middle .empty { opacity: 0.45; font-size: 11px; padding: 6px 0; }
-      .command-card { background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; }
+      .command-card { justify-self: end; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; }
       .cmd-cell { position: relative; width: 52px; height: 52px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .cmd-cell:hover { background: rgba(255,255,255,0.1); border-color: var(--hud-accent); }
       .cmd-cell.disabled { opacity: 0.35; cursor: not-allowed; }

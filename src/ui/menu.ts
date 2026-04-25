@@ -1,7 +1,7 @@
 import { FACTIONS } from '@config/factions';
 import { FACTION_COLORS, type FactionId } from '@config/palette';
 
-export type GameMode = 'ffa' | 'allVsYou';
+export type GameMode = 'ffa' | 'allVsYou' | 'playground';
 
 export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode: GameMode) => void): void {
   host.innerHTML = '';
@@ -24,6 +24,10 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode
         <div class="mode-card" data-mode="allVsYou">
           <h3>All vs You</h3>
           <div class="desc">Both AI factions are allied against you. Harder start.</div>
+        </div>
+        <div class="mode-card" data-mode="playground">
+          <h3>Playground</h3>
+          <div class="desc">No AI pressure. Revealed map, prebuilt tech and test armies for matchup checks.</div>
         </div>
       </div>
 

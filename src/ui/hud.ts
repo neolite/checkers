@@ -36,16 +36,16 @@ export function createHud(host: HTMLElement, world: World, camera: CameraSystem)
           <span class="value" id="m-faction">—</span>
         </div>
       </div>
+    </div>
+    <div class="hud-bottom">
       <div class="hud-minimap">
         <canvas id="minimap" width="160" height="160"></canvas>
       </div>
-    </div>
-    <div class="hud-bottom">
-      <div class="selection-info" id="selection-info">
-        <h4>No selection</h4>
-        <div class="meta">Drag to select units, click buildings to build units.</div>
-      </div>
       <div class="hud-middle" id="hud-middle">
+        <div class="selection-info" id="selection-info">
+          <h4>No selection</h4>
+          <div class="meta">Drag to select units, click buildings to build units.</div>
+        </div>
         <div class="mid-section" id="construction-section" style="display:none">
           <div class="mid-title">Under construction</div>
           <div class="tile-row" id="construction-row"></div>
@@ -276,7 +276,6 @@ function renderMidPanel(
     const id = [...world.selectedBuildings][0]!;
     const b = world.buildings.findById(id);
     if (b && b.completed && b.productionQueue.length > 0) {
-      const meta = FACTIONS[b.faction];
       const items = b.productionQueue.map((order, idx) => ({ ...order, idx }));
       const keys = items.map((x) => `${x.idx}:${x.kind}`).join('|') + `|b:${b.id}`;
       const cache = ensureRow(queueRow, midCache.queue, keys);
@@ -299,7 +298,7 @@ function renderMidPanel(
         if (fill) {
           if (it.idx === 0) {
             const stats = UNIT_STATS[it.kind!];
-            const total = Math.max(1, Math.round(stats.buildMs * meta.mods.costMul));
+            const total = Math.max(1, stats.buildMs);
             const ratio = 1 - b.productionMsLeft / total;
             fill.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
           } else {
@@ -377,7 +376,8 @@ function renderMidPanel(
     delete midCache.avatar;
   }
 
-  midEmpty.style.display = anything ? 'none' : '';
+  midEmpty.style.display = 'none';
+  void anything;
 }
 
 function roleIcon(role: Role): IconName {

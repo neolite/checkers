@@ -1,8 +1,9 @@
 import type { FactionId } from '@config/palette';
 import { FACTION_IDS, FACTION_COLORS } from '@config/palette';
 import { FACTIONS } from '@config/factions';
-import { BUILDING_STATS } from '@config/buildings';
-import { ECONOMY, MAP, WORLD, SIM } from '@config/gameplay';
+import { BUILDING_STATS, type BuildingKind } from '@config/buildings';
+import { ECONOMY, FOG, MAP, WORLD, SIM } from '@config/gameplay';
+import type { UnitKind } from '@config/units';
 import { World } from '@engine/world';
 import { createRenderContext } from '@render/scene';
 import { createFogOverlay } from '@render/fogOverlay';
@@ -31,7 +32,7 @@ import { initUnit, applyFactionMods } from '@entities/create';
 import { FACTION_COLORS as _ } from '@config/palette';
 void _;
 
-export type GameMode = 'ffa' | 'allVsYou';
+export type GameMode = 'ffa' | 'allVsYou' | 'playground';
 
 export interface GameSceneHandle {
   destroy(): void;
@@ -42,7 +43,10 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   world.playerFaction = playerFaction;
   world.factions[playerFaction].isHuman = true;
   // Starting credits for everyone so the AI actually plays.
-  for (const id of FACTION_IDS) world.factions[id].credits = ECONOMY.startingCredits;
+  for (const id of FACTION_IDS) {
+    world.factions[id].credits = mode === 'playground' ? 5000 : ECONOMY.startingCredits;
+    if (mode === 'playground') world.factions[id].isHuman = true;
+  }
 
   // Team setup. World defaults each faction to its own team id (FFA). For
   // "allVsYou" we merge the two AI factions into a shared team opposite the player.
@@ -80,8 +84,12 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     const ty = Math.floor(corner.y / MAP.tileSize);
     const hq = spawnBuilding(world, id, 'hq', tx, ty, true);
     if (!hq) continue;
+    if (mode === 'playground') {
+      placePlaygroundTech(world, id, tx, ty);
+    }
     // Give 2 starter workers.
-    for (let i = 0; i < 2; i++) {
+    const workerCount = mode === 'playground' ? 4 : 2;
+    for (let i = 0; i < workerCount; i++) {
       const u = world.units.acquire();
       if (!u) continue;
       const meta = FACTIONS[id];
@@ -90,6 +98,9 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
       const y = hq.y + (MAP.tileSize * 3.0);
       initUnit(u, meta.workerKind, id, stats, x, y);
       world.bus.emit('unit:spawned', { id: u.id, kind: meta.workerKind, faction: id, x, y });
+    }
+    if (mode === 'playground') {
+      spawnPlaygroundArmy(world, id, hq.x, hq.y);
     }
   }
 
@@ -116,6 +127,11 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   // Systems — fixed order per spec.
   const cameraSystem = new CameraSystem();
   const fogSystem = new FogSystem(fog);
+  if (mode === 'playground') {
+    const playerFog = world.factions[world.playerFaction].fog;
+    playerFog.fill(FOG.visible);
+    fog.paint(playerFog);
+  }
   const inputSystem = new InputSystem(host);
   const systems: ISystem[] = [
     cameraSystem,
@@ -129,7 +145,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     new ProductionSystem(),
     new EconomySystem(),
     new AIPlayerSystem(),
-    fogSystem,
+    ...(mode === 'playground' ? [] : [fogSystem]),
     new VictorySystem(),
     new CleanupSystem(bridge),
   ];
@@ -240,4 +256,47 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   return {
     destroy: cleanupAndExit,
   };
+}
+
+function placePlaygroundTech(world: World, id: FactionId, hqTx: number, hqTy: number): void {
+  const sx = id === 'swarm' ? -1 : 1;
+  const sy = id === 'titan' ? -1 : 1;
+  const placements: Array<{ kind: BuildingKind; dx: number; dy: number }> = [
+    { kind: 'power', dx: 5 * sx, dy: 0 },
+    { kind: 'refinery', dx: 0, dy: 5 * sy },
+    { kind: 'barracks', dx: 5 * sx, dy: 5 * sy },
+    { kind: 'factory', dx: 9 * sx, dy: 5 * sy },
+    { kind: 'tech', dx: 9 * sx, dy: 0 },
+  ];
+  for (const p of placements) {
+    spawnBuilding(world, id, p.kind, hqTx + p.dx, hqTy + p.dy, true);
+  }
+}
+
+function spawnPlaygroundArmy(world: World, id: FactionId, hqX: number, hqY: number): void {
+  const meta = FACTIONS[id];
+  const sx = id === 'swarm' ? -1 : 1;
+  const sy = id === 'titan' ? -1 : 1;
+  const core: UnitKind[] = [
+    meta.infantryKind, meta.infantryKind, meta.infantryKind,
+    meta.extraBarracksUnit ?? meta.infantryKind,
+    meta.tankKind,
+    meta.specialKind,
+  ];
+  for (let i = 0; i < core.length; i++) {
+    const row = Math.floor(i / 3);
+    const col = i % 3;
+    const x = hqX + sx * (5 + col * 1.8);
+    const y = hqY + sy * (7 + row * 1.8);
+    spawnUnitAt(world, id, core[i]!, x, y);
+  }
+}
+
+function spawnUnitAt(world: World, id: FactionId, kind: UnitKind, x: number, y: number): void {
+  const u = world.units.acquire();
+  if (!u) return;
+  const meta = FACTIONS[id];
+  const stats = applyFactionMods(kind, meta.mods);
+  initUnit(u, kind, id, stats, x, y);
+  world.bus.emit('unit:spawned', { id: u.id, kind, faction: id, x, y });
 }
