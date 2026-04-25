@@ -104,6 +104,12 @@ export class RenderBridge {
     this.projectileViews.delete(id);
   }
 
+  pruneProjectiles(aliveIds: ReadonlySet<number>): void {
+    for (const id of this.projectileViews.keys()) {
+      if (!aliveIds.has(id)) this.removeProjectile(id);
+    }
+  }
+
   removeResource(id: number): void {
     const v = this.resourceViews.get(id);
     if (!v) return;

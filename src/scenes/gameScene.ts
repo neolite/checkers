@@ -216,12 +216,15 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
       bridge.syncBuilding(b, playerFog, world.playerFaction);
       bridge.syncRally(b, world.playerFaction);
     });
+    const aliveProjectileIds = new Set<number>();
     world.projectiles.forEachAlive((p) => {
+      aliveProjectileIds.add(p.id);
       const color = world.units.findById(p.ownerId)
         ? FACTION_COLORS[world.units.findById(p.ownerId)!.faction].accent
         : 0xffffff;
       bridge.syncProjectile(p, color);
     });
+    bridge.pruneProjectiles(aliveProjectileIds);
     world.resources.forEachAlive((r) => bridge.syncResource(r, playerFog));
     bridge.setSelection([...world.selectedUnits], [...world.selectedBuildings]);
 
