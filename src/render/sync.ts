@@ -185,7 +185,7 @@ export class RenderBridge {
     let v = this.buildingViews.get(b.id);
     if (!v) {
       const faction = FACTION_COLORS[b.faction];
-      const group = makeBuildingMesh(b.kind, faction.primary, faction.accent, MAP.tileSize);
+      const group = makeBuildingMesh(b.kind, b.faction, faction.primary, faction.accent, MAP.tileSize);
       const rad = b.stats.radius + 0.3;
       const ring = makeSelectionRing(rad, NEUTRAL_COLORS.ally);
       ring.position.y = 0.05;

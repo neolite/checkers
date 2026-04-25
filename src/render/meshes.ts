@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { UnitKind } from '@config/units';
 import type { WeaponBehavior } from '@config/gameplay';
 import type { BuildingKind } from '@config/buildings';
+import type { FactionId } from '@config/palette';
 
 // Shared tint material cache (by color key).
 const materialCache = new Map<string, THREE.MeshLambertMaterial>();
@@ -26,6 +27,21 @@ function withShadow(mesh: THREE.Mesh): THREE.Mesh {
   return mesh;
 }
 
+function addAntenna(g: THREE.Group, x: number, y: number, z: number, height: number, color: number): void {
+  const mast = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, height, 8), mat(color)));
+  mast.position.set(x, y + height / 2, z);
+  const tip = withShadow(new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), mat(color, { emissive: color })));
+  tip.position.set(x, y + height, z);
+  g.add(mast, tip);
+}
+
+function addCable(g: THREE.Group, x: number, y: number, z: number, color: number): void {
+  const ring = withShadow(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 8, 18), mat(color, { emissive: color })));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.set(x, y, z);
+  g.add(ring);
+}
+
 // ---------------------- Unit meshes ----------------------
 export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): THREE.Group {
   const g = new THREE.Group();
@@ -48,10 +64,17 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       break;
     }
     case 'harvesterSwarm': {
-      const body = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 0), mat(primary)));
+      const body = withShadow(new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 8), mat(primary)));
+      body.scale.set(1.1, 0.72, 0.9);
       body.position.y = 0.8;
       const orb = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.35, 0), mat(accent, { emissive: accent })));
       orb.position.set(0, 1.3, 0);
+      for (const x of [-0.72, 0.72]) {
+        const leg = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.9, 6), mat(0x221315)));
+        leg.rotation.z = x < 0 ? -0.75 : 0.75;
+        leg.position.set(x, 0.45, 0.2);
+        g.add(leg);
+      }
       g.add(body, orb);
       break;
     }
@@ -60,7 +83,9 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       body.position.y = 0.6;
       const stack = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.35, 0.9, 8), mat(accent)));
       stack.position.set(-0.55, 1.4, -0.6);
-      g.add(body, stack);
+      const core = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), mat(accent, { emissive: accent })));
+      core.position.set(0.52, 1.2, 0.62);
+      g.add(body, stack, core);
       break;
     }
 
@@ -99,7 +124,7 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       break;
     }
     case 'raider': {
-      const body = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.0, 6), mat(primary)));
+      const body = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.38, 1.05, 7), mat(primary)));
       body.position.y = 0.85;
       body.rotation.x = Math.PI;
       const head = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), mat(accent, { emissive: accent })));
@@ -110,6 +135,12 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
         const claw = withShadow(new THREE.Mesh(clawGeom, mat(0x1b1f25)));
         claw.position.set(x, 0.95, 0.42);
         g.add(claw);
+      }
+      for (const x of [-0.42, 0.42]) {
+        const spine = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.45, 5), mat(accent, { emissive: accent })));
+        spine.rotation.x = -0.55;
+        spine.position.set(x, 1.0, -0.32);
+        g.add(spine);
       }
       g.add(body, head);
       break;
@@ -148,12 +179,15 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       break;
     }
     case 'burrower': {
-      const body = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.9, 8), mat(primary)));
+      const body = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.48, 1.05, 9), mat(primary)));
       body.rotation.x = Math.PI;
       body.position.y = 0.7;
       const eyes = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 0), mat(accent, { emissive: accent })));
       eyes.position.set(0, 0.9, 0.35);
-      g.add(body, eyes);
+      const drill = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.65, 8), mat(0x1b1f25)));
+      drill.rotation.x = Math.PI / 2;
+      drill.position.set(0, 0.7, 0.52);
+      g.add(body, eyes, drill);
       break;
     }
     case 'railgun': {
@@ -164,16 +198,25 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       const coil = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 10), mat(accent, { emissive: accent })));
       coil.rotation.x = Math.PI / 2;
       coil.position.set(0, 1.35, 0.9);
-      g.add(base, torso, coil);
+      const halo = withShadow(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 8, 18), mat(accent, { emissive: accent })));
+      halo.position.set(0, 1.82, -0.05);
+      g.add(base, torso, coil, halo);
       break;
     }
     case 'swarmlet': {
-      const body = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), mat(primary)));
+      const body = withShadow(new THREE.Mesh(new THREE.SphereGeometry(0.4, 10, 8), mat(primary)));
+      body.scale.set(1.12, 0.78, 0.96);
       body.position.y = 0.4;
       const wing = withShadow(new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.2), mat(accent)));
       wing.position.y = 0.45;
       const fuse = withShadow(new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), mat(accent, { emissive: accent })));
       fuse.position.set(0, 0.52, 0.42);
+      for (const x of [-0.38, 0.38]) {
+        const barb = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.42, 5), mat(0x221315)));
+        barb.rotation.x = Math.PI / 2;
+        barb.position.set(x, 0.38, -0.35);
+        g.add(barb);
+      }
       g.add(body, wing, fuse);
       break;
     }
@@ -196,6 +239,9 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
           l.position.set(x, 0.7, 0);
           g.add(l);
         }
+        const reactor = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), mat(accent, { emissive: accent })));
+        reactor.position.set(0, 2.15, -0.75);
+        g.add(reactor);
       } else {
         // Tracks.
         const tread = new THREE.BoxGeometry(0.4, 0.35, 2.8);
@@ -222,6 +268,13 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
       turret.add(barrel);
       turret.position.y = kind === 'siegeWalker' ? 2.1 : 1.15;
       g.add(turret);
+      if (kind === 'scorpionBike') {
+        chassis.scale.set(0.72, 0.75, 1.25);
+        const tail = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.9, 6), mat(accent, { emissive: accent })));
+        tail.rotation.x = -Math.PI / 2;
+        tail.position.set(0, 0.95, -1.65);
+        g.add(tail);
+      }
       break;
     }
   }
@@ -229,9 +282,15 @@ export function makeUnitMesh(kind: UnitKind, primary: number, accent: number): T
 }
 
 // ---------------------- Building meshes ----------------------
-export function makeBuildingMesh(kind: BuildingKind, primary: number, accent: number, tileSize: number): THREE.Group {
+export function makeBuildingMesh(kind: BuildingKind, faction: FactionId, primary: number, accent: number, tileSize: number): THREE.Group {
+  if (faction === 'swarm') return makeSwarmBuildingMesh(kind, primary, accent, tileSize);
+  if (faction === 'titan') return makeTitanBuildingMesh(kind, primary, accent, tileSize);
+  return makeVanguardBuildingMesh(kind, primary, accent, tileSize);
+}
+
+function makeVanguardBuildingMesh(kind: BuildingKind, primary: number, accent: number, tileSize: number): THREE.Group {
   const g = new THREE.Group();
-  g.name = `building:${kind}`;
+  g.name = `building:vanguard:${kind}`;
   switch (kind) {
     case 'hq': {
       const w = 4 * tileSize, h = 4 * tileSize;
@@ -308,6 +367,152 @@ export function makeBuildingMesh(kind: BuildingKind, primary: number, accent: nu
       break;
     }
   }
+  return g;
+}
+
+function makeSwarmBuildingMesh(kind: BuildingKind, primary: number, accent: number, tileSize: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = `building:swarm:${kind}`;
+  const flesh = mat(primary);
+  const glow = mat(accent, { emissive: accent });
+  const dark = mat(0x221315);
+  const pod = (x: number, z: number, r: number, y = r): void => {
+    const m = withShadow(new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), flesh));
+    m.scale.y = 0.72;
+    m.position.set(x, y, z);
+    g.add(m);
+  };
+  switch (kind) {
+    case 'hq': {
+      pod(0, 0, 3.2, 2.2);
+      pod(-2.4, 1.8, 1.6, 1.3);
+      pod(2.2, -1.6, 1.5, 1.2);
+      const spire = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.9, 4.4, 9), glow));
+      spire.position.y = 4.1;
+      g.add(spire);
+      break;
+    }
+    case 'power': {
+      pod(0, 0, 1.5, 1.0);
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2;
+        addCable(g, Math.cos(a) * 0.9, 1.75, Math.sin(a) * 0.9, accent);
+      }
+      break;
+    }
+    case 'refinery': {
+      pod(0, 0, 2.2, 1.35);
+      pod(-1.6, 1.1, 1.0, 1.0);
+      const maw = withShadow(new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.18, 8, 18), dark));
+      maw.rotation.x = Math.PI / 2;
+      maw.position.set(1.4, 1.2, 0.6);
+      g.add(maw);
+      break;
+    }
+    case 'barracks': {
+      pod(0, 0, 1.9, 1.15);
+      for (const x of [-1.3, 0, 1.3]) {
+        const tooth = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.2, 7), glow));
+        tooth.position.set(x, 2.1, 1.3);
+        g.add(tooth);
+      }
+      break;
+    }
+    case 'factory': {
+      pod(0, 0, 2.6, 1.4);
+      const ribGeom = new THREE.TorusGeometry(1.25, 0.08, 8, 18);
+      for (let i = 0; i < 3; i++) {
+        const rib = withShadow(new THREE.Mesh(ribGeom, dark));
+        rib.rotation.x = Math.PI / 2;
+        rib.scale.x = 1.2 + i * 0.12;
+        rib.position.set(0, 1.6 + i * 0.28, -0.4 + i * 0.35);
+        g.add(rib);
+      }
+      break;
+    }
+    case 'tech': {
+      pod(0, 0, 1.7, 1.1);
+      const core = withShadow(new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 1), glow));
+      core.position.y = 2.25;
+      g.add(core);
+      break;
+    }
+    case 'turret': {
+      pod(0, 0, 1.0, 0.8);
+      const barb = withShadow(new THREE.Mesh(new THREE.ConeGeometry(0.3, 2.4, 8), glow));
+      barb.rotation.x = Math.PI / 2;
+      barb.position.set(0, 1.25, 1.0);
+      g.add(barb);
+      break;
+    }
+  }
+  return g;
+}
+
+function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: number, tileSize: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = `building:titan:${kind}`;
+  const coreMat = mat(primary);
+  const neon = mat(accent, { emissive: accent });
+  const black = mat(0x10131d);
+  const slab = (w: number, h: number, d: number, x: number, y: number, z: number, material = coreMat): void => {
+    const m = withShadow(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material));
+    m.position.set(x, y, z);
+    g.add(m);
+  };
+  switch (kind) {
+    case 'hq': {
+      slab(5.8, 1.0, 5.8, 0, 0.5, 0, black);
+      slab(3.2, 4.4, 3.2, 0, 2.7, 0);
+      slab(1.5, 6.2, 1.5, 0, 3.6, 0, neon);
+      addAntenna(g, -2.2, 1.0, -2.2, 4.0, accent);
+      break;
+    }
+    case 'power': {
+      slab(2.6, 1.0, 2.6, 0, 0.5, 0, black);
+      const coil = withShadow(new THREE.Mesh(new THREE.TorusKnotGeometry(0.75, 0.09, 48, 8), neon));
+      coil.position.y = 1.8;
+      g.add(coil);
+      break;
+    }
+    case 'refinery': {
+      slab(5.4, 1.2, 4.8, 0, 0.6, 0, black);
+      slab(1.2, 3.4, 1.2, -1.4, 2.2, 0.9);
+      slab(1.2, 2.6, 1.2, 1.4, 1.8, -0.8, neon);
+      break;
+    }
+    case 'barracks': {
+      slab(3.7, 1.6, 3.7, 0, 0.8, 0);
+      slab(2.5, 0.55, 4.2, 0, 1.85, 0, black);
+      addAntenna(g, 1.25, 1.7, -1.3, 1.7, accent);
+      break;
+    }
+    case 'factory': {
+      slab(5.8, 2.0, 5.8, 0, 1.0, 0);
+      slab(2.1, 2.2, 2.1, -1.6, 2.7, -1.2, black);
+      slab(3.2, 0.25, 0.16, 0, 1.1, 2.95, neon);
+      break;
+    }
+    case 'tech': {
+      slab(3.4, 1.0, 3.4, 0, 0.5, 0, black);
+      const core = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(1.25, 0), neon));
+      core.position.y = 2.0;
+      g.add(core);
+      addCable(g, 0, 3.0, 0, accent);
+      break;
+    }
+    case 'turret': {
+      slab(1.8, 0.8, 1.8, 0, 0.4, 0, black);
+      const head = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), neon));
+      head.position.y = 1.25;
+      const barrel = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 10), neon));
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 1.25, 1.05);
+      g.add(head, barrel);
+      break;
+    }
+  }
+  void tileSize;
   return g;
 }
 

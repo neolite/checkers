@@ -24,7 +24,7 @@ export class BuildingGhost {
     if (this.currentKind === kind && this.group) return;
     this.hide();
     const col = FACTION_COLORS[this.faction];
-    const grp = makeBuildingMesh(kind, col.primary, col.accent, MAP.tileSize);
+    const grp = makeBuildingMesh(kind, this.faction, col.primary, col.accent, MAP.tileSize);
     grp.traverse((child) => {
       const m = child as THREE.Mesh;
       if (!m.isMesh) return;
