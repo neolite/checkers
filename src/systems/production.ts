@@ -100,13 +100,13 @@ export class ProductionSystem implements ISystem {
       const kind = resolveKind(role, faction, kindKey);
       if (!kind) return;
       const baseStats = UNIT_STATS[kind];
-      const cost = Math.round(baseStats.cost * faction.mods.costMul);
+      const cost = baseStats.cost;
       const fs = w.factions[w.playerFaction];
       if (fs.credits < cost) return;
       fs.credits -= cost;
       b.productionQueue.push({ role, kind });
       if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {
-        b.productionMsLeft = Math.round(baseStats.buildMs * faction.mods.costMul);
+        b.productionMsLeft = baseStats.buildMs;
         w.bus.emit('production:started', { buildingId: b.id, role });
       }
     });
@@ -149,7 +149,7 @@ export class ProductionSystem implements ISystem {
         if (b.productionQueue.length > 0) {
           const next = b.productionQueue[0]!;
           const aiMul = w.factions[b.faction].isHuman ? 1 : AI_TUNING.buildTimeMul;
-          b.productionMsLeft = Math.round(UNIT_STATS[next.kind].buildMs * faction.mods.costMul * aiMul);
+          b.productionMsLeft = Math.round(UNIT_STATS[next.kind].buildMs * aiMul);
           w.bus.emit('production:started', { buildingId: b.id, role: next.role });
         } else {
           b.productionMsLeft = 0;

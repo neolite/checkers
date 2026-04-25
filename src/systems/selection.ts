@@ -6,25 +6,26 @@ export class SelectionSystem implements ISystem {
   readonly name = 'selection';
 
   init(w: World): void {
-    w.bus.on('input:selectSingle', ({ id, additive }) => {
+    w.bus.on('input:selectSingle', ({ id, isBuilding, additive }) => {
       if (!additive) {
         w.selectedUnits.clear();
         w.selectedBuildings.clear();
       }
       if (id === null) return;
-      const u = w.units.findById(id);
-      if (u && u.faction === w.playerFaction) {
-        w.selectedBuildings.clear();
-        w.selectedUnits.add(u.id);
-        return;
-      }
-      const b = w.buildings.findById(id);
-      if (b && b.faction === w.playerFaction) {
+      if (isBuilding) {
+        const b = w.buildings.findById(id);
+        if (!b || b.faction !== w.playerFaction) return;
         // Allow selecting own incomplete buildings too — player wants to watch
         // construction progress. Command card gates actions by `b.completed`.
         w.selectedUnits.clear();
         w.selectedBuildings.clear();
         w.selectedBuildings.add(b.id);
+        return;
+      }
+      const u = w.units.findById(id);
+      if (u && u.faction === w.playerFaction) {
+        w.selectedBuildings.clear();
+        w.selectedUnits.add(u.id);
       }
     });
 

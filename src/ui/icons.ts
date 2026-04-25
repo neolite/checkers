@@ -4,7 +4,7 @@
 export type IconName =
   | 'worker' | 'infantry' | 'tank' | 'special' | 'drone' | 'atGrenadier'
   | 'hq' | 'power' | 'refinery' | 'barracks' | 'factory' | 'tech' | 'turret'
-  | 'stop' | 'attack' | 'move';
+  | 'stop' | 'attack' | 'move' | 'pounce' | 'detonate';
 
 export function icon(name: IconName): string {
   switch (name) {
@@ -40,5 +40,9 @@ export function icon(name: IconName): string {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="7"/><path d="M12 5v14M5 12h14"/></svg>';
     case 'move':
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>';
+    case 'pounce':
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17c5-8 10-8 16-7"/><path d="M15 5l5 5-6 2"/><path d="M5 19l4-1"/></svg>';
+    case 'detonate':
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/></svg>';
   }
 }

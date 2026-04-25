@@ -48,7 +48,7 @@ export class ProjectileSystem implements ISystem {
 }
 
 function detonate(w: World, p: import('@entities/types').Projectile, x: number, y: number): void {
-  w.bus.emit('projectile:impact', { x, y, targetId: p.targetId, damage: p.damage });
+  w.bus.emit('projectile:impact', { x, y, targetId: p.targetId, damage: p.damage, klass: p.klass });
   applyDamage(w, p.targetId, p.targetIsBuilding, p.damage, p.klass, x, y);
   if (p.splash > 0) {
     applySplashDamage(w, p.ownerFaction, p.targetId, p.targetIsBuilding, p.damage, p.klass, p.splash, x, y);

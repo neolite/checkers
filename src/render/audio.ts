@@ -1,13 +1,12 @@
-import * as THREE from 'three';
 import type { World } from '@engine/world';
 
 // Procedural SFX kernel. All sounds are synthesized at play-time from oscillators
-// and noise — no audio files, no licenses. Positional via PannerNode at a world
-// (x, z), listener is attached to the camera and refreshed each frame.
+// and noise — no audio files, no licenses. Positional mix is camera-relative:
+// distance controls gain, x-offset controls stereo pan, and a shared delay/reverb
+// bus gives far impacts some space without depending on fragile 3D listener state.
 //
-// Architecture: one AudioContext, one masterGain (for global mute/volume), one
-// THREE.AudioListener piggybacking on the context so PositionalAudio / direct
-// PannerNodes share it.
+// Architecture: one AudioContext, one masterGain (for global mute/volume), plus
+// one shared echo bus. Individual sounds route through short-lived gain/pan nodes.
 
 export interface AudioKernelHandle {
   mute(on: boolean): void;
@@ -33,30 +32,57 @@ export function mountAudio(world: World): AudioKernelHandle {
     master.gain.value = on ? 0 : 0.55;
   }
 
-  // THREE listener to share the same AudioContext (for any PositionalAudio uses later).
-  const listener = new THREE.AudioListener();
-  // Replace the internal context with ours so positional sources share state.
-  (listener as unknown as { context: AudioContext }).context = ctx;
-  // Attach to camera once it exists. If missing at mount we'll retry in updateListener.
-  attachListener();
-
-  function attachListener(): void {
-    const cam = world.three.camera;
-    if (cam && !cam.children.includes(listener)) cam.add(listener);
-  }
+  const delay = ctx.createDelay(0.8);
+  delay.delayTime.value = 0.18;
+  const feedback = ctx.createGain();
+  feedback.gain.value = 0.26;
+  const echoFilter = ctx.createBiquadFilter();
+  echoFilter.type = 'lowpass';
+  echoFilter.frequency.value = 2200;
+  const echoGain = ctx.createGain();
+  echoGain.gain.value = 0.22;
+  delay.connect(echoFilter);
+  echoFilter.connect(feedback);
+  feedback.connect(delay);
+  echoFilter.connect(echoGain);
+  echoGain.connect(master);
 
   // --- synth helpers ---
-  function panner(wx: number, wy: number): PannerNode {
-    const p = ctx.createPanner();
-    p.panningModel = 'HRTF';
-    p.distanceModel = 'inverse';
-    p.refDistance = 10;
-    p.maxDistance = 110;
-    p.rolloffFactor = 1.2;
-    p.positionX.value = wx;
-    p.positionY.value = 1.2;
-    p.positionZ.value = wy;
-    return p;
+  function spatialParams(wx: number, wy: number): { gain: number; pan: number; wet: number } {
+    const cam = world.three.camera;
+    if (!cam) return { gain: 0.75, pan: 0, wet: 0.12 };
+    const dx = wx - cam.position.x;
+    const dy = wy - cam.position.z;
+    const d = Math.hypot(dx, dy);
+    // Gentle top-down RTS attenuation: off-screen combat is quieter, not gone.
+    const gain = Math.max(0.16, Math.min(1, 1 / (1 + d / 36)));
+    const pan = Math.max(-0.85, Math.min(0.85, dx / 42));
+    const wet = Math.max(0.08, Math.min(0.32, d / 220));
+    return { gain, pan, wet };
+  }
+
+  function connectOutput(node: AudioNode, wx?: number, wy?: number, wetAmount = 0.12): void {
+    if (wx === undefined || wy === undefined) {
+      node.connect(master);
+      const send = ctx.createGain();
+      send.gain.value = wetAmount * 0.55;
+      node.connect(send);
+      send.connect(delay);
+      return;
+    }
+    const params = spatialParams(wx, wy);
+    const distGain = ctx.createGain();
+    distGain.gain.value = params.gain;
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = params.pan;
+    node.connect(distGain);
+    distGain.connect(pan);
+    pan.connect(master);
+
+    const send = ctx.createGain();
+    send.gain.value = params.wet * wetAmount;
+    distGain.connect(send);
+    send.connect(delay);
   }
 
   function tone(freq: number, dur: number, type: OscillatorType, gain: number, wx?: number, wy?: number): void {
@@ -69,13 +95,7 @@ export function mountAudio(world: World): AudioKernelHandle {
     g.gain.linearRampToValueAtTime(gain, ctx.currentTime + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
     osc.connect(g);
-    if (wx !== undefined && wy !== undefined) {
-      const p = panner(wx, wy);
-      g.connect(p);
-      p.connect(master);
-    } else {
-      g.connect(master);
-    }
+    connectOutput(g, wx, wy, 0.12);
     osc.start();
     osc.stop(ctx.currentTime + dur + 0.05);
   }
@@ -91,13 +111,7 @@ export function mountAudio(world: World): AudioKernelHandle {
     g.gain.linearRampToValueAtTime(gain, ctx.currentTime + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
     osc.connect(g);
-    if (wx !== undefined && wy !== undefined) {
-      const p = panner(wx, wy);
-      g.connect(p);
-      p.connect(master);
-    } else {
-      g.connect(master);
-    }
+    connectOutput(g, wx, wy, 0.18);
     osc.start();
     osc.stop(ctx.currentTime + dur + 0.05);
   }
@@ -127,13 +141,7 @@ export function mountAudio(world: World): AudioKernelHandle {
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
     src.connect(filt);
     filt.connect(g);
-    if (wx !== undefined && wy !== undefined) {
-      const p = panner(wx, wy);
-      g.connect(p);
-      p.connect(master);
-    } else {
-      g.connect(master);
-    }
+    connectOutput(g, wx, wy, 0.35);
     src.start();
     src.stop(ctx.currentTime + dur + 0.05);
   }
@@ -141,9 +149,9 @@ export function mountAudio(world: World): AudioKernelHandle {
   // --- event subscriptions ---
   const offs: Array<() => void> = [];
 
-  offs.push(world.bus.on('weapon:fired', ({ attackerId }) => {
-    const u = world.units.findById(attackerId);
-    const b = u ? null : world.buildings.findById(attackerId);
+  offs.push(world.bus.on('weapon:fired', ({ attackerId, attackerIsBuilding }) => {
+    const u = attackerIsBuilding ? null : world.units.findById(attackerId);
+    const b = attackerIsBuilding ? world.buildings.findById(attackerId) : null;
     const x = u ? u.x : (b?.x ?? 0);
     const y = u ? u.y : (b?.y ?? 0);
     const klass = u?.stats.weapon?.klass ?? b?.stats.weapon?.klass ?? 'aInfantry';
@@ -159,12 +167,13 @@ export function mountAudio(world: World): AudioKernelHandle {
     }
   }));
 
-  offs.push(world.bus.on('projectile:impact', ({ x, y, damage }) => {
+  offs.push(world.bus.on('projectile:impact', ({ x, y, damage, klass }) => {
     if (damage <= 0) return;
     // Impact: low thud + broadband noise scaled by damage.
     const gain = Math.min(0.35, 0.06 + damage / 220);
-    tone(140 - Math.random() * 30, 0.18, 'sine', gain, x, y);
-    noiseBurst(1800, 0.9, 0.15, gain * 0.7, x, y);
+    const base = klass === 'aStructure' ? 95 : klass === 'aArmor' ? 125 : 165;
+    tone(base - Math.random() * 20, 0.18, 'sine', gain, x, y);
+    noiseBurst(klass === 'aStructure' ? 700 : 1800, 0.9, 0.15, gain * 0.7, x, y);
   }));
 
   offs.push(world.bus.on('unit:died', ({ x, y, faction }) => {
@@ -233,15 +242,15 @@ export function mountAudio(world: World): AudioKernelHandle {
   return {
     mute: setMuted,
     isMuted: () => muted,
-    updateListener: () => {
-      attachListener();
-      // Listener follows the camera automatically because it's a child of it.
-    },
+    updateListener: () => { /* camera is sampled when each sound is created */ },
     destroy: () => {
       for (const off of offs) off();
       window.removeEventListener('keydown', keyHandler);
-      if (listener.parent) listener.parent.remove(listener);
       master.disconnect();
+      delay.disconnect();
+      feedback.disconnect();
+      echoFilter.disconnect();
+      echoGain.disconnect();
       ctx.close().catch(() => { /* swallow */ });
     },
   };

@@ -1,19 +1,20 @@
 import type { FactionId } from '@config/palette';
 import type { UnitKind } from '@config/units';
 import type { BuildingKind } from '@config/buildings';
-import type { Role } from '@config/gameplay';
+import type { AbilityName, Role, WeaponClass } from '@config/gameplay';
 
 // All events — past-tense facts (no verbs like "set"). input:* = present-tense commands.
 export interface GameEvents {
   // Input intents
   'input:commandMove':   { x: number; y: number; additive: boolean; attackMove: boolean };
-  'input:commandAttack': { targetId: number; additive: boolean };
+  'input:commandAttack': { targetId: number; targetIsBuilding: boolean; additive: boolean };
   'input:commandStop':   Record<string, never>;
   'input:commandHold':   Record<string, never>;
+  'input:ability':       { ability: AbilityName };
   'input:commandHarvest':{ resourceId: number };
   'input:setRally':      { x: number; y: number };
   'input:select':        { ids: readonly number[]; additive: boolean };
-  'input:selectSingle':  { id: number | null; additive: boolean };
+  'input:selectSingle':  { id: number | null; isBuilding: boolean; additive: boolean };
   'input:selectBox':     { minX: number; minY: number; maxX: number; maxY: number; additive: boolean };
   'input:placeBuilding': { x: number; y: number; kind: BuildingKind };
   'input:trainUnit':     { buildingId: number; role: Role; kindKey: UnitKind | null };
@@ -28,8 +29,8 @@ export interface GameEvents {
   'building:completed':  { id: number; kind: BuildingKind; faction: FactionId };
   'building:damaged':    { id: number; amount: number; x: number; y: number };
   'building:destroyed':  { id: number; kind: BuildingKind; faction: FactionId };
-  'weapon:fired':        { attackerId: number; targetId: number };
-  'projectile:impact':   { x: number; y: number; targetId: number; damage: number };
+  'weapon:fired':        { attackerId: number; attackerIsBuilding: boolean; targetId: number };
+  'projectile:impact':   { x: number; y: number; targetId: number; damage: number; klass: WeaponClass };
   'credits:deposited':   { faction: FactionId; amount: number; x: number; y: number };
   'cargo:gathered':      { unitId: number; amount: number };
   'production:started':  { buildingId: number; role: Role };

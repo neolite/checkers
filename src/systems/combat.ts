@@ -38,10 +38,11 @@ export class CombatSystem implements ISystem {
       // Fire.
       u.cooldownMs = u.stats.weapon.cdMs;
       u.rotation = Math.atan2(ty - u.y, tx - u.x);
-      w.bus.emit('weapon:fired', { attackerId: u.id, targetId: u.targetId });
+      w.bus.emit('weapon:fired', { attackerId: u.id, attackerIsBuilding: false, targetId: u.targetId });
 
       if (u.stats.weapon.projectileSpeed === 0) {
         // Contact-fuse weapons apply on impact immediately; suicide is declarative on the weapon.
+        w.bus.emit('projectile:impact', { x: tx, y: ty, targetId: u.targetId, damage: u.stats.weapon.damage, klass: u.stats.weapon.klass });
         applyDamage(w, u.targetId, u.targetIsBuilding, u.stats.weapon.damage, u.stats.weapon.klass, tx, ty);
         if ((u.stats.weapon.splash ?? 0) > 0) {
           applySplashDamage(w, u.faction, u.targetId, u.targetIsBuilding, u.stats.weapon.damage, u.stats.weapon.klass, u.stats.weapon.splash!, tx, ty);
@@ -90,7 +91,7 @@ export class CombatSystem implements ISystem {
       const d = dist(b.x, b.y, t.x, t.y);
       if (d > b.stats.weapon.range) return;
       b.cooldownMs = b.stats.weapon.cdMs;
-      w.bus.emit('weapon:fired', { attackerId: b.id, targetId: t.id });
+      w.bus.emit('weapon:fired', { attackerId: b.id, attackerIsBuilding: true, targetId: t.id });
       const p = w.projectiles.acquire();
       if (!p) return;
       const dx = t.x - b.x;

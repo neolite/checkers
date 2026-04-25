@@ -77,13 +77,17 @@ export class InputSystem implements ISystem {
       // e.code = physical key; layout-independent so Russian QWERTY maps to KeyW/KeyS/etc.
       if (e.code === 'Escape') {
         if (this.placement) this.cancelPlacement(w);
-        else w.bus.emit('input:selectSingle', { id: null, additive: false });
+        else w.bus.emit('input:selectSingle', { id: null, isBuilding: false, additive: false });
       }
       if (e.code === 'KeyH') {
         if (w.selectedUnits.size > 0) w.bus.emit('input:commandHold', {});
       }
       if (e.code === 'KeyX') {
         if (w.selectedUnits.size > 0) w.bus.emit('input:commandStop', {});
+      }
+      if (e.code === 'KeyQ') {
+        if (hasSelectedKind(w, 'raider')) w.bus.emit('input:ability', { ability: 'pounce' });
+        else if (hasSelectedKind(w, 'swarmlet')) w.bus.emit('input:ability', { ability: 'detonate' });
       }
     });
 
@@ -185,7 +189,7 @@ export class InputSystem implements ISystem {
       return;
     }
     if (target && target.hostile) {
-      w.bus.emit('input:commandAttack', { targetId: target.id, additive });
+      w.bus.emit('input:commandAttack', { targetId: target.id, targetIsBuilding: target.isBuilding, additive });
     } else if (target && target.isResource) {
       w.bus.emit('input:commandHarvest', { resourceId: target.id });
     } else {
@@ -199,10 +203,10 @@ export class InputSystem implements ISystem {
     if (!ground) return;
     const pick = this.pickEntityUnderCursor(w, ground.x, ground.z);
     if (pick && pick.ownedByPlayer && !pick.isResource) {
-      w.bus.emit('input:selectSingle', { id: pick.id, additive });
+      w.bus.emit('input:selectSingle', { id: pick.id, isBuilding: pick.isBuilding, additive });
     } else {
       // Clicked empty ground, enemy, or resource — clear selection unless additive.
-      if (!additive) w.bus.emit('input:selectSingle', { id: null, additive: false });
+      if (!additive) w.bus.emit('input:selectSingle', { id: null, isBuilding: false, additive: false });
     }
   }
 
@@ -386,4 +390,12 @@ export class InputSystem implements ISystem {
     this.ghostDiv = null;
     if (this.ghostMesh) this.ghostMesh.hide();
   }
+}
+
+function hasSelectedKind(w: World, kind: import('@config/units').UnitKind): boolean {
+  for (const id of w.selectedUnits) {
+    const u = w.units.findById(id);
+    if (u && u.faction === w.playerFaction && u.kind === kind) return true;
+  }
+  return false;
 }

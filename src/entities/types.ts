@@ -25,6 +25,7 @@ export interface Unit {
   // Combat
   hp: number;
   cooldownMs: number;
+  pounceCooldownMs: number;
   targetLocked: boolean;
   targetId: number | null;
   targetIsBuilding: boolean;

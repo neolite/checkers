@@ -168,7 +168,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const kind = resolveKind(role, meta);
         if (!kind) continue;
         const stats = UNIT_STATS[kind];
-        const cost = Math.round(stats.cost * meta.mods.costMul);
+        const cost = stats.cost;
         const inQueue = b.productionQueue.filter((q) => q.role === role && q.kind === kind).length;
         const cell: CommandCell = {
           key: `train:${role}`,
@@ -184,7 +184,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
       // Extra units on this building.
       if (b.kind === 'barracks' && meta.extraBarracksUnit) {
         const stats = UNIT_STATS[meta.extraBarracksUnit];
-        const cost = Math.round(stats.cost * meta.mods.costMul);
+        const cost = stats.cost;
         cells.push({
           key: `extra:barracks:${meta.extraBarracksUnit}`,
           icon: unitIcon(meta.extraBarracksUnit, stats.role),
@@ -196,7 +196,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
       }
       if (b.kind === 'factory' && meta.extraFactoryUnit) {
         const stats = UNIT_STATS[meta.extraFactoryUnit];
-        const cost = Math.round(stats.cost * meta.mods.costMul);
+        const cost = stats.cost;
         cells.push({
           key: `extra:factory:${meta.extraFactoryUnit}`,
           icon: 'tank',
@@ -248,6 +248,31 @@ export function mountCommandCard(world: World): CommandCardHandle {
     }
 
     if (actionableUnits.length > 0) {
+      const raiders = actionableUnits.filter((u) => u!.kind === 'raider').map((u) => u!);
+      if (raiders.length > 0) {
+        const ready = raiders.some((u) => u.pounceCooldownMs <= 0);
+        const cd = Math.ceil(Math.min(...raiders.map((u) => u.pounceCooldownMs)) / 1000);
+        const cell: CommandCell = {
+          key: 'ability:pounce',
+          icon: 'pounce',
+          label: 'Pounce',
+          hint: 'Q · leap into nearest target',
+          disabled: !ready,
+          onClick: () => w.bus.emit('input:ability', { ability: 'pounce' }),
+        };
+        if (!ready) cell.badge = `${cd}s`;
+        cells.push(cell);
+      }
+      const swarmlets = actionableUnits.filter((u) => u!.kind === 'swarmlet').map((u) => u!);
+      if (swarmlets.length > 0) {
+        cells.push({
+          key: 'ability:detonate',
+          icon: 'detonate',
+          label: 'Detonate',
+          hint: 'Q · explode selected Swarmlets',
+          onClick: () => w.bus.emit('input:ability', { ability: 'detonate' }),
+        });
+      }
       cells.push({ key: 'cmd:move', icon: 'move', label: 'Move', hint: 'RMB on ground',
                    onClick: () => {} });
       cells.push({ key: 'cmd:attack', icon: 'attack', label: 'Attack',

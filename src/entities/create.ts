@@ -7,12 +7,13 @@ import { BUILDING_STATS } from '@config/buildings';
 import type { FactionMeta } from '@config/factions';
 
 function scaledUnitStats(base: UnitStats, mods: FactionMeta['mods']): UnitStats {
-  // mods apply to HP, speed, cost — the spec's 1D identity knobs.
+  // Unit prices/build times are already faction-authored in UNIT_STATS. Faction
+  // mods stay on combat feel only, otherwise Swarm gets double-discounted and
+  // Titan gets double-taxed.
   return {
     ...base,
     maxHp: Math.round(base.maxHp * mods.hpMul),
     speed: base.speed * mods.speedMul,
-    cost: Math.round(base.cost * mods.costMul),
   };
 }
 
@@ -30,6 +31,7 @@ export function resetUnit(u: Unit): void {
   u.vx = 0; u.vy = 0;
   u.hp = 1;
   u.cooldownMs = 0;
+  u.pounceCooldownMs = 0;
   u.targetLocked = false;
   u.targetId = null;
   u.targetIsBuilding = false;
@@ -51,7 +53,7 @@ export function makeUnitSeed(id: number): Unit {
     id, alive: false,
     kind: 'ranger', faction: 'vanguard', stats: UNIT_STATS.ranger,
     x: 0, y: 0, rotation: 0, vx: 0, vy: 0,
-    hp: 1, cooldownMs: 0,
+    hp: 1, cooldownMs: 0, pounceCooldownMs: 0,
     targetLocked: false, targetId: null, targetIsBuilding: false,
     state: 'idle', destX: null, destY: null,
     cargo: 0, gatherMs: 0, resourceNodeId: null, homeRefineryId: null,
@@ -71,6 +73,7 @@ export function initUnit(u: Unit, kind: UnitKind, faction: FactionId, stats: Uni
   u.vx = 0; u.vy = 0;
   u.hp = stats.maxHp;
   u.cooldownMs = 0;
+  u.pounceCooldownMs = 0;
   u.targetLocked = false;
   u.targetId = null;
   u.targetIsBuilding = false;

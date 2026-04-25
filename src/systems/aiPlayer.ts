@@ -196,17 +196,17 @@ export class AIPlayerSystem implements ISystem {
   private tryTrainKind(w: World, b: Building, kind: import('@config/units').UnitKind): void {
     if (!b.completed) return;
     if (b.productionQueue.length >= 3) return;
-    const meta = FACTIONS[b.faction];
     const stats = UNIT_STATS[kind];
     const role = stats.role;
+    const meta = FACTIONS[b.faction];
     if (!b.stats.trains?.includes(role) && meta.extraBarracksUnit !== kind && meta.extraFactoryUnit !== kind) return;
-    const cost = Math.round(stats.cost * meta.mods.costMul);
+    const cost = stats.cost;
     const fs = w.factions[b.faction];
     if (fs.credits < cost) return;
     fs.credits -= cost;
     b.productionQueue.push({ role, kind });
     if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {
-      b.productionMsLeft = Math.round(stats.buildMs * meta.mods.costMul * AI_TUNING.buildTimeMul);
+      b.productionMsLeft = Math.round(stats.buildMs * AI_TUNING.buildTimeMul);
       w.bus.emit('production:started', { buildingId: b.id, role });
     }
   }

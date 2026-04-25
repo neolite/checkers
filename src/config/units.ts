@@ -79,15 +79,15 @@ export const UNIT_STATS: Record<UnitKind, UnitStats> = {
 
   // Infantry
   ranger:   inf({ kind: 'ranger',   displayName: 'Ranger' }),
-  raider:   inf({ kind: 'raider',   displayName: 'Raider',   maxHp: 35, speed: 7.5, cost: 80, radius: 0.42,
-                  weapon: { klass: 'aInfantry', damage: 12, range: 1.5, cdMs: 600, projectileSpeed: 0, targetsGround: true } }),
+  raider:   inf({ kind: 'raider',   displayName: 'Raider',   maxHp: 35, speed: 7.5, cost: 75, buildMs: 3000, radius: 0.42,
+                  weapon: { klass: 'aInfantry', damage: 8, range: 1.5, cdMs: 650, projectileSpeed: 0, targetsGround: true } }),
   paladin:  inf({ kind: 'paladin',  displayName: 'Paladin',  maxHp: 130, armor: 'medium', speed: 3.8, cost: 170, radius: 0.62,
                   weapon: { klass: 'aInfantry', damage: 13, range: 7, cdMs: 1000, projectileSpeed: 24, splash: 1.0, targetsGround: true } }),
 
   // Tanks
   battleTank:   tank({ kind: 'battleTank',   displayName: 'Battle Tank',
                        weapon: { klass: 'aArmor', damage: 28, range: 11, cdMs: 1400, projectileSpeed: 40, splash: 0.8, targetsGround: true } }),
-  scorpionBike: tank({ kind: 'scorpionBike', displayName: 'Scorpion Bike', maxHp: 110, armor: 'medium', speed: 6.5, cost: 300, buildMs: 6200, radius: 0.75,
+  scorpionBike: tank({ kind: 'scorpionBike', displayName: 'Scorpion Bike', maxHp: 110, armor: 'light', speed: 6.5, cost: 300, buildMs: 6200, radius: 0.75,
                        weapon: { klass: 'aArmor', damage: 22, range: 10, cdMs: 1000, projectileSpeed: 42, targetsGround: true } }),
   siegeWalker:  tank({ kind: 'siegeWalker',  displayName: 'Siege Walker', maxHp: 260, speed: 2.8, cost: 520, buildMs: 9000, radius: 1.0,
                        weapon: { klass: 'aStructure', damage: 44, range: 14, cdMs: 2000, projectileSpeed: 26, splash: 2.4, targetsGround: true } }),
@@ -103,7 +103,7 @@ export const UNIT_STATS: Record<UnitKind, UnitStats> = {
   // Faction-unique extras
   atTrooper: inf({ kind: 'atTrooper', displayName: 'AT Trooper', maxHp: 55, cost: 180, buildMs: 5000,
                    weapon: { klass: 'aArmor', damage: 14, range: 9, cdMs: 1100, projectileSpeed: 26, targetsGround: true } }),
-  swarmlet:  inf({ kind: 'swarmlet',  displayName: 'Swarmlet', role: 'drone', maxHp: 18, armor: 'light', speed: 8.5, cost: 70, buildMs: 1600,
+  swarmlet:  inf({ kind: 'swarmlet',  displayName: 'Swarmlet', role: 'drone', maxHp: 18, armor: 'light', speed: 8.5, cost: 90, buildMs: 2400,
                    radius: 0.35,
                    weapon: { klass: 'aStructure', damage: 80, range: 1.2, cdMs: 1000, projectileSpeed: 0, splash: 1.5, selfDestruct: true, targetsGround: true } }),
   atGrenadier: inf({ kind: 'atGrenadier', displayName: 'AT Grenadier', maxHp: 80, armor: 'medium', speed: 3.5, cost: 200, buildMs: 5200, radius: 0.58,
