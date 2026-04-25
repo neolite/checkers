@@ -454,60 +454,111 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
   g.name = `building:titan:${kind}`;
   const coreMat = mat(primary);
   const neon = mat(accent, { emissive: accent });
-  const black = mat(0x10131d);
-  const slab = (w: number, h: number, d: number, x: number, y: number, z: number, material = coreMat): void => {
+  const black = mat(0x0b0f18);
+  const dark = mat(0x151b29);
+  const slab = (w: number, h: number, d: number, x: number, y: number, z: number, material = coreMat): THREE.Mesh => {
     const m = withShadow(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material));
     m.position.set(x, y, z);
     g.add(m);
+    return m;
+  };
+  const blade = (r: number, h: number, x: number, y: number, z: number, material = coreMat): void => {
+    const m = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(r * 0.72, r, h, 6), material));
+    m.rotation.y = Math.PI / 6;
+    m.position.set(x, y, z);
+    g.add(m);
+  };
+  const lightBar = (w: number, x: number, y: number, z: number, rotY = 0): void => {
+    const bar = withShadow(new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, 0.12), neon));
+    bar.rotation.y = rotY;
+    bar.position.set(x, y, z);
+    g.add(bar);
   };
   switch (kind) {
     case 'hq': {
-      slab(5.8, 1.0, 5.8, 0, 0.5, 0, black);
-      slab(3.2, 4.4, 3.2, 0, 2.7, 0);
-      slab(1.5, 6.2, 1.5, 0, 3.6, 0, neon);
-      addAntenna(g, -2.2, 1.0, -2.2, 4.0, accent);
+      slab(5.8, 0.45, 5.8, 0, 0.23, 0, black);
+      slab(4.5, 0.45, 4.5, 0, 0.7, 0, dark);
+      blade(1.45, 4.8, 0, 3.05, 0, coreMat);
+      blade(0.85, 6.2, 0, 4.2, 0, neon);
+      for (const [x, z] of [[-2.4, -2.4], [2.4, -2.4], [-2.4, 2.4], [2.4, 2.4]] as const) {
+        blade(0.34, 2.2, x, 1.55, z, dark);
+      }
+      lightBar(3.6, 0, 1.05, 2.35);
+      lightBar(3.6, 0, 1.05, -2.35);
+      addAntenna(g, -2.15, 0.95, -2.15, 3.4, accent);
       break;
     }
     case 'power': {
-      slab(2.6, 1.0, 2.6, 0, 0.5, 0, black);
-      const coil = withShadow(new THREE.Mesh(new THREE.TorusKnotGeometry(0.75, 0.09, 48, 8), neon));
-      coil.position.y = 1.8;
-      g.add(coil);
+      slab(2.6, 0.4, 2.6, 0, 0.2, 0, black);
+      blade(0.62, 1.7, 0, 1.1, 0, dark);
+      for (let i = 0; i < 3; i++) {
+        const ring = withShadow(new THREE.Mesh(new THREE.TorusGeometry(0.72 + i * 0.22, 0.045, 8, 28), neon));
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = 1.75 + i * 0.22;
+        g.add(ring);
+      }
+      addAntenna(g, 0.95, 0.42, -0.95, 1.6, accent);
       break;
     }
     case 'refinery': {
-      slab(5.4, 1.2, 4.8, 0, 0.6, 0, black);
-      slab(1.2, 3.4, 1.2, -1.4, 2.2, 0.9);
-      slab(1.2, 2.6, 1.2, 1.4, 1.8, -0.8, neon);
+      slab(5.2, 0.45, 4.8, 0, 0.23, 0, black);
+      slab(4.1, 0.5, 3.4, 0, 0.72, 0, dark);
+      blade(0.7, 2.6, -1.35, 2.05, 0.65, coreMat);
+      blade(0.58, 2.1, 1.25, 1.78, -0.65, coreMat);
+      const intake = withShadow(new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.11, 8, 22), neon));
+      intake.rotation.x = Math.PI / 2;
+      intake.position.set(1.75, 1.28, 1.25);
+      g.add(intake);
+      lightBar(2.8, -0.55, 1.1, 1.82);
       break;
     }
     case 'barracks': {
-      slab(3.7, 1.6, 3.7, 0, 0.8, 0);
-      slab(2.5, 0.55, 4.2, 0, 1.85, 0, black);
-      addAntenna(g, 1.25, 1.7, -1.3, 1.7, accent);
+      slab(3.8, 0.45, 3.8, 0, 0.23, 0, black);
+      slab(3.0, 1.15, 2.8, 0, 0.98, 0, coreMat);
+      slab(2.15, 0.42, 3.45, 0, 1.78, 0, dark);
+      for (const x of [-1.15, 0, 1.15]) {
+        slab(0.32, 1.05, 0.22, x, 2.25, 1.4, neon);
+      }
+      addAntenna(g, 1.35, 1.62, -1.2, 1.45, accent);
       break;
     }
     case 'factory': {
-      slab(5.8, 2.0, 5.8, 0, 1.0, 0);
-      slab(2.1, 2.2, 2.1, -1.6, 2.7, -1.2, black);
-      slab(3.2, 0.25, 0.16, 0, 1.1, 2.95, neon);
+      slab(5.8, 0.45, 5.8, 0, 0.23, 0, black);
+      slab(4.7, 1.2, 4.5, 0, 1.05, 0, coreMat);
+      slab(2.2, 2.2, 2.2, -1.45, 2.45, -1.25, dark);
+      slab(1.65, 1.8, 1.65, 1.55, 2.2, 1.05, dark);
+      lightBar(3.6, 0, 1.16, 2.35);
+      lightBar(2.4, 1.15, 2.05, -1.95);
+      for (const x of [-2.1, 2.1]) {
+        const vent = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 1.5, 6), black));
+        vent.position.set(x, 2.2, -2.1);
+        g.add(vent);
+      }
       break;
     }
     case 'tech': {
-      slab(3.4, 1.0, 3.4, 0, 0.5, 0, black);
+      slab(3.6, 0.45, 3.6, 0, 0.23, 0, black);
+      blade(1.15, 1.7, 0, 1.15, 0, dark);
       const core = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(1.25, 0), neon));
-      core.position.y = 2.0;
+      core.position.y = 2.35;
       g.add(core);
-      addCable(g, 0, 3.0, 0, accent);
+      for (let i = 0; i < 3; i++) {
+        const ring = withShadow(new THREE.Mesh(new THREE.TorusGeometry(1.15 + i * 0.18, 0.035, 8, 28), neon));
+        ring.rotation.x = Math.PI / 2;
+        ring.rotation.z = i * 0.45;
+        ring.position.y = 2.35;
+        g.add(ring);
+      }
       break;
     }
     case 'turret': {
-      slab(1.8, 0.8, 1.8, 0, 0.4, 0, black);
+      slab(1.9, 0.38, 1.9, 0, 0.19, 0, black);
+      blade(0.55, 0.95, 0, 0.82, 0, dark);
       const head = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), neon));
-      head.position.y = 1.25;
+      head.position.y = 1.55;
       const barrel = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.8, 10), neon));
       barrel.rotation.x = Math.PI / 2;
-      barrel.position.set(0, 1.25, 1.05);
+      barrel.position.set(0, 1.55, 1.05);
       g.add(head, barrel);
       break;
     }
