@@ -10,6 +10,7 @@ export default defineConfig({
       '@utils': fileURLToPath(new URL('./src/utils', import.meta.url)),
       '@entities': fileURLToPath(new URL('./src/entities', import.meta.url)),
       '@render': fileURLToPath(new URL('./src/render', import.meta.url)),
+      '@vfx': fileURLToPath(new URL('./src/vfx', import.meta.url)),
       '@systems': fileURLToPath(new URL('./src/systems', import.meta.url)),
       '@ui': fileURLToPath(new URL('./src/ui', import.meta.url)),
       '@scenes': fileURLToPath(new URL('./src/scenes', import.meta.url)),

@@ -23,6 +23,7 @@
       "@utils/*": ["src/utils/*"],
       "@entities/*": ["src/entities/*"],
       "@render/*": ["src/render/*"],
+      "@vfx/*": ["src/vfx/*"],
       "@systems/*": ["src/systems/*"],
       "@ui/*": ["src/ui/*"],
       "@scenes/*": ["src/scenes/*"],
