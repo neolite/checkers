@@ -21,6 +21,68 @@ function mat(hex: number, opts: { emissive?: number; opacity?: number } = {}): T
   return m;
 }
 
+const titanMaterialCache = new Map<string, THREE.MeshLambertMaterial>();
+const titanTextureCache = new Map<string, THREE.Texture>();
+const textureLoader = new THREE.TextureLoader();
+
+function repeatLoadedTexture(path: string, repeat: number, colorSpace?: THREE.ColorSpace): THREE.Texture {
+  const cached = titanTextureCache.get(path);
+  if (cached) return cached;
+  const texture = textureLoader.load(path);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeat, repeat);
+  if (colorSpace) texture.colorSpace = colorSpace;
+  titanTextureCache.set(path, texture);
+  return texture;
+}
+
+function makeTitanPanelTexture(hex: number, variant: string): THREE.CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const base = new THREE.Color(hex);
+  const c0 = `#${base.getHexString()}`;
+  const c1 = `#${base.clone().multiplyScalar(1.22).getHexString()}`;
+  const c2 = `#${base.clone().multiplyScalar(0.72).getHexString()}`;
+  ctx.fillStyle = c0;
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = c1;
+  const step = variant === 'trim' ? 28 : variant === 'core' ? 36 : 22;
+  for (let x = 0; x < size; x += step) ctx.fillRect(x, 0, 2, size);
+  for (let y = 0; y < size; y += step) ctx.fillRect(0, y, size, 2);
+  ctx.fillStyle = c2;
+  for (let i = 0; i < 26; i++) {
+    const x = (i * 37 + variant.length * 11) % size;
+    const y = (i * 53 + variant.length * 17) % size;
+    ctx.fillRect(x, y, 2 + (i % 5), 1 + (i % 3));
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(2.2, 2.2);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function titanMetal(hex: number, variant = 'panel'): THREE.MeshLambertMaterial {
+  const key = `${hex}-${variant}`;
+  const cached = titanMaterialCache.get(key);
+  if (cached) return cached;
+  const m = new THREE.MeshLambertMaterial({
+    color: hex,
+    map: makeTitanPanelTexture(hex, variant),
+    emissive: hex,
+    emissiveMap: repeatLoadedTexture('/assets/textures/ambientcg/Metal060C/Metal060C_1K-JPG_Color.jpg', 2.6, THREE.SRGBColorSpace),
+    emissiveIntensity: variant === 'core' ? 0.12 : 0.07,
+    flatShading: true,
+  });
+  titanMaterialCache.set(key, m);
+  return m;
+}
+
 function withShadow(mesh: THREE.Mesh): THREE.Mesh {
   mesh.castShadow = true;
   mesh.receiveShadow = false;
@@ -452,10 +514,10 @@ function makeSwarmBuildingMesh(kind: BuildingKind, primary: number, accent: numb
 function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: number, tileSize: number): THREE.Group {
   const g = new THREE.Group();
   g.name = `building:titan:${kind}`;
-  const coreMat = mat(primary);
+  const coreMat = titanMetal(primary, 'core');
   const neon = mat(accent, { emissive: accent });
-  const black = mat(0x0b0f18);
-  const dark = mat(0x151b29);
+  const shadowPurple = titanMetal(0x321a4d, 'panel');
+  const dark = titanMetal(0x5a3180, 'trim');
   const slab = (w: number, h: number, d: number, x: number, y: number, z: number, material = coreMat): THREE.Mesh => {
     const m = withShadow(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material));
     m.position.set(x, y, z);
@@ -493,10 +555,10 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
   };
   switch (kind) {
     case 'hq': {
-      slab(5.4, 0.34, 5.4, 0, 0.17, 0, black);
+      slab(5.4, 0.34, 5.4, 0, 0.17, 0, shadowPurple);
       slab(4.15, 0.34, 4.15, 0, 0.52, 0, dark);
       blade(1.2, 3.25, 0, 2.28, 0, coreMat);
-      blade(0.55, 4.45, 0, 3.25, 0, black);
+      blade(0.55, 4.45, 0, 3.25, 0, shadowPurple);
       const crown = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.9, 0), neon));
       crown.position.y = 5.65;
       g.add(crown);
@@ -506,20 +568,20 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
       }
       lightBar(3.0, 0, 0.96, 2.1);
       lightBar(3.0, 0, 0.96, -2.1);
-      panel(1.2, 1.1, -1.55, 1.25, 1.72, 0, black);
-      panel(1.2, 1.1, 1.55, 1.25, -1.72, 0, black);
+      panel(1.2, 1.1, -1.55, 1.25, 1.72, 0, shadowPurple);
+      panel(1.2, 1.1, 1.55, 1.25, -1.72, 0, shadowPurple);
       addAntenna(g, -2.0, 0.7, -2.0, 2.8, accent);
       break;
     }
     case 'power': {
-      slab(2.75, 0.32, 2.75, 0, 0.16, 0, black);
+      slab(2.75, 0.32, 2.75, 0, 0.16, 0, shadowPurple);
       slab(1.85, 0.28, 1.85, 0, 0.46, 0, dark);
       blade(0.5, 2.15, 0, 1.6, 0, coreMat);
       const core = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.62, 0), neon));
       core.position.y = 2.95;
       g.add(core);
       for (const [x, z] of [[-0.95, 0], [0.95, 0], [0, -0.95], [0, 0.95]] as const) {
-        blade(0.16, 1.45, x, 1.08, z, black);
+        blade(0.16, 1.45, x, 1.08, z, shadowPurple);
         lightRod(0.85, x, 1.78, z);
       }
       lightBar(1.3, 0, 0.78, 1.0);
@@ -527,38 +589,38 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
       break;
     }
     case 'refinery': {
-      slab(5.0, 0.34, 4.3, 0, 0.17, 0, black);
+      slab(5.0, 0.34, 4.3, 0, 0.17, 0, shadowPurple);
       slab(3.55, 0.36, 2.75, -0.35, 0.52, 0, dark);
       blade(0.58, 2.35, -1.55, 1.75, 0.62, coreMat);
       blade(0.48, 1.9, 1.25, 1.52, -0.55, coreMat);
-      prism(1.0, 1.1, 0.8, 1.55, 1.18, 1.1, Math.PI / 4, black);
+      prism(1.0, 1.1, 0.8, 1.55, 1.18, 1.1, Math.PI / 4, shadowPurple);
       panel(1.7, 1.2, 1.95, 1.28, 0, Math.PI / 2, coreMat);
       lightBar(2.65, -0.5, 0.92, 1.55);
       lightBar(1.4, 1.95, 1.38, 0, Math.PI / 2);
       break;
     }
     case 'barracks': {
-      slab(3.7, 0.32, 3.7, 0, 0.16, 0, black);
+      slab(3.7, 0.32, 3.7, 0, 0.16, 0, shadowPurple);
       slab(2.8, 0.9, 2.55, 0, 0.78, 0, coreMat);
       prism(0.42, 1.55, 2.75, -1.1, 1.28, 0, -0.16, dark);
       prism(0.42, 1.55, 2.75, 1.1, 1.28, 0, 0.16, dark);
-      slab(1.25, 0.34, 2.95, 0, 1.42, 0, black);
+      slab(1.25, 0.34, 2.95, 0, 1.42, 0, shadowPurple);
       for (const x of [-0.72, 0, 0.72]) lightRod(0.8, x, 1.85, 1.24);
       lightBar(1.9, 0, 0.86, 1.35);
       addAntenna(g, 1.35, 1.22, -1.2, 1.25, accent);
       break;
     }
     case 'factory': {
-      slab(5.6, 0.34, 5.2, 0, 0.17, 0, black);
+      slab(5.6, 0.34, 5.2, 0, 0.17, 0, shadowPurple);
       slab(4.25, 0.82, 3.7, 0, 0.78, 0.15, coreMat);
       slab(1.35, 1.75, 1.45, -1.55, 1.96, -1.1, dark);
       slab(1.65, 1.45, 1.55, 1.35, 1.78, 0.95, dark);
-      prism(1.2, 0.92, 3.4, -2.2, 1.12, 0.2, -0.14, black);
-      prism(1.2, 0.92, 3.4, 2.2, 1.12, 0.2, 0.14, black);
+      prism(1.2, 0.92, 3.4, -2.2, 1.12, 0.2, -0.14, shadowPurple);
+      prism(1.2, 0.92, 3.4, 2.2, 1.12, 0.2, 0.14, shadowPurple);
       lightBar(3.35, 0, 0.96, 2.05);
       lightBar(2.0, 1.05, 1.82, -1.62);
       for (const x of [-1.95, 1.95]) {
-        const vent = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 1.25, 6), black));
+        const vent = withShadow(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 1.25, 6), shadowPurple));
         vent.position.set(x, 1.92, -1.78);
         g.add(vent);
         lightRod(0.62, x, 2.55, -1.78);
@@ -566,13 +628,13 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
       break;
     }
     case 'tech': {
-      slab(3.55, 0.32, 3.55, 0, 0.16, 0, black);
+      slab(3.55, 0.32, 3.55, 0, 0.16, 0, shadowPurple);
       blade(0.88, 1.55, 0, 1.08, 0, dark);
       const core = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(1.05, 0), neon));
       core.position.y = 2.25;
       g.add(core);
       for (const [x, z] of [[-1.32, -1.32], [1.32, -1.32], [-1.32, 1.32], [1.32, 1.32]] as const) {
-        blade(0.14, 2.25, x, 1.6, z, black);
+        blade(0.14, 2.25, x, 1.6, z, shadowPurple);
         lightRod(1.12, x, 2.28, z);
       }
       lightBar(1.55, 0, 0.82, 1.45);
@@ -580,7 +642,7 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
       break;
     }
     case 'turret': {
-      slab(1.95, 0.3, 1.95, 0, 0.15, 0, black);
+      slab(1.95, 0.3, 1.95, 0, 0.15, 0, shadowPurple);
       blade(0.46, 0.85, 0, 0.72, 0, dark);
       const head = withShadow(new THREE.Mesh(new THREE.OctahedronGeometry(0.72, 0), coreMat));
       head.position.y = 1.38;

@@ -35,7 +35,7 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode
       <div class="faction-row" id="menu-factions"></div>
 
       <div class="menu-actions">
-        <div class="hint">Single-player · procedurally rendered · no textures.</div>
+        <div class="hint">Single-player · procedural terrain · textured faction materials.</div>
         <button class="btn" id="start-btn" disabled>Start</button>
       </div>
     </div>
