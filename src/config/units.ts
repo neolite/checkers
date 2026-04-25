@@ -90,8 +90,8 @@ export const UNIT_STATS: Record<UnitKind, UnitStats> = {
   ranger:   inf({ kind: 'ranger',   displayName: 'Ranger' }),
   raider:   inf({ kind: 'raider',   displayName: 'Raider',   maxHp: 35, speed: 7.5, cost: 75, buildMs: 3000, radius: 0.42,
                   weapon: { klass: 'aInfantry', behavior: 'contact', damage: 8, range: 1.5, cdMs: 650, projectileSpeed: 0, targetsGround: true } }),
-  paladin:  inf({ kind: 'paladin',  displayName: 'Paladin',  maxHp: 130, armor: 'medium', speed: 3.8, cost: 170, radius: 0.62,
-                  weapon: { klass: 'aInfantry', behavior: 'cone', damage: 12, range: 5.8, cdMs: 1000, projectileSpeed: 0, coneAngleDeg: 54, targetsGround: true } }),
+  paladin:  inf({ kind: 'paladin',  displayName: 'Paladin',  maxHp: 130, armor: 'medium', speed: 3.8, cost: 170, power: 2, radius: 0.62,
+                  weapon: { klass: 'aInfantry', behavior: 'contact', damage: 13, range: 1.7, cdMs: 1000, projectileSpeed: 0, splash: 0.75, targetsGround: true } }),
 
   // Tanks
   battleTank:   tank({ kind: 'battleTank',   displayName: 'Battle Tank',

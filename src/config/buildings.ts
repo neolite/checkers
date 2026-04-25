@@ -41,7 +41,7 @@ export const BUILDING_STATS: Record<BuildingKind, BuildingStats> = {
   },
   power: {
     kind: 'power', displayName: 'Power', maxHp: 360, tileW: 2, tileH: 2, radius: 2.2,
-    cost: 140, buildMs: 6000, power: 60, prereq: 'hq', armor: 'structure', sightRange: 6,
+    cost: 140, buildMs: 6000, power: 10, prereq: 'hq', armor: 'structure', sightRange: 6,
   },
   refinery: {
     kind: 'refinery', displayName: 'Refinery', maxHp: 700, tileW: 3, tileH: 3, radius: 3.2,
