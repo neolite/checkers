@@ -41,30 +41,34 @@ export function createHud(host: HTMLElement, world: World, camera: CameraSystem)
       </div>
     </div>
     <div class="hud-bottom">
-      <div class="hud-minimap">
-        <canvas id="minimap" width="160" height="160"></canvas>
+      <div class="hud-left">
+        <div class="hud-minimap">
+          <canvas id="minimap" width="160" height="160"></canvas>
+        </div>
+        <div class="hud-middle" id="hud-middle">
+          <div class="selection-info" id="selection-info">
+            <h4>No selection</h4>
+            <div class="meta">Drag to select units, click buildings to build units.</div>
+          </div>
+          <div class="mid-section" id="construction-section" style="display:none">
+            <div class="mid-title">Under construction</div>
+            <div class="tile-row" id="construction-row"></div>
+          </div>
+          <div class="mid-section" id="queue-section" style="display:none">
+            <div class="mid-title">Production queue</div>
+            <div class="tile-row" id="queue-row"></div>
+          </div>
+          <div class="mid-section" id="avatar-section" style="display:none">
+            <div class="mid-title">Selected</div>
+            <div class="tile-row" id="avatar-row"></div>
+          </div>
+          <div class="empty" id="mid-empty">Select units or a building to see details here.</div>
+        </div>
       </div>
-      <div class="hud-middle" id="hud-middle">
-        <div class="selection-info" id="selection-info">
-          <h4>No selection</h4>
-          <div class="meta">Drag to select units, click buildings to build units.</div>
-        </div>
-        <div class="mid-section" id="construction-section" style="display:none">
-          <div class="mid-title">Under construction</div>
-          <div class="tile-row" id="construction-row"></div>
-        </div>
-        <div class="mid-section" id="queue-section" style="display:none">
-          <div class="mid-title">Production queue</div>
-          <div class="tile-row" id="queue-row"></div>
-        </div>
-        <div class="mid-section" id="avatar-section" style="display:none">
-          <div class="mid-title">Selected</div>
-          <div class="tile-row" id="avatar-row"></div>
-        </div>
-        <div class="empty" id="mid-empty">Select units or a building to see details here.</div>
+      <div class="hud-right">
+        <div class="blueprint-panel" id="blueprint-panel"></div>
+        <div class="command-card" id="command-card"></div>
       </div>
-      <div class="blueprint-panel" id="blueprint-panel"></div>
-      <div class="command-card" id="command-card"></div>
     </div>
     <div class="float-layer" id="float-layer"></div>
   `;

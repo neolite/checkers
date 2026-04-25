@@ -58,13 +58,17 @@
       .hud-minimap canvas { display: block; width: 160px; height: 160px; border-radius: 4px; }
 
       /* Command card (bottom-right) */
-      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: grid; grid-template-columns: 170px minmax(340px, 540px) 190px 248px; align-items: end; gap: 12px; }
+      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+      .hud-left,
+      .hud-right { display: flex; align-items: end; gap: 12px; min-width: 0; }
+      .hud-left { justify-content: flex-start; max-width: min(760px, calc(100vw - 520px)); }
+      .hud-right { justify-content: flex-end; flex: 0 0 auto; }
       .selection-info { padding: 0 0 4px 0; font-size: 12px; border-bottom: 1px solid rgba(120, 140, 170, 0.22); }
       .selection-info h4 { margin: 0 0 4px 0; font-size: 13px; }
       .selection-info .meta { opacity: 0.75; font-size: 11px; line-height: 1.35; }
 
       /* Middle HUD panel — queues + unit avatars */
-      .hud-middle { width: 100%; justify-self: center; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; max-height: var(--bottom-panel-h); overflow: hidden; }
+      .hud-middle { width: clamp(340px, 32vw, 540px); background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; max-height: var(--bottom-panel-h); overflow: hidden; }
       .hud-middle .mid-section { display: flex; flex-direction: column; gap: 4px; }
       .hud-middle .mid-title { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55; }
       .hud-middle .tile-row { display: flex; gap: 5px; flex-wrap: wrap; }
@@ -82,7 +86,7 @@
       .hud-middle .avatar-tile .hp-mini { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(0,0,0,0.4); }
       .hud-middle .avatar-tile .hp-mini .fill { height: 100%; }
       .hud-middle .empty { opacity: 0.45; font-size: 11px; padding: 6px 0; }
-      .blueprint-panel { width: 190px; height: var(--bottom-panel-h); justify-self: center; background: rgba(7, 10, 16, 0.9); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px; box-shadow: inset 0 0 18px rgba(111,208,255,0.05); overflow: hidden; }
+      .blueprint-panel { width: 190px; height: var(--bottom-panel-h); background: rgba(7, 10, 16, 0.9); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px; box-shadow: inset 0 0 18px rgba(111,208,255,0.05); overflow: hidden; }
       .bp-card { height: 100%; display: flex; flex-direction: column; gap: 7px; }
       .bp-frame { position: relative; height: 108px; border: 1px solid rgba(120,140,170,0.28); border-radius: 5px; overflow: hidden; background: #05070b; }
       .bp-svg { display: block; width: 100%; height: 100%; }
@@ -96,7 +100,7 @@
       .bp-swarm .bp-name { color: #ffcf8a; }
       .bp-titan .bp-name { color: #d7c2ff; }
       .bp-empty .bp-name { color: #94a3b8; }
-      .command-card { width: 248px; height: var(--bottom-panel-h); justify-self: end; align-content: start; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; overflow: hidden; }
+      .command-card { width: 248px; height: var(--bottom-panel-h); align-content: start; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; overflow: hidden; }
       .cmd-cell { position: relative; width: 52px; height: 52px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .cmd-cell:hover { background: rgba(255,255,255,0.1); border-color: var(--hud-accent); }
       .cmd-cell.disabled { opacity: 0.35; cursor: not-allowed; }
