@@ -45,8 +45,8 @@ function makeTitanPanelTexture(hex: number, variant: string): THREE.CanvasTextur
   const ctx = canvas.getContext('2d')!;
   const base = new THREE.Color(hex);
   const c0 = `#${base.getHexString()}`;
-  const c1 = `#${base.clone().multiplyScalar(1.22).getHexString()}`;
-  const c2 = `#${base.clone().multiplyScalar(0.72).getHexString()}`;
+  const c1 = `#${base.clone().multiplyScalar(1.34).getHexString()}`;
+  const c2 = `#${base.clone().multiplyScalar(0.9).getHexString()}`;
   ctx.fillStyle = c0;
   ctx.fillRect(0, 0, size, size);
   ctx.fillStyle = c1;
@@ -72,11 +72,11 @@ function titanMetal(hex: number, variant = 'panel'): THREE.MeshLambertMaterial {
   const cached = titanMaterialCache.get(key);
   if (cached) return cached;
   const m = new THREE.MeshLambertMaterial({
-    color: hex,
+    color: 0xffffff,
     map: makeTitanPanelTexture(hex, variant),
     emissive: hex,
     emissiveMap: repeatLoadedTexture('/assets/textures/ambientcg/Metal060C/Metal060C_1K-JPG_Color.jpg', 2.6, THREE.SRGBColorSpace),
-    emissiveIntensity: variant === 'core' ? 0.12 : 0.07,
+    emissiveIntensity: variant === 'core' ? 0.2 : variant === 'trim' ? 0.16 : 0.14,
     flatShading: true,
   });
   titanMaterialCache.set(key, m);
@@ -516,8 +516,8 @@ function makeTitanBuildingMesh(kind: BuildingKind, primary: number, accent: numb
   g.name = `building:titan:${kind}`;
   const coreMat = titanMetal(primary, 'core');
   const neon = mat(accent, { emissive: accent });
-  const shadowPurple = titanMetal(0x321a4d, 'panel');
-  const dark = titanMetal(0x5a3180, 'trim');
+  const shadowPurple = titanMetal(0x57347a, 'panel');
+  const dark = titanMetal(0x7752a6, 'trim');
   const slab = (w: number, h: number, d: number, x: number, y: number, z: number, material = coreMat): THREE.Mesh => {
     const m = withShadow(new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material));
     m.position.set(x, y, z);
