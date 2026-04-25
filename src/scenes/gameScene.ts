@@ -1,8 +1,7 @@
 import type { FactionId } from '@config/palette';
 import { FACTION_IDS, FACTION_COLORS } from '@config/palette';
 import { FACTIONS } from '@config/factions';
-import { BUILDING_STATS, type BuildingKind } from '@config/buildings';
-import { ECONOMY, FOG, MAP, WORLD, SIM } from '@config/gameplay';
+import { ECONOMY, FOG, MAP, WORLD } from '@config/gameplay';
 import type { UnitKind } from '@config/units';
 import { World } from '@engine/world';
 import { createRenderContext } from '@render/scene';
@@ -27,6 +26,7 @@ import { createHud, type HudHandle } from '@ui/hud';
 import { mountCommandCard, type CommandCardHandle } from '@ui/commandCard';
 import { mountFloatingText, type FloatingTextHandle } from '@ui/floatingText';
 import { showGameOver } from '@ui/gameOver';
+import { mountPlaygroundPanel, type PlaygroundPanelHandle } from '@ui/playgroundPanel';
 import { mountAudio, type AudioKernelHandle } from '@render/audio';
 import { mountWeaponFx, type WeaponFxHandle } from '@render/weaponFx';
 import { initUnit, applyFactionMods } from '@entities/create';
@@ -47,7 +47,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   world.factions[playerFaction].isHuman = true;
   // Starting credits for everyone so the AI actually plays.
   for (const id of FACTION_IDS) {
-    world.factions[id].credits = mode === 'playground' ? 5000 : ECONOMY.startingCredits;
+    world.factions[id].credits = mode === 'playground' ? 0 : ECONOMY.startingCredits;
     if (mode === 'playground') world.factions[id].isHuman = true;
   }
 
@@ -84,52 +84,49 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     titan: { x: WORLD.width / 2, y: WORLD.depth - 14 },
   };
 
-  // HQ + some starter buildings + workers for each alive faction.
-  for (const id of FACTION_IDS) {
-    const corner = corners[id];
-    const tx = Math.floor(corner.x / MAP.tileSize);
-    const ty = Math.floor(corner.y / MAP.tileSize);
-    const hq = spawnBuilding(world, id, 'hq', tx, ty, true);
-    if (!hq) continue;
-    if (mode === 'playground') {
-      placePlaygroundTech(world, id, tx, ty);
-    }
-    // Give 2 starter workers.
-    const workerCount = mode === 'playground' ? 4 : 2;
-    for (let i = 0; i < workerCount; i++) {
-      const u = world.units.acquire();
-      if (!u) continue;
-      const meta = FACTIONS[id];
-      const stats = applyFactionMods(meta.workerKind, meta.mods);
-      const x = hq.x + (i - 0.5) * MAP.tileSize * 1.2;
-      const y = hq.y + (MAP.tileSize * 3.0);
-      initUnit(u, meta.workerKind, id, stats, x, y);
-      world.bus.emit('unit:spawned', { id: u.id, kind: meta.workerKind, faction: id, x, y });
-    }
-    if (mode === 'playground') {
-      spawnPlaygroundArmy(world, id, hq.x, hq.y);
+  if (mode !== 'playground') {
+    // HQ + starter workers for each alive faction.
+    for (const id of FACTION_IDS) {
+      const corner = corners[id];
+      const tx = Math.floor(corner.x / MAP.tileSize);
+      const ty = Math.floor(corner.y / MAP.tileSize);
+      const hq = spawnBuilding(world, id, 'hq', tx, ty, true);
+      if (!hq) continue;
+      // Give 2 starter workers.
+      for (let i = 0; i < 2; i++) {
+        const u = world.units.acquire();
+        if (!u) continue;
+        const meta = FACTIONS[id];
+        const stats = applyFactionMods(meta.workerKind, meta.mods);
+        const x = hq.x + (i - 0.5) * MAP.tileSize * 1.2;
+        const y = hq.y + (MAP.tileSize * 3.0);
+        initUnit(u, meta.workerKind, id, stats, x, y);
+        world.bus.emit('unit:spawned', { id: u.id, kind: meta.workerKind, faction: id, x, y });
+      }
     }
   }
 
-  // Scatter resource nodes around the map (a few near each base, some central).
-  const resourceSpots: Array<[number, number]> = [
-    [corners.vanguard.x + 14, corners.vanguard.y + 4],
-    [corners.vanguard.x + 4, corners.vanguard.y + 14],
-    [corners.swarm.x - 14, corners.swarm.y + 4],
-    [corners.swarm.x - 4, corners.swarm.y + 14],
-    [corners.titan.x - 10, corners.titan.y - 4],
-    [corners.titan.x + 10, corners.titan.y - 4],
-    [WORLD.width / 2, WORLD.depth / 2 - 6],
-    [WORLD.width / 2 - 12, WORLD.depth / 2],
-    [WORLD.width / 2 + 12, WORLD.depth / 2],
-    [WORLD.width / 2, WORLD.depth / 2 + 12],
-  ];
-  for (const [x, y] of resourceSpots) {
-    const spot = nearestOpenWorldPoint(world, x, y);
-    const r = world.resources.acquire();
-    if (!r) continue;
-    r.x = spot.x; r.y = spot.y;
-    r.amount = 1800;
+  if (mode !== 'playground') {
+    // Scatter resource nodes around the map (a few near each base, some central).
+    const resourceSpots: Array<[number, number]> = [
+      [corners.vanguard.x + 14, corners.vanguard.y + 4],
+      [corners.vanguard.x + 4, corners.vanguard.y + 14],
+      [corners.swarm.x - 14, corners.swarm.y + 4],
+      [corners.swarm.x - 4, corners.swarm.y + 14],
+      [corners.titan.x - 10, corners.titan.y - 4],
+      [corners.titan.x + 10, corners.titan.y - 4],
+      [WORLD.width / 2, WORLD.depth / 2 - 6],
+      [WORLD.width / 2 - 12, WORLD.depth / 2],
+      [WORLD.width / 2 + 12, WORLD.depth / 2],
+      [WORLD.width / 2, WORLD.depth / 2 + 12],
+    ];
+    for (const [x, y] of resourceSpots) {
+      const spot = nearestOpenWorldPoint(world, x, y);
+      const r = world.resources.acquire();
+      if (!r) continue;
+      r.x = spot.x; r.y = spot.y;
+      r.amount = 1800;
+    }
   }
 
   // Systems — fixed order per spec.
@@ -150,18 +147,17 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     new MovementSystem(),
     new CombatSystem(),
     new ProjectileSystem(),
-    new ProductionSystem(),
     new EconomySystem(),
-    new AIPlayerSystem(),
-    ...(mode === 'playground' ? [] : [fogSystem]),
-    new VictorySystem(),
+    ...(mode === 'playground' ? [] : [new ProductionSystem(), new AIPlayerSystem(), fogSystem, new VictorySystem()]),
     new CleanupSystem(bridge),
   ];
   for (const s of systems) s.init(world);
 
-  // Center camera on player HQ.
-  const myHqCorner = corners[playerFaction];
-  cameraSystem.centerOn(myHqCorner.x, myHqCorner.y + 10);
+  if (mode === 'playground') cameraSystem.centerOn(WORLD.width / 2, WORLD.depth / 2);
+  else {
+    const myHqCorner = corners[playerFaction];
+    cameraSystem.centerOn(myHqCorner.x, myHqCorner.y + 10);
+  }
 
   // HUD + UI.
   const hud: HudHandle = createHud(host, world, cameraSystem);
@@ -169,6 +165,16 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   const floaters: FloatingTextHandle = mountFloatingText(world);
   const audio: AudioKernelHandle = mountAudio(world);
   const weaponFx: WeaponFxHandle = mountWeaponFx(world, rc.scene);
+  let playgroundSpawnIndex = 0;
+  const playgroundPanel: PlaygroundPanelHandle | null = mode === 'playground'
+    ? mountPlaygroundPanel(
+      host,
+      (faction, kind, count) => {
+        playgroundSpawnIndex = spawnPlaygroundUnits(world, faction, kind, count, playgroundSpawnIndex);
+      },
+      () => clearPlaygroundUnits(world),
+    )
+    : null;
 
   // Re-render command card on selection changes. We subscribe to events that imply selection change.
   const offSelChange = world.bus.on('unit:died', () => card.tick());
@@ -206,6 +212,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     world.tNow += dtMs;
 
     if (!finished) {
+      if (mode === 'playground') syncPlaygroundLiveUnitStats(world);
       for (const s of systems) s.update(world, dtMs);
     }
 
@@ -254,6 +261,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     offDefeat();
     hud.destroy();
     card.destroy();
+    playgroundPanel?.destroy();
     floaters.destroy();
     audio.destroy();
     weaponFx.destroy();
@@ -265,47 +273,9 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     onExit();
   }
 
-  // Silence unused import warnings referenced via side-effects only.
-  void BUILDING_STATS; void SIM;
-
   return {
     destroy: cleanupAndExit,
   };
-}
-
-function placePlaygroundTech(world: World, id: FactionId, hqTx: number, hqTy: number): void {
-  const sx = id === 'swarm' ? -1 : 1;
-  const sy = id === 'titan' ? -1 : 1;
-  const placements: Array<{ kind: BuildingKind; dx: number; dy: number }> = [
-    { kind: 'power', dx: 5 * sx, dy: 0 },
-    { kind: 'power', dx: 0, dy: 9 * sy },
-    { kind: 'refinery', dx: 0, dy: 5 * sy },
-    { kind: 'barracks', dx: 5 * sx, dy: 5 * sy },
-    { kind: 'factory', dx: 9 * sx, dy: 5 * sy },
-    { kind: 'tech', dx: 9 * sx, dy: 0 },
-  ];
-  for (const p of placements) {
-    spawnBuilding(world, id, p.kind, hqTx + p.dx, hqTy + p.dy, true);
-  }
-}
-
-function spawnPlaygroundArmy(world: World, id: FactionId, hqX: number, hqY: number): void {
-  const meta = FACTIONS[id];
-  const sx = id === 'swarm' ? -1 : 1;
-  const sy = id === 'titan' ? -1 : 1;
-  const core: UnitKind[] = [
-    meta.infantryKind, meta.infantryKind, meta.infantryKind,
-    meta.extraBarracksUnit ?? meta.infantryKind,
-    meta.tankKind,
-    meta.specialKind,
-  ];
-  for (let i = 0; i < core.length; i++) {
-    const row = Math.floor(i / 3);
-    const col = i % 3;
-    const x = hqX + sx * (5 + col * 1.8);
-    const y = hqY + sy * (7 + row * 1.8);
-    spawnUnitAt(world, id, core[i]!, x, y);
-  }
 }
 
 function spawnUnitAt(world: World, id: FactionId, kind: UnitKind, x: number, y: number): void {
@@ -315,6 +285,52 @@ function spawnUnitAt(world: World, id: FactionId, kind: UnitKind, x: number, y: 
   const stats = applyFactionMods(kind, meta.mods);
   initUnit(u, kind, id, stats, x, y);
   world.bus.emit('unit:spawned', { id: u.id, kind, faction: id, x, y });
+}
+
+function spawnPlaygroundUnits(world: World, faction: FactionId, kind: UnitKind, count: number, startIndex: number): number {
+  let next = startIndex;
+  for (let i = 0; i < count; i++) {
+    const anchor = playgroundAnchor(faction);
+    const slot = next++;
+    const ring = 1.4 + Math.floor((slot % 36) / 9) * 1.35;
+    const angle = ((slot % 9) / 9) * Math.PI * 2 + Math.floor(slot / 36) * 0.45;
+    const point = nearestOpenWorldPoint(world, anchor.x + Math.cos(angle) * ring, anchor.y + Math.sin(angle) * ring);
+    spawnUnitAt(world, faction, kind, point.x, point.y);
+  }
+  return next;
+}
+
+function playgroundAnchor(faction: FactionId): { x: number; y: number } {
+  const cx = WORLD.width / 2;
+  const cy = WORLD.depth / 2;
+  switch (faction) {
+    case 'vanguard':
+      return { x: cx - 12, y: cy };
+    case 'swarm':
+      return { x: cx + 12, y: cy };
+    case 'titan':
+      return { x: cx, y: cy + 12 };
+  }
+}
+
+function clearPlaygroundUnits(world: World): void {
+  world.units.forEachAlive((u) => { u.hp = 0; });
+  world.projectiles.forEachAlive((p) => { world.projectiles.release(p); });
+  world.selectedUnits.clear();
+  world.selectedBuildings.clear();
+}
+
+function syncPlaygroundLiveUnitStats(world: World): void {
+  world.units.forEachAlive((u) => {
+    if (u.hp <= 0) return;
+    const oldMax = Math.max(1, u.stats.maxHp);
+    const hpRatio = Math.max(0, Math.min(1, u.hp / oldMax));
+    const nextStats = applyFactionMods(u.kind, FACTIONS[u.faction].mods);
+    u.stats = nextStats;
+    if (nextStats.maxHp !== oldMax) {
+      u.hp = Math.max(1, Math.min(nextStats.maxHp, Math.round(nextStats.maxHp * hpRatio)));
+    }
+  });
 }
 
 function nearestOpenWorldPoint(world: World, x: number, y: number): { x: number; y: number } {

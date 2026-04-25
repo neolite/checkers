@@ -27,7 +27,7 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode
         </div>
         <div class="mode-card" data-mode="playground">
           <h3>Playground</h3>
-          <div class="desc">No AI pressure. Revealed map, prebuilt tech and test armies for matchup checks.</div>
+          <div class="desc">Battle Lab. Empty revealed map with unit spawn controls and live config tuning.</div>
         </div>
       </div>
 
