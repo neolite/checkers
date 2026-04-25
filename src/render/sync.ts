@@ -6,6 +6,7 @@ import { makeUnitMesh, makeBuildingMesh, makeProjectileMesh, makeResourceMesh } 
 import { makeSelectionRing } from '@render/selection';
 import { sampleFog } from '@render/fogOverlay';
 import { makeRallyMarker } from '@render/rallyMarker';
+import { makeProjectileTrailGeometry, makeProjectileTrailMaterial } from '@render/shaders/weaponShaders';
 import { MAP } from '@config/gameplay';
 
 interface UnitView {
@@ -26,7 +27,9 @@ interface BuildingView {
 }
 
 interface ProjectileView {
+  group: THREE.Group;
   mesh: THREE.Mesh;
+  trail: THREE.Mesh | null;
   behavior: Projectile['behavior'];
 }
 
@@ -96,8 +99,8 @@ export class RenderBridge {
   removeProjectile(id: number): void {
     const v = this.projectileViews.get(id);
     if (!v) return;
-    this.scene.remove(v.mesh);
-    disposeObject(v.mesh);
+    this.scene.remove(v.group);
+    disposeObject(v.group);
     this.projectileViews.delete(id);
   }
 
@@ -233,16 +236,25 @@ export class RenderBridge {
     let v = this.projectileViews.get(p.id);
     if (!v || v.behavior !== p.behavior) {
       if (v) {
-        this.scene.remove(v.mesh);
-        disposeObject(v.mesh);
+        this.scene.remove(v.group);
+        disposeObject(v.group);
       }
+      const group = new THREE.Group();
       const mesh = makeProjectileMesh(color, p.behavior);
-      this.scene.add(mesh);
-      v = { mesh, behavior: p.behavior };
+      const trail = makeProjectileTrail(p.behavior, color);
+      group.add(mesh);
+      if (trail) group.add(trail);
+      this.scene.add(group);
+      v = { group, mesh, trail, behavior: p.behavior };
       this.projectileViews.set(p.id, v);
     }
-    v.mesh.position.set(p.x, p.z, p.y);
-    if (p.vx !== 0 || p.vy !== 0) v.mesh.rotation.y = Math.atan2(p.vx, p.vy);
+    v.group.position.set(p.x, p.z, p.y);
+    if (p.vx !== 0 || p.vy !== 0) v.group.rotation.y = Math.atan2(p.vx, p.vy);
+    if (v.trail) {
+      const mat = v.trail.material as THREE.ShaderMaterial;
+      mat.uniforms['uTime']!.value = p.ageMs / 1000;
+      mat.uniforms['uFade']!.value = Math.max(0.35, 1 - p.ageMs / Math.max(1, p.lifeMs) * 0.25);
+    }
   }
 
   syncResource(r: ResourceNode, fogGrid: Uint8Array): void {
@@ -257,6 +269,21 @@ export class RenderBridge {
     const fogV = sampleFog(fogGrid, r.x, r.y);
     v.group.visible = fogV !== 0;
   }
+}
+
+function makeProjectileTrail(behavior: Projectile['behavior'], color: number): THREE.Mesh | null {
+  if (behavior !== 'rocket' && behavior !== 'arc' && behavior !== 'bounce') return null;
+  const length = behavior === 'rocket' ? 1.75 : behavior === 'arc' ? 1.15 : 0.9;
+  const width = behavior === 'rocket' ? 0.46 : behavior === 'arc' ? 0.34 : 0.28;
+  const trailColor = behavior === 'bounce' ? 0xa6ff5e : behavior === 'arc' ? 0xff7e32 : color;
+  const hotColor = behavior === 'bounce' ? 0xe9ffd6 : behavior === 'arc' ? 0xfff0b6 : 0xffffff;
+  const mesh = new THREE.Mesh(
+    makeProjectileTrailGeometry(length, width),
+    makeProjectileTrailMaterial(trailColor, hotColor),
+  );
+  mesh.name = 'projectile-trail';
+  mesh.position.y = -0.01;
+  return mesh;
 }
 
 function disposeObject(obj: THREE.Object3D): void {
