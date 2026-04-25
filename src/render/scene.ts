@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WORLD } from '@config/gameplay';
 import { NEUTRAL_COLORS } from '@config/palette';
+import { FX_TUNING } from '@config/fx';
 
 export interface RenderContext {
   renderer: THREE.WebGLRenderer;
@@ -17,7 +18,7 @@ function buildTerrainMesh(): THREE.Mesh {
   // confused unit picking. A flat ground is cleaner for a single-screen prototype.
   const pos = geom.attributes.position!;
   // Use the noise to generate COLOR variance instead of Z variance.
-  const rand = mulberry32(1337);
+  const rand = mulberry32(FX_TUNING.render.terrainRoughnessSeed);
   void rand;
   pos.needsUpdate = true;
   geom.computeVertexNormals();
@@ -53,11 +54,11 @@ export function createRenderContext(host: HTMLElement): RenderContext {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
-  renderer.setClearColor(0x05070b);
+  renderer.setClearColor(FX_TUNING.render.clearColor);
   host.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x05070b, 120, 260);
+  scene.fog = new THREE.Fog(FX_TUNING.render.clearColor, 120, 260);
 
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.5, 400);
   camera.position.set(WORLD.width / 2, 55, WORLD.depth / 2 + 30);
@@ -88,7 +89,7 @@ export function createRenderContext(host: HTMLElement): RenderContext {
   // Faint grid overlay.
   const grid = new THREE.GridHelper(WORLD.width, 32, 0x2a3647, 0x1a222e);
   grid.position.set(WORLD.width / 2, 0.02, WORLD.depth / 2);
-  (grid.material as THREE.Material).opacity = 0.25;
+  (grid.material as THREE.Material).opacity = FX_TUNING.render.gridOpacity;
   (grid.material as THREE.Material).transparent = true;
   scene.add(grid);
 

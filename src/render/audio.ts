@@ -1,4 +1,5 @@
 import type { World } from '@engine/world';
+import { FX_TUNING } from '@config/fx';
 
 // Procedural SFX kernel. All sounds are synthesized at play-time from oscillators
 // and noise — no audio files, no licenses. Positional mix is camera-relative:
@@ -23,24 +24,24 @@ export function mountAudio(world: World): AudioKernelHandle {
   }
   const ctx: AudioContext = new Ctx();
   const master = ctx.createGain();
-  master.gain.value = 0.55;
+  master.gain.value = FX_TUNING.audio.masterGain;
   master.connect(ctx.destination);
 
   let muted = false;
   function setMuted(on: boolean): void {
     muted = on;
-    master.gain.value = on ? 0 : 0.55;
+    master.gain.value = on ? 0 : FX_TUNING.audio.masterGain;
   }
 
   const delay = ctx.createDelay(0.8);
-  delay.delayTime.value = 0.18;
+  delay.delayTime.value = FX_TUNING.audio.echoDelay;
   const feedback = ctx.createGain();
-  feedback.gain.value = 0.26;
+  feedback.gain.value = FX_TUNING.audio.echoFeedback;
   const echoFilter = ctx.createBiquadFilter();
   echoFilter.type = 'lowpass';
-  echoFilter.frequency.value = 2200;
+  echoFilter.frequency.value = FX_TUNING.audio.echoLowpassHz;
   const echoGain = ctx.createGain();
-  echoGain.gain.value = 0.22;
+  echoGain.gain.value = FX_TUNING.audio.echoGain;
   delay.connect(echoFilter);
   echoFilter.connect(feedback);
   feedback.connect(delay);
@@ -55,8 +56,8 @@ export function mountAudio(world: World): AudioKernelHandle {
     const dy = wy - cam.position.z;
     const d = Math.hypot(dx, dy);
     // Gentle top-down RTS attenuation: off-screen combat is quieter, not gone.
-    const gain = Math.max(0.16, Math.min(1, 1 / (1 + d / 36)));
-    const pan = Math.max(-0.85, Math.min(0.85, dx / 42));
+    const gain = Math.max(FX_TUNING.audio.minSpatialGain, Math.min(1, 1 / (1 + d / FX_TUNING.audio.distanceFalloff)));
+    const pan = Math.max(-0.85, Math.min(0.85, dx / FX_TUNING.audio.panDivisor));
     const wet = Math.max(0.08, Math.min(0.32, d / 220));
     return { gain, pan, wet };
   }

@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
+import { saveConfigPlugin } from './_utils/inspector/save-config-plugin';
 
 export default defineConfig({
+  plugins: [saveConfigPlugin()],
   resolve: {
     alias: {
       '@config': fileURLToPath(new URL('./src/config', import.meta.url)),

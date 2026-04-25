@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FOG, WORLD, MAP } from '@config/gameplay';
+import { FX_TUNING } from '@config/fx';
 
 // Fog of war overlay: a canvas-textured plane at y≈0.15 above terrain.
 // The canvas has one pixel per nav tile, painted by FogSystem at 5 Hz.
@@ -45,7 +46,7 @@ export function createFogOverlay(): FogOverlay {
   });
 
   const mesh = new THREE.Mesh(planeGeom, mat);
-  mesh.position.y = 0.05;
+  mesh.position.y = FX_TUNING.fog.overlayY;
   mesh.renderOrder = 2;
   mesh.name = 'fog-overlay';
 
@@ -59,9 +60,9 @@ export function createFogOverlay(): FogOverlay {
       const v = gridData[i]!;
       const off = i * 4;
       if (v === FOG.unexplored) {
-        data[off + 0] = 0; data[off + 1] = 0; data[off + 2] = 0; data[off + 3] = 255;
+        data[off + 0] = 0; data[off + 1] = 0; data[off + 2] = 0; data[off + 3] = FX_TUNING.fog.unexploredAlpha;
       } else if (v === FOG.explored) {
-        data[off + 0] = 0; data[off + 1] = 0; data[off + 2] = 0; data[off + 3] = 135;
+        data[off + 0] = 0; data[off + 1] = 0; data[off + 2] = 0; data[off + 3] = FX_TUNING.fog.exploredAlpha;
       } else {
         data[off + 0] = 0; data[off + 1] = 0; data[off + 2] = 0; data[off + 3] = 0;
       }
