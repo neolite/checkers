@@ -57,7 +57,7 @@
       .hud-minimap canvas { display: block; border-radius: 4px; }
 
       /* Command card (bottom-right) */
-      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: grid; grid-template-columns: 170px minmax(360px, 620px) auto; align-items: end; gap: 12px; }
+      .hud-bottom { position: absolute; bottom: 12px; left: 12px; right: 12px; display: grid; grid-template-columns: 170px minmax(340px, 540px) 190px auto; align-items: end; gap: 12px; }
       .selection-info { padding: 0 0 4px 0; font-size: 12px; border-bottom: 1px solid rgba(120, 140, 170, 0.22); }
       .selection-info h4 { margin: 0 0 4px 0; font-size: 13px; }
       .selection-info .meta { opacity: 0.75; font-size: 11px; line-height: 1.35; }
@@ -81,6 +81,20 @@
       .hud-middle .avatar-tile .hp-mini { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(0,0,0,0.4); }
       .hud-middle .avatar-tile .hp-mini .fill { height: 100%; }
       .hud-middle .empty { opacity: 0.45; font-size: 11px; padding: 6px 0; }
+      .blueprint-panel { width: 190px; min-height: 158px; justify-self: center; background: rgba(7, 10, 16, 0.9); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px; box-shadow: inset 0 0 18px rgba(111,208,255,0.05); }
+      .bp-card { height: 100%; display: flex; flex-direction: column; gap: 7px; }
+      .bp-frame { position: relative; height: 110px; border: 1px solid rgba(120,140,170,0.28); border-radius: 5px; overflow: hidden; background: #05070b; }
+      .bp-svg { display: block; width: 100%; height: 100%; }
+      .bp-scanline { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(255,255,255,0.08), transparent 2px); background-size: 100% 7px; mix-blend-mode: screen; opacity: 0.18; }
+      .bp-copy { min-width: 0; }
+      .bp-name { font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .bp-sub { margin-top: 2px; font-size: 10px; opacity: 0.65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .bp-hp { margin-top: 6px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,0.08); }
+      .bp-hp div { height: 100%; box-shadow: 0 0 8px currentColor; transition: width 120ms linear; }
+      .bp-vanguard .bp-name { color: #9ec8ff; }
+      .bp-swarm .bp-name { color: #ffcf8a; }
+      .bp-titan .bp-name { color: #d7c2ff; }
+      .bp-empty .bp-name { color: #94a3b8; }
       .command-card { justify-self: end; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 10px; display: grid; grid-template-columns: repeat(4, 52px); grid-auto-rows: 52px; gap: 6px; }
       .cmd-cell { position: relative; width: 52px; height: 52px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .cmd-cell:hover { background: rgba(255,255,255,0.1); border-color: var(--hud-accent); }

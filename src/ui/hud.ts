@@ -7,6 +7,7 @@ import { UNIT_STATS, type UnitKind } from '@config/units';
 import { icon, type IconName } from '@ui/icons';
 import type { Role } from '@config/gameplay';
 import type { BuildingKind } from '@config/buildings';
+import { blueprintPortrait } from '@ui/blueprintPortrait';
 
 export interface HudHandle {
   tick(): void;
@@ -60,6 +61,7 @@ export function createHud(host: HTMLElement, world: World, camera: CameraSystem)
         </div>
         <div class="empty" id="mid-empty">Select units or a building to see details here.</div>
       </div>
+      <div class="blueprint-panel" id="blueprint-panel"></div>
       <div class="command-card" id="command-card"></div>
     </div>
     <div class="float-layer" id="float-layer"></div>
@@ -104,6 +106,7 @@ export function createHud(host: HTMLElement, world: World, camera: CameraSystem)
   const constructionSection = layer.querySelector('#construction-section') as HTMLDivElement;
   const constructionRow = layer.querySelector('#construction-row') as HTMLDivElement;
   const midEmpty = layer.querySelector('#mid-empty') as HTMLDivElement;
+  const blueprintPanel = layer.querySelector('#blueprint-panel') as HTMLDivElement;
 
   function tick(): void {
     const fs = world.factions[world.playerFaction];
@@ -119,6 +122,7 @@ export function createHud(host: HTMLElement, world: World, camera: CameraSystem)
 
     drawMinimap(minimapCtx, minimap, world);
     renderMidPanel(world, queueSection, queueRow, avatarSection, avatarRow, constructionSection, constructionRow, midEmpty);
+    renderBlueprintPanel(world, blueprintPanel);
   }
 
   return {
@@ -378,6 +382,68 @@ function renderMidPanel(
 
   midEmpty.style.display = 'none';
   void anything;
+}
+
+function renderBlueprintPanel(world: World, panel: HTMLDivElement): void {
+  if (world.selectedBuildings.size > 0) {
+    const id = [...world.selectedBuildings][0]!;
+    const b = world.buildings.findById(id);
+    if (b) {
+      const hpPct = b.completed ? b.hp / Math.max(1, b.stats.maxHp) : 1 - b.buildMsLeft / Math.max(1, b.stats.buildMs);
+      panel.innerHTML = blueprintPortrait({
+        faction: b.faction,
+        kind: b.kind,
+        label: b.stats.displayName,
+        sublabel: b.completed ? `${b.kind.toUpperCase()} / ${b.stats.armor}` : `BUILDING ${Math.round(hpPct * 100)}%`,
+        hpPct,
+        isBuilding: true,
+      });
+      return;
+    }
+  }
+
+  if (world.selectedUnits.size > 0) {
+    const selected = [...world.selectedUnits].map((id) => world.units.findById(id)).filter((u) => u !== null);
+    if (selected.length === 1) {
+      const u = selected[0]!;
+      panel.innerHTML = blueprintPortrait({
+        faction: u.faction,
+        kind: u.kind,
+        label: u.stats.displayName,
+        sublabel: `${u.stats.role.toUpperCase()} / ${u.stats.armor}${u.stats.weapon ? ` / ${u.stats.weapon.behavior ?? 'projectile'}` : ''}`,
+        hpPct: u.hp / Math.max(1, u.stats.maxHp),
+        count: 1,
+      });
+      return;
+    }
+    if (selected.length > 1) {
+      const faction = selected[0]!.faction;
+      let hp = 0;
+      let max = 0;
+      const kinds = new Set<UnitKind>();
+      for (const u of selected) {
+        hp += u!.hp;
+        max += u!.stats.maxHp;
+        kinds.add(u!.kind);
+      }
+      panel.innerHTML = blueprintPortrait({
+        faction,
+        kind: kinds.size === 1 ? selected[0]!.kind : 'mixed',
+        label: `${selected.length} selected`,
+        sublabel: kinds.size === 1 ? selected[0]!.stats.displayName : `${kinds.size} unit types`,
+        hpPct: hp / Math.max(1, max),
+        count: selected.length,
+      });
+      return;
+    }
+  }
+
+  panel.innerHTML = blueprintPortrait({
+    faction: world.playerFaction,
+    kind: 'empty',
+    label: 'No blueprint',
+    sublabel: 'Select a unit or structure',
+  });
 }
 
 function roleIcon(role: Role): IconName {
