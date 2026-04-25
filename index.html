@@ -64,7 +64,7 @@
       .selection-info .meta { opacity: 0.75; font-size: 11px; line-height: 1.35; }
 
       /* Middle HUD panel — queues + unit avatars */
-      .hud-middle { width: 100%; height: var(--bottom-panel-h); justify-self: center; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+      .hud-middle { width: 100%; justify-self: center; background: var(--hud-bg); border: 1px solid var(--hud-border); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; min-height: 60px; max-height: var(--bottom-panel-h); overflow: hidden; }
       .hud-middle .mid-section { display: flex; flex-direction: column; gap: 4px; }
       .hud-middle .mid-title { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55; }
       .hud-middle .tile-row { display: flex; gap: 5px; flex-wrap: wrap; }
