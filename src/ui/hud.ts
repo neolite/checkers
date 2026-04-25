@@ -3,6 +3,8 @@ import { FACTION_COLORS } from '@config/palette';
 import { FACTIONS } from '@config/factions';
 import type { CameraSystem } from '@systems/camera';
 import { WORLD } from '@config/gameplay';
+import { MAP } from '@config/gameplay';
+import { TERRAIN_MINIMAP_COLORS } from '@config/terrain';
 import { UNIT_STATS, type UnitKind } from '@config/units';
 import { icon, type IconName } from '@ui/icons';
 import type { Role } from '@config/gameplay';
@@ -140,10 +142,9 @@ function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, w
   ctx.fillStyle = '#1a2330';
   ctx.fillRect(0, 0, w, h);
 
-  const scaleX = w / (world.navGrid.w * (window as unknown as { _tileSize?: number })._tileSize! || 1);
-  // simpler: project world space
-  const worldW = world.navGrid.w * 2; // MAP.tileSize=2
-  const worldH = world.navGrid.h * 2;
+  // Project world space.
+  const worldW = world.navGrid.w * MAP.tileSize;
+  const worldH = world.navGrid.h * MAP.tileSize;
   const sx = w / worldW;
   const sy = h / worldH;
 
@@ -156,7 +157,9 @@ function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, w
   for (let ty = 0; ty < tileH; ty++) {
     for (let tx = 0; tx < tileW; tx++) {
       const v = fog[ty * tileW + tx]!;
-      if (v === 2) ctx.fillStyle = '#2c3a4c';
+      const terrain = world.terrainTiles[ty * tileW + tx]!;
+      if (terrain !== 0 && v !== 0) ctx.fillStyle = minimapTerrainColor(terrain, v);
+      else if (v === 2) ctx.fillStyle = '#2c3a4c';
       else if (v === 1) ctx.fillStyle = '#232b38';
       else ctx.fillStyle = '#11161f';
       ctx.fillRect(tx * cellW, ty * cellH, cellW + 0.5, cellH + 0.5);
@@ -188,14 +191,20 @@ function drawMinimap(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, w
     ctx.strokeStyle = 'rgba(255,255,255,0.45)';
     ctx.strokeRect((cx - view / 2) * sx, (cy - view / 2) * sy, view * sx, view * sy);
   }
-  void scaleX;
 }
 
 function isVisible(fog: Uint8Array, wx: number, wy: number, tileW: number, tileH: number): 0 | 1 | 2 {
-  const tx = Math.floor(wx / 2);
-  const ty = Math.floor(wy / 2);
+  const tx = Math.floor(wx / MAP.tileSize);
+  const ty = Math.floor(wy / MAP.tileSize);
   if (tx < 0 || ty < 0 || tx >= tileW || ty >= tileH) return 0;
   return fog[ty * tileW + tx]! as 0 | 1 | 2;
+}
+
+function minimapTerrainColor(value: number, fog: number): string {
+  const alpha = fog === 2 ? 'ff' : '88';
+  if (value === 1) return `${TERRAIN_MINIMAP_COLORS.river}${alpha}`;
+  if (value === 2) return `${TERRAIN_MINIMAP_COLORS.lava}${alpha}`;
+  return `${TERRAIN_MINIMAP_COLORS.acid}${alpha}`;
 }
 
 // ----- mid-panel, diff-friendly rendering -----

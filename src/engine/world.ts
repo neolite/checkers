@@ -6,6 +6,7 @@ import { NavGrid, FlowField } from '@utils/flowField';
 import type { FactionId } from '@config/palette';
 import { FACTION_IDS } from '@config/palette';
 import { FOG } from '@config/gameplay';
+import type { TerrainFeature } from '@config/terrain';
 import { makeUnitSeed, resetUnit, makeBuildingSeed, resetBuilding, makeProjectileSeed, resetProjectile, makeResourceNodeSeed, resetResourceNode } from '@entities/create';
 
 const POOL = {
@@ -39,6 +40,8 @@ export class World {
   projectiles: ObjectPool<Projectile>;
   resources: ObjectPool<ResourceNode>;
   navGrid: NavGrid;
+  terrainFeatures: TerrainFeature[] = [];
+  terrainTiles: Uint8Array;
   // Flow-field cache keyed by goal tile.
   flowFields = new Map<string, { field: FlowField; lastUsedMs: number; createdMs: number }>();
   tNow = 0; // sim time in ms
@@ -63,6 +66,7 @@ export class World {
     this.projectiles = new ObjectPool<Projectile>(POOL.projectiles, makeProjectileSeed, resetProjectile);
     this.resources = new ObjectPool<ResourceNode>(POOL.resources, makeResourceNodeSeed, resetResourceNode);
     this.navGrid = new NavGrid();
+    this.terrainTiles = new Uint8Array(this.navGrid.w * this.navGrid.h);
     const factions = {} as Record<FactionId, FactionState>;
     let t = 1;
     for (const id of FACTION_IDS) {

@@ -31,6 +31,8 @@ import { mountAudio, type AudioKernelHandle } from '@render/audio';
 import { mountWeaponFx, type WeaponFxHandle } from '@render/weaponFx';
 import { initUnit, applyFactionMods } from '@entities/create';
 import { FACTION_COLORS as _ } from '@config/palette';
+import { makeTerrainFeatureLayer } from '@render/terrainFeatures';
+import { stampTerrainFeatures } from '@utils/terrain';
 void _;
 
 export type GameMode = 'ffa' | 'allVsYou' | 'playground';
@@ -63,6 +65,10 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   world.three.renderer = rc.renderer;
   world.three.scene = rc.scene;
   world.three.camera = rc.camera;
+
+  stampTerrainFeatures(world);
+  const terrainFx = makeTerrainFeatureLayer(world.terrainFeatures);
+  rc.scene.add(terrainFx.group);
 
   // Fog overlay plane.
   const fog = createFogOverlay();
@@ -119,9 +125,10 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     [WORLD.width / 2, WORLD.depth / 2 + 12],
   ];
   for (const [x, y] of resourceSpots) {
+    const spot = nearestOpenWorldPoint(world, x, y);
     const r = world.resources.acquire();
     if (!r) continue;
-    r.x = x; r.y = y;
+    r.x = spot.x; r.y = spot.y;
     r.amount = 1800;
   }
 
@@ -228,6 +235,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     }
     floaters.tick();
     weaponFx.tick(dtMs);
+    terrainFx.tick(dtMs);
     audio.updateListener();
 
     rc.renderer.render(rc.scene, rc.camera);
@@ -304,4 +312,23 @@ function spawnUnitAt(world: World, id: FactionId, kind: UnitKind, x: number, y: 
   const stats = applyFactionMods(kind, meta.mods);
   initUnit(u, kind, id, stats, x, y);
   world.bus.emit('unit:spawned', { id: u.id, kind, faction: id, x, y });
+}
+
+function nearestOpenWorldPoint(world: World, x: number, y: number): { x: number; y: number } {
+  const [tx, ty] = world.navGrid.worldToTile(x, y);
+  if (!world.navGrid.isBlocked(tx, ty)) return { x, y };
+  for (let r = 1; r <= 8; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
+        const nx = tx + dx;
+        const ny = ty + dy;
+        if (!world.navGrid.inBounds(nx, ny)) continue;
+        if (world.navGrid.isBlocked(nx, ny)) continue;
+        const [wx, wy] = world.navGrid.tileToWorld(nx, ny);
+        return { x: wx, y: wy };
+      }
+    }
+  }
+  return { x, y };
 }
