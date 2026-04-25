@@ -11,6 +11,7 @@ import { MAP } from '@config/gameplay';
 import { initUnit } from '@entities/create';
 import { initBuilding } from '@entities/create';
 import { AI_TUNING } from '@config/gameplay';
+import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@utils/power';
 
 // Building construction + unit training.
 // NOTE: "production" in this codebase covers BOTH finishing buildings under construction
@@ -23,6 +24,11 @@ export class ProductionSystem implements ISystem {
       const faction = FACTIONS[w.playerFaction];
       const stats = BUILDING_STATS[kind];
       if (stats.prereq && !hasCompleted(w, w.playerFaction, stats.prereq)) return;
+      if (!canPowerBuilding(w, w.playerFaction, kind)) {
+        const lack = powerShortfallForBuilding(w, w.playerFaction, kind);
+        w.bus.emit('ui:notice', { text: `Need ${lack} more power. Build Power first.`, tone: 'error' });
+        return;
+      }
       const cost = Math.round(stats.cost * faction.mods.costMul);
       const fs = w.factions[w.playerFaction];
       if (fs.credits < cost) return;
@@ -103,6 +109,11 @@ export class ProductionSystem implements ISystem {
       const cost = baseStats.cost;
       const fs = w.factions[w.playerFaction];
       if (fs.credits < cost) return;
+      if (!canPowerUnit(w, w.playerFaction, kind)) {
+        const lack = powerShortfallForUnit(w, w.playerFaction, kind);
+        w.bus.emit('ui:notice', { text: `Need ${lack} more power. Build Power first.`, tone: 'error' });
+        return;
+      }
       fs.credits -= cost;
       b.productionQueue.push({ role, kind });
       if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {

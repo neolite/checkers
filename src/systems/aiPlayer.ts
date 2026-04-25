@@ -10,6 +10,7 @@ import { UNIT_STATS } from '@config/units';
 import { MAP, AI_TUNING } from '@config/gameplay';
 import { spawnBuilding } from '@systems/production';
 import { dist } from '@utils/math';
+import { canPowerBuilding, canPowerUnit } from '@utils/power';
 
 // Skeleton bot. Every 2.5s it inspects its own state and:
 //   - queues up economy (refinery + power) until it has 2 harvesters + 2 power
@@ -112,6 +113,7 @@ export class AIPlayerSystem implements ISystem {
     const mods = meta.mods;
     const cost = Math.round(stats.cost * mods.costMul);
     if (fs.credits < cost) return false;
+    if (!canPowerBuilding(w, id, kind)) return false;
     // Find a worker — morph consumes one, supervised needs one to attend.
     const worker = this.findAvailableWorker(w, id);
     if (!worker) return false; // Can't build until a worker exists.
@@ -203,6 +205,7 @@ export class AIPlayerSystem implements ISystem {
     const cost = stats.cost;
     const fs = w.factions[b.faction];
     if (fs.credits < cost) return;
+    if (!canPowerUnit(w, b.faction, kind)) return;
     fs.credits -= cost;
     b.productionQueue.push({ role, kind });
     if (b.productionMsLeft <= 0 && b.productionQueue.length === 1) {

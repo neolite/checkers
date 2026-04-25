@@ -1,6 +1,7 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import { FACTION_IDS } from '@config/palette';
+import { powerSnapshot } from '@utils/power';
 
 // Recalculates power produced/consumed and credits trickle. Minimal.
 export class EconomySystem implements ISystem {
@@ -10,14 +11,9 @@ export class EconomySystem implements ISystem {
 
   update(w: World, _dtMs: number): void {
     for (const id of FACTION_IDS) {
-      w.factions[id].powerProduced = 0;
-      w.factions[id].powerConsumed = 0;
+      const snap = powerSnapshot(w, id);
+      w.factions[id].powerProduced = snap.produced;
+      w.factions[id].powerConsumed = snap.consumed;
     }
-    w.buildings.forEachAlive((b) => {
-      if (!b.completed) return;
-      const fs = w.factions[b.faction];
-      if (b.stats.power >= 0) fs.powerProduced += b.stats.power;
-      else fs.powerConsumed += -b.stats.power;
-    });
   }
 }

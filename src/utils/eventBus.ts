@@ -20,6 +20,7 @@ export interface GameEvents {
   'input:trainUnit':     { buildingId: number; role: Role; kindKey: UnitKind | null };
   'input:startPlacement':{ kind: BuildingKind };
   'input:cancelPlacement': Record<string, never>;
+  'ui:notice':           { text: string; tone: 'info' | 'warn' | 'error' };
 
   // Facts
   'unit:spawned':        { id: number; kind: UnitKind; faction: FactionId; x: number; y: number };

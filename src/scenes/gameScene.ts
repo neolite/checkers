@@ -263,6 +263,7 @@ function placePlaygroundTech(world: World, id: FactionId, hqTx: number, hqTy: nu
   const sy = id === 'titan' ? -1 : 1;
   const placements: Array<{ kind: BuildingKind; dx: number; dy: number }> = [
     { kind: 'power', dx: 5 * sx, dy: 0 },
+    { kind: 'power', dx: 0, dy: 9 * sy },
     { kind: 'refinery', dx: 0, dy: 5 * sy },
     { kind: 'barracks', dx: 5 * sx, dy: 5 * sy },
     { kind: 'factory', dx: 9 * sx, dy: 5 * sy },

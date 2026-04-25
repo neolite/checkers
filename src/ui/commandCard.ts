@@ -5,6 +5,7 @@ import type { Role } from '@config/gameplay';
 import { UNIT_STATS, type UnitKind } from '@config/units';
 import { icon, type IconName } from '@ui/icons';
 import type { ArmorClass, WeaponClass } from '@config/gameplay';
+import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@utils/power';
 
 interface CommandContext {
   world: World;
@@ -17,6 +18,7 @@ interface CommandCell {
   cost?: number;
   hint?: string;
   disabled?: boolean;
+  powerBlocked?: boolean;
   badge?: string;     // e.g. "×3" queue counter
   onClick: () => void;
 }
@@ -55,6 +57,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
       const div = document.createElement('div');
       div.className = 'cmd-cell';
       if (c.disabled) div.classList.add('disabled');
+      if (c.powerBlocked) div.classList.add('power-blocked');
       const badgePart = c.badge ? `<span class="badge">${escapeHtml(c.badge)}</span>` : '';
       div.innerHTML = `
         <span class="label">${escapeHtml(c.label)}</span>
@@ -63,7 +66,15 @@ export function mountCommandCard(world: World): CommandCardHandle {
         ${badgePart}
       `;
       div.setAttribute('title', c.hint ? `${c.label} — ${c.hint}` : c.label);
-      div.addEventListener('click', () => { if (!mounted.get(c.key)?.spec.disabled) c.onClick(); });
+      div.addEventListener('click', () => {
+        const spec = mounted.get(c.key)?.spec;
+        if (!spec) return;
+        if (spec.disabled) {
+          if (spec.powerBlocked) world.bus.emit('ui:notice', { text: spec.hint ?? 'Need more power. Build Power first.', tone: 'error' });
+          return;
+        }
+        spec.onClick();
+      });
       host.appendChild(div);
       mounted.set(c.key, {
         spec: c,
@@ -82,6 +93,11 @@ export function mountCommandCard(world: World): CommandCardHandle {
       // disabled state
       if (c.disabled) m.el.classList.add('disabled');
       else m.el.classList.remove('disabled');
+      if (c.powerBlocked) m.el.classList.add('power-blocked');
+      else m.el.classList.remove('power-blocked');
+      const label = m.el.querySelector('.label');
+      if (label && label.textContent !== c.label) label.textContent = c.label;
+      m.el.setAttribute('title', c.hint ? `${c.label} — ${c.hint}` : c.label);
       // badge
       if (c.badge) {
         if (!m.badgeEl) {
@@ -120,7 +136,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
           <h4>${escapeHtml(b.stats.displayName)}${b.completed ? '' : ' (building…)'}</h4>
           <div class="meta">HP ${Math.ceil(b.hp)} / ${b.stats.maxHp} · armor: ${armorLabel(b.stats.armor)}${
             b.stats.weapon ? ` · wpn: ${weaponLabel(b.stats.weapon.klass)} · rng ${b.stats.weapon.range}` : ''
-          }${b.productionQueue.length > 0 ? ` · queue ${b.productionQueue.length}` : ''}</div>
+          } · power ${b.stats.power >= 0 ? '+' : ''}${b.stats.power}${b.productionQueue.length > 0 ? ` · queue ${b.productionQueue.length}` : ''}</div>
         `;
         return;
       }
@@ -133,7 +149,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
           <h4>${escapeHtml(u.stats.displayName)}</h4>
           <div class="meta">HP ${Math.ceil(u.hp)} / ${u.stats.maxHp} · armor: ${armorLabel(u.stats.armor)}${
             u.stats.weapon ? ` · wpn: ${weaponLabel(u.stats.weapon.klass)} · rng ${u.stats.weapon.range}${(u.stats.weapon.splash ?? 0) > 0 ? ` · splash ${u.stats.weapon.splash}` : ''}` : ''
-          } · state: ${u.state}${
+          } · power ${u.stats.power} · state: ${u.burrowed ? 'burrowed' : u.state}${
             u.cargo > 0 ? ` · cargo ${u.cargo}` : ''
           }</div>
         `;
@@ -169,15 +185,20 @@ export function mountCommandCard(world: World): CommandCardHandle {
         if (!kind) continue;
         const stats = UNIT_STATS[kind];
         const cost = stats.cost;
+        const powerBlocked = !canPowerUnit(w, w.playerFaction, kind);
+        const powerLack = powerShortfallForUnit(w, w.playerFaction, kind);
         const inQueue = b.productionQueue.filter((q) => q.role === role && q.kind === kind).length;
         const cell: CommandCell = {
           key: `train:${role}`,
           icon: roleIcon(role),
           label: stats.displayName,
           cost,
-          disabled: w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
+          disabled: powerBlocked || w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
+          powerBlocked,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role, kindKey: null }),
         };
+        if (powerBlocked) cell.hint = `Need ${powerLack} more power`;
+        if (powerBlocked) cell.badge = 'PWR';
         if (inQueue > 0) cell.badge = `×${inQueue}`;
         cells.push(cell);
       }
@@ -185,26 +206,40 @@ export function mountCommandCard(world: World): CommandCardHandle {
       if (b.kind === 'barracks' && meta.extraBarracksUnit) {
         const stats = UNIT_STATS[meta.extraBarracksUnit];
         const cost = stats.cost;
-        cells.push({
+        const powerBlocked = !canPowerUnit(w, w.playerFaction, meta.extraBarracksUnit);
+        const cell: CommandCell = {
           key: `extra:barracks:${meta.extraBarracksUnit}`,
           icon: unitIcon(meta.extraBarracksUnit, stats.role),
           label: stats.displayName,
           cost,
-          disabled: w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
+          disabled: powerBlocked || w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
+          powerBlocked,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role: stats.role, kindKey: meta.extraBarracksUnit! }),
-        });
+        };
+        if (powerBlocked) {
+          cell.badge = 'PWR';
+          cell.hint = `Need ${powerShortfallForUnit(w, w.playerFaction, meta.extraBarracksUnit)} more power`;
+        }
+        cells.push(cell);
       }
       if (b.kind === 'factory' && meta.extraFactoryUnit) {
         const stats = UNIT_STATS[meta.extraFactoryUnit];
         const cost = stats.cost;
-        cells.push({
+        const powerBlocked = !canPowerUnit(w, w.playerFaction, meta.extraFactoryUnit);
+        const cell: CommandCell = {
           key: `extra:factory:${meta.extraFactoryUnit}`,
           icon: 'tank',
           label: stats.displayName,
           cost,
-          disabled: w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
+          disabled: powerBlocked || w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
+          powerBlocked,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role: 'tank', kindKey: meta.extraFactoryUnit! }),
-        });
+        };
+        if (powerBlocked) {
+          cell.badge = 'PWR';
+          cell.hint = `Need ${powerShortfallForUnit(w, w.playerFaction, meta.extraFactoryUnit)} more power`;
+        }
+        cells.push(cell);
       }
       // Rally marker toggle — visual hint that RMB on ground sets rally.
       cells.push({
@@ -233,17 +268,24 @@ export function mountCommandCard(world: World): CommandCardHandle {
         const stats = BUILDING_STATS[kind];
         if (stats.prereq && !hasCompleted(w, stats.prereq)) continue;
         const cost = Math.round(stats.cost * meta.mods.costMul);
-        cells.push({
+        const powerBlocked = !canPowerBuilding(w, w.playerFaction, kind);
+        const cell: CommandCell = {
           key: `build:${kind}`,
           icon: buildingIcon(kind),
           label: stats.displayName,
           cost,
-          disabled: w.factions[w.playerFaction].credits < cost,
+          disabled: powerBlocked || w.factions[w.playerFaction].credits < cost,
+          powerBlocked,
           onClick: () => {
             w.bus.emit('input:cancelPlacement', {});
             w.bus.emit('input:startPlacement', { kind });
           },
-        });
+        };
+        if (powerBlocked) {
+          cell.badge = 'PWR';
+          cell.hint = `Need ${powerShortfallForBuilding(w, w.playerFaction, kind)} more power`;
+        }
+        cells.push(cell);
       }
     }
 
@@ -271,6 +313,17 @@ export function mountCommandCard(world: World): CommandCardHandle {
           label: 'Detonate',
           hint: 'Q · explode selected Swarmlets',
           onClick: () => w.bus.emit('input:ability', { ability: 'detonate' }),
+        });
+      }
+      const burrowers = actionableUnits.filter((u) => u!.kind === 'burrower').map((u) => u!);
+      if (burrowers.length > 0) {
+        const anyBurrowed = burrowers.some((u) => u.burrowed);
+        cells.push({
+          key: 'ability:burrow',
+          icon: 'burrow',
+          label: anyBurrowed ? 'Unburrow' : 'Burrow',
+          hint: 'Q · hide and ambush nearby enemies',
+          onClick: () => w.bus.emit('input:ability', { ability: 'burrow' }),
         });
       }
       cells.push({ key: 'cmd:move', icon: 'move', label: 'Move', hint: 'RMB on ground',

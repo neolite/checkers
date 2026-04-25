@@ -32,6 +32,8 @@ export function resetUnit(u: Unit): void {
   u.hp = 1;
   u.cooldownMs = 0;
   u.pounceCooldownMs = 0;
+  u.burrowed = false;
+  u.ambushReady = false;
   u.targetLocked = false;
   u.targetId = null;
   u.targetIsBuilding = false;
@@ -53,7 +55,7 @@ export function makeUnitSeed(id: number): Unit {
     id, alive: false,
     kind: 'ranger', faction: 'vanguard', stats: UNIT_STATS.ranger,
     x: 0, y: 0, rotation: 0, vx: 0, vy: 0,
-    hp: 1, cooldownMs: 0, pounceCooldownMs: 0,
+    hp: 1, cooldownMs: 0, pounceCooldownMs: 0, burrowed: false, ambushReady: false,
     targetLocked: false, targetId: null, targetIsBuilding: false,
     state: 'idle', destX: null, destY: null,
     cargo: 0, gatherMs: 0, resourceNodeId: null, homeRefineryId: null,
@@ -74,6 +76,8 @@ export function initUnit(u: Unit, kind: UnitKind, faction: FactionId, stats: Uni
   u.hp = stats.maxHp;
   u.cooldownMs = 0;
   u.pounceCooldownMs = 0;
+  u.burrowed = false;
+  u.ambushReady = false;
   u.targetLocked = false;
   u.targetId = null;
   u.targetIsBuilding = false;

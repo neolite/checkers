@@ -65,4 +65,4 @@ export const UI = {
 export type WeaponClass = 'aInfantry' | 'aArmor' | 'aStructure';
 export type ArmorClass = 'light' | 'medium' | 'heavy' | 'structure';
 export type Role = 'infantry' | 'tank' | 'special' | 'worker' | 'drone';
-export type AbilityName = 'pounce' | 'detonate';
+export type AbilityName = 'pounce' | 'detonate' | 'burrow';

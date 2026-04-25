@@ -131,8 +131,9 @@ export class RenderBridge {
     }
 
     // Position: entity (x, y) → three (x, altitude, y).
-    v.group.position.set(u.x, u.stats.altitude, u.y);
+    v.group.position.set(u.x, u.burrowed ? 0.02 : u.stats.altitude, u.y);
     v.group.rotation.y = Math.PI / 2 - u.rotation;
+    v.group.scale.set(1, u.burrowed ? 0.22 : 1, 1);
 
     // Selection ring visibility.
     v.ring.visible = this.selected.has(u.id);
@@ -142,6 +143,8 @@ export class RenderBridge {
     // Fog: player's own units always visible; enemies visible only when fog == VISIBLE (2).
     if (u.faction === playerFaction) {
       v.group.visible = true;
+    } else if (u.burrowed) {
+      v.group.visible = false;
     } else {
       v.group.visible = sampleFog(fogGrid, u.x, u.y) === 2;
     }

@@ -4,7 +4,7 @@
 export type IconName =
   | 'worker' | 'infantry' | 'tank' | 'special' | 'drone' | 'atGrenadier'
   | 'hq' | 'power' | 'refinery' | 'barracks' | 'factory' | 'tech' | 'turret'
-  | 'stop' | 'attack' | 'move' | 'pounce' | 'detonate';
+  | 'stop' | 'attack' | 'move' | 'pounce' | 'detonate' | 'burrow';
 
 export function icon(name: IconName): string {
   switch (name) {
@@ -44,5 +44,7 @@ export function icon(name: IconName): string {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17c5-8 10-8 16-7"/><path d="M15 5l5 5-6 2"/><path d="M5 19l4-1"/></svg>';
     case 'detonate':
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M19.1 4.9l-2.8 2.8M7.7 16.3l-2.8 2.8"/></svg>';
+    case 'burrow':
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15c3-3 13-3 16 0"/><path d="M7 15l2 5M12 14l0 7M17 15l-2 5"/><path d="M9 10l3-5 3 5"/><path d="M10 10h4"/></svg>';
   }
 }

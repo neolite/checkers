@@ -6,6 +6,7 @@ import { UI, MAP, WORLD } from '@config/gameplay';
 import { sampleFog } from '@render/fogOverlay';
 import { BUILDING_STATS } from '@config/buildings';
 import { BuildingGhost } from '@render/ghost';
+import { canPowerBuilding, powerShortfallForBuilding } from '@utils/power';
 
 // Inline-SVG cursors. Hotspot for "diamond" resource cursor is at bottom tip (spec).
 const CUR_ATTACK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><circle cx='14' cy='14' r='10' fill='none' stroke='%23ff6e6e' stroke-width='2'/><line x1='14' y1='2' x2='14' y2='26' stroke='%23ff6e6e' stroke-width='2'/><line x1='2' y1='14' x2='26' y2='14' stroke='%23ff6e6e' stroke-width='2'/></svg>") 14 14, crosshair`;
@@ -22,6 +23,7 @@ export class InputSystem implements ISystem {
   private boxEl: HTMLDivElement | null = null;
   private placement: BuildingKind | null = null;
   private placementValid = true;
+  private placementInvalidReason = '';
   private placementX = 0;
   private placementY = 0;
   private hostEl: HTMLElement;
@@ -88,6 +90,7 @@ export class InputSystem implements ISystem {
       if (e.code === 'KeyQ') {
         if (hasSelectedKind(w, 'raider')) w.bus.emit('input:ability', { ability: 'pounce' });
         else if (hasSelectedKind(w, 'swarmlet')) w.bus.emit('input:ability', { ability: 'detonate' });
+        else if (hasSelectedKind(w, 'burrower')) w.bus.emit('input:ability', { ability: 'burrow' });
       }
     });
 
@@ -232,6 +235,7 @@ export class InputSystem implements ISystem {
     let tightUnit: UnitHit | null = null;
     let paddedUnit: UnitHit | null = null;
     w.units.forEachAlive((u) => {
+      if (u.burrowed && u.faction !== w.playerFaction) return;
       const d = Math.hypot(u.x - wx, u.y - wy);
       const tight = u.stats.radius;
       const padded = u.stats.radius + 0.6;
@@ -343,6 +347,9 @@ export class InputSystem implements ISystem {
     this.placementValid = this.validatePlacement(w, ground.x, ground.z);
     if (this.ghostDiv) {
       this.ghostDiv.style.borderColor = this.placementValid ? 'rgba(126,245,179,0.8)' : 'rgba(255,110,110,0.8)';
+      this.ghostDiv.textContent = this.placementValid
+        ? 'Place structure: LMB to confirm, RMB/ESC to cancel'
+        : this.placementInvalidReason || 'Cannot place here';
     }
     if (this.ghostMesh) this.ghostMesh.update(ground.x, ground.z, this.placementValid);
   }
@@ -350,6 +357,12 @@ export class InputSystem implements ISystem {
   private validatePlacement(w: World, wx: number, wz: number): boolean {
     if (!this.placement) return false;
     const stats = BUILDING_STATS[this.placement];
+    this.placementInvalidReason = '';
+    if (!canPowerBuilding(w, w.playerFaction, this.placement)) {
+      const lack = powerShortfallForBuilding(w, w.playerFaction, this.placement);
+      this.placementInvalidReason = `Need ${lack} more power. Build Power first.`;
+      return false;
+    }
     const tx = Math.floor(wx / MAP.tileSize) - Math.floor(stats.tileW / 2);
     const ty = Math.floor(wz / MAP.tileSize) - Math.floor(stats.tileH / 2);
     // Bounds + blocked check.
@@ -372,12 +385,18 @@ export class InputSystem implements ISystem {
     if (!allExplored) return false;
     // Inside world bounds padding.
     if (wx < 0 || wz < 0 || wx > WORLD.width || wz > WORLD.depth) return false;
+    this.placementInvalidReason = '';
     return true;
   }
 
   private commitPlacement(w: World): void {
     if (!this.placement) return;
-    if (!this.placementValid) return;
+    if (!this.placementValid) {
+      if (this.placementInvalidReason) {
+        w.bus.emit('ui:notice', { text: this.placementInvalidReason, tone: 'error' });
+      }
+      return;
+    }
     w.bus.emit('input:placeBuilding', { x: this.placementX, y: this.placementY, kind: this.placement });
     this.cancelPlacement(w);
   }

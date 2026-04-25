@@ -85,6 +85,7 @@
       .cmd-cell { position: relative; width: 52px; height: 52px; border: 1px solid var(--hud-border); border-radius: 4px; background: rgba(255,255,255,0.04); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .cmd-cell:hover { background: rgba(255,255,255,0.1); border-color: var(--hud-accent); }
       .cmd-cell.disabled { opacity: 0.35; cursor: not-allowed; }
+      .cmd-cell.power-blocked { border-color: rgba(255,110,110,0.85); color: #ff8a8a; opacity: 0.75; }
       .cmd-cell svg { width: 28px; height: 28px; }
       .cmd-cell .cost { position: absolute; bottom: 2px; right: 4px; font-size: 9px; color: #ffdd88; font-weight: 600; }
       .cmd-cell .label { position: absolute; top: 2px; left: 4px; font-size: 8px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -96,6 +97,8 @@
       .float-text.dmg { color: #ff6e6e; }
       .float-text.credit { color: #ffd863; }
       .float-text.info { color: #8fd0ff; }
+      .hud-toast { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); z-index: 40; padding: 8px 12px; border-radius: 6px; background: rgba(10,14,22,0.9); border: 1px solid rgba(255,110,110,0.65); color: #ff9a9a; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; pointer-events: none; opacity: 0; transition: opacity 120ms ease; }
+      .hud-toast.show { opacity: 1; }
 
       /* Game over */
       .game-over { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(4,6,10,0.75); z-index: 20; }

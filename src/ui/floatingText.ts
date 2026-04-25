@@ -18,6 +18,10 @@ export interface FloatingTextHandle {
 export function mountFloatingText(world: World): FloatingTextHandle {
   const layer = document.querySelector('#float-layer') as HTMLDivElement;
   const bubbles: Bubble[] = [];
+  let toastUntil = 0;
+  const toast = document.createElement('div');
+  toast.className = 'hud-toast';
+  layer.appendChild(toast);
 
   const push = (text: string, cls: string, wx: number, wy: number, wz: number): void => {
     const el = document.createElement('span');
@@ -43,9 +47,18 @@ export function mountFloatingText(world: World): FloatingTextHandle {
     if (!u || u.faction !== world.playerFaction) return;
     push(`+${amount}`, 'info', u.x, 2.0, u.y);
   }));
+  offs.push(world.bus.on('ui:notice', ({ text }) => {
+    toast.textContent = text;
+    toast.classList.add('show');
+    toastUntil = performance.now() + 1700;
+  }));
 
   function tick(): void {
     const now = performance.now();
+    if (toastUntil > 0 && now >= toastUntil) {
+      toast.classList.remove('show');
+      toastUntil = 0;
+    }
     const cam = world.three.camera;
     if (!cam) return;
     const width = window.innerWidth, height = window.innerHeight;
@@ -71,6 +84,7 @@ export function mountFloatingText(world: World): FloatingTextHandle {
     destroy() {
       for (const off of offs) off();
       for (const b of bubbles) if (b.el.parentElement) b.el.parentElement.removeChild(b.el);
+      if (toast.parentElement) toast.parentElement.removeChild(toast);
     },
   };
 }

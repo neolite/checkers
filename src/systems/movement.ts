@@ -17,6 +17,10 @@ export class MovementSystem implements ISystem {
 
     // Step 1: steering — produce desired velocity vectors.
     w.units.forEachAlive((u) => {
+      if (u.burrowed) {
+        u.vx = 0; u.vy = 0;
+        return;
+      }
       if (u.destX === null || u.destY === null) {
         // Damp existing velocity so units don't drift forever.
         u.vx *= 0.65;
@@ -56,6 +60,7 @@ export class MovementSystem implements ISystem {
 
     // Step 2: integrate.
     w.units.forEachAlive((u) => {
+      if (u.burrowed) return;
       if (u.vx !== 0 || u.vy !== 0) {
         u.x += u.vx * dt;
         u.y += u.vy * dt;
@@ -68,7 +73,7 @@ export class MovementSystem implements ISystem {
     // Step 3: soft separation (O(N²) over alive units; capped by pool).
     // We use a pairwise push so overlapping units spread apart.
     const alive: Unit[] = [];
-    w.units.forEachAlive((u) => alive.push(u));
+    w.units.forEachAlive((u) => { if (!u.burrowed) alive.push(u); });
     for (let i = 0; i < alive.length; i++) {
       const a = alive[i]!;
       for (let j = i + 1; j < alive.length; j++) {

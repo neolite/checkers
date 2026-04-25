@@ -15,6 +15,7 @@ export class CombatSystem implements ISystem {
     // Tick unit weapons.
     w.units.forEachAlive((u) => {
       if (u.cooldownMs > 0) u.cooldownMs -= dtMs;
+      if (u.burrowed) return;
       if (!u.stats.weapon) return;
       if (u.targetId === null) return;
       if (u.cooldownMs > 0) return;
@@ -27,6 +28,7 @@ export class CombatSystem implements ISystem {
       } else {
         const t = w.units.findById(u.targetId);
         if (!t) dead = true;
+        else if (t.burrowed && w.areHostile(t.faction, u.faction)) dead = true;
         else { tx = t.x; ty = t.y; targetHp = t.hp; targetRadius = t.stats.radius; }
       }
       if (dead || targetHp <= 0) return;
@@ -78,7 +80,7 @@ export class CombatSystem implements ISystem {
       // Auto-target nearest enemy in range.
       if (b.targetId !== null) {
         const t = w.units.findById(b.targetId);
-        if (!t || t.hp <= 0) { b.targetId = null; }
+        if (!t || t.hp <= 0 || t.burrowed) { b.targetId = null; }
       }
       if (b.targetId === null) {
         const t = pickNearestEnemyUnit(w, b, b.stats.weapon.range);
@@ -140,6 +142,7 @@ function pickNearestEnemyUnit(w: World, b: Building, range: number): Unit | null
   let best: Unit | null = null;
   let bestD = range * range;
   w.units.forEachAlive((u) => {
+    if (u.burrowed) return;
     if (!w.areHostile(u.faction, b.faction)) return;
     const d = dist2(u.x, u.y, b.x, b.y);
     if (d < bestD) { best = u; bestD = d; }
@@ -170,7 +173,8 @@ export function applyDamage(
     const u = w.units.findById(targetId);
     if (!u) return;
     const mult = damageMultiplier(klass, u.stats.armor);
-    const final = Math.max(0, Math.round(rawDamage * mult));
+    const mitigation = u.burrowed ? 0.4 : 1;
+    const final = Math.max(0, Math.round(rawDamage * mult * mitigation));
     u.hp -= final;
     w.bus.emit('unit:damaged', { id: u.id, amount: final, x: impactX, y: impactY });
     if (u.hp <= 0) u.hp = 0;

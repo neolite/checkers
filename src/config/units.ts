@@ -43,6 +43,7 @@ export interface UnitStats {
   speed: number;    // world units per sec
   altitude: number; // 0 ground; > 0 flying (Y height in three.js)
   cost: number;
+  power: number;
   buildMs: number;
   builtBy: 'barracks' | 'factory' | 'hq' | 'airpad';
   sightRange?: number;
@@ -52,21 +53,21 @@ export interface UnitStats {
 
 const inf = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName'>): UnitStats => ({
   role: 'infantry', maxHp: 60, armor: 'light', radius: 0.5, speed: 5, altitude: 0,
-  cost: 100, buildMs: 4000, builtBy: 'barracks', sightRange: 14,
+  cost: 100, power: 1, buildMs: 4000, builtBy: 'barracks', sightRange: 14,
   weapon: { klass: 'aInfantry', damage: 10, range: 10, cdMs: 900, projectileSpeed: 30, targetsGround: true },
   ...over,
 });
 
 const tank = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName'>): UnitStats => ({
   role: 'tank', maxHp: 180, armor: 'heavy', radius: 0.9, speed: 4, altitude: 0,
-  cost: 400, buildMs: 7000, builtBy: 'factory', sightRange: 13,
+  cost: 400, power: 4, buildMs: 7000, builtBy: 'factory', sightRange: 13,
   weapon: { klass: 'aArmor', damage: 28, range: 11, cdMs: 1400, projectileSpeed: 40, targetsGround: true },
   ...over,
 });
 
 const worker = (over: Partial<UnitStats> & Pick<UnitStats, 'kind' | 'displayName'>): UnitStats => ({
   role: 'worker', maxHp: 80, armor: 'light', radius: 0.55, speed: 4.5, altitude: 0,
-  cost: 120, buildMs: 3500, builtBy: 'hq', sightRange: 10,
+  cost: 120, power: 1, buildMs: 3500, builtBy: 'hq', sightRange: 10,
   harvest: { capacity: 90, gatherMs: 4500 },
   ...over,
 });
@@ -94,10 +95,13 @@ export const UNIT_STATS: Record<UnitKind, UnitStats> = {
 
   // Specials
   commando: inf({ kind: 'commando', displayName: 'Commando', role: 'special', maxHp: 130, armor: 'medium', speed: 5.0, cost: 500, buildMs: 8000,
+                  power: 4,
                   weapon: { klass: 'aStructure', damage: 35, range: 9, cdMs: 1300, projectileSpeed: 32, targetsGround: true } }),
   burrower: inf({ kind: 'burrower', displayName: 'Burrower', role: 'special', maxHp: 70, armor: 'light', speed: 7.0, cost: 320, buildMs: 6500, radius: 0.5,
+                  power: 3,
                   weapon: { klass: 'aArmor', damage: 20, range: 1.8, cdMs: 900, projectileSpeed: 0, targetsGround: true } }),
   railgun:  inf({ kind: 'railgun',  displayName: 'Railgun Frame', role: 'special', maxHp: 200, armor: 'heavy', speed: 3.2, cost: 620, buildMs: 9500, radius: 0.9,
+                  power: 6,
                   weapon: { klass: 'aArmor', damage: 62, range: 18, cdMs: 2200, projectileSpeed: 80, targetsGround: true } }),
 
   // Faction-unique extras

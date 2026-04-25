@@ -5,6 +5,7 @@ import { ECONOMY, MAP } from '@config/gameplay';
 import { dist, dist2, TAU } from '@utils/math';
 import { BUILDING_STATS } from '@config/buildings';
 import { spawnBuilding } from '@systems/production';
+import { tickBurrowAmbush, tryPounce } from '@systems/abilities';
 
 // FSM transitions run here. Movement/combat systems consume the resulting fields.
 export class UnitAISystem implements ISystem {
@@ -16,6 +17,10 @@ export class UnitAISystem implements ISystem {
 
   update(w: World, dtMs: number): void {
     w.units.forEachAlive((u) => {
+      if (u.burrowed) {
+        tickBurrowAmbush(w, u);
+        return;
+      }
       switch (u.state) {
         case 'idle':        this.tickIdle(w, u); break;
         case 'move':        this.tickMove(w, u); break;
@@ -137,6 +142,7 @@ export class UnitAISystem implements ISystem {
     } else {
       const t = w.units.findById(u.targetId);
       if (!t) { dead = true; }
+      else if (t.burrowed && w.areHostile(t.faction, u.faction)) { dead = true; }
       else { tx = t.x; ty = t.y; targetRadius = t.stats.radius; hp = t.hp; armed = !!t.stats.weapon; }
     }
     if (dead || hp <= 0) {
@@ -166,6 +172,9 @@ export class UnitAISystem implements ISystem {
     const standoff = Math.max(targetRadius + u.stats.radius + 0.5, range - 1.0);
     const d = dist(u.x, u.y, tx, ty);
     const edgeDistance = Math.max(0, d - targetRadius - u.stats.radius);
+    if (!u.holdPosition && u.kind === 'raider' && edgeDistance <= 8 && edgeDistance > range) {
+      if (tryPounce(w, u)) return;
+    }
     if (u.holdPosition) {
       // Fire only if in range; drop target otherwise.
       if (edgeDistance > range) {
@@ -343,6 +352,7 @@ function pickNearestEnemy(w: World, u: Unit, sight: number): { id: number; x: nu
   let best: { id: number; x: number; y: number; isBuilding: boolean } | null = null;
   let bestD = sight * sight;
   w.units.forEachAlive((o) => {
+    if (o.burrowed) return;
     if (!w.areHostile(o.faction, u.faction)) return;
     const d = dist2(u.x, u.y, o.x, o.y);
     if (d < bestD) { best = { id: o.id, x: o.x, y: o.y, isBuilding: false }; bestD = d; }
@@ -362,6 +372,7 @@ function pickNearestArmedEnemy(w: World, u: Unit, sight: number): { id: number; 
   let best: { id: number; x: number; y: number } | null = null;
   let bestD = sight * sight;
   w.units.forEachAlive((o) => {
+    if (o.burrowed) return;
     if (!w.areHostile(o.faction, u.faction)) return;
     if (!o.stats.weapon) return;
     const d = dist2(u.x, u.y, o.x, o.y);
