@@ -262,6 +262,26 @@ atan2(vy, vx)`.
   frame's worth of separation-force displacement. Otherwise you get
   visible stutter.
 
+## Visual upgrade roadmap
+
+- **Use bitmap/procedural textures for static terrain materials**:
+  ground, water, lava, acid, and transition zones such as water → dirt
+  and lava → scorched earth. These should read as map surface, not UI
+  pulses or raised geometry.
+- **Use shaders where they pay off: dynamic VFX**. Shader work should
+  target motion-heavy effects: fire, explosions, smoke heat shimmer,
+  rocket trails, plasma bolts, lasers, railgun beams, tesla chains, shield
+  flashes, muzzle bloom, and impact shockwaves.
+- **Keep projectile silhouettes faction-readable**:
+  Vanguard uses physical rockets, tracer rounds, grenade arcs, and metal
+  impact sparks; Swarm uses acid spit, bio-glow bursts, spores, and
+  organic splash; Titan uses rail beams, laser cuts, tesla arcs, neon
+  capacitor flashes, and hard-edged energy impacts.
+- **Avoid shader effects for broad static map areas unless they are very
+  subtle**. Animated water/lava across large terrain quickly reads as HUD
+  pulse if the motion is too regular. Prefer textured surfaces plus small
+  localized animated accents.
+
 ---
 
 ## Balance levers (the knobs you'll actually turn)
