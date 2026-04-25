@@ -109,7 +109,7 @@ export function createHud(host: HTMLElement, world: World, camera: CameraSystem)
     const fs = world.factions[world.playerFaction];
     credits.textContent = Math.floor(fs.credits).toString();
     const net = fs.powerProduced - fs.powerConsumed;
-    power.textContent = `${fs.powerProduced} / ${fs.powerConsumed}`;
+    power.textContent = `${fs.powerConsumed} / ${fs.powerProduced}`;
     if (net < 0) power.classList.add('low');
     else power.classList.remove('low');
 

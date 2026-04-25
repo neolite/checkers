@@ -110,6 +110,6 @@ export const UNIT_STATS: Record<UnitKind, UnitStats> = {
   swarmlet:  inf({ kind: 'swarmlet',  displayName: 'Swarmlet', role: 'drone', maxHp: 18, armor: 'light', speed: 8.5, cost: 90, buildMs: 2400,
                    radius: 0.35,
                    weapon: { klass: 'aStructure', damage: 80, range: 1.2, cdMs: 1000, projectileSpeed: 0, splash: 1.5, selfDestruct: true, targetsGround: true } }),
-  atGrenadier: inf({ kind: 'atGrenadier', displayName: 'AT Grenadier', maxHp: 80, armor: 'medium', speed: 3.5, cost: 200, buildMs: 5200, radius: 0.58,
-                     weapon: { klass: 'aArmor', damage: 20, range: 4, cdMs: 1100, projectileSpeed: 24, splash: 0.5, targetsGround: true } }),
+  atGrenadier: inf({ kind: 'atGrenadier', displayName: 'Grenadier', maxHp: 80, armor: 'medium', speed: 3.5, cost: 200, power: 2, buildMs: 5200, radius: 0.58,
+                     weapon: { klass: 'aArmor', damage: 18, range: 4.5, cdMs: 1200, projectileSpeed: 24, splash: 0.8, targetsGround: true } }),
 };

@@ -16,6 +16,7 @@ interface CommandCell {
   icon: IconName;
   label: string;
   cost?: number;
+  power?: string;
   hint?: string;
   disabled?: boolean;
   powerBlocked?: boolean;
@@ -63,6 +64,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         <span class="label">${escapeHtml(c.label)}</span>
         ${icon(c.icon)}
         ${c.cost !== undefined ? `<span class="cost">${c.cost}</span>` : ''}
+        ${c.power !== undefined ? `<span class="power">${escapeHtml(c.power)}</span>` : ''}
         ${badgePart}
       `;
       div.setAttribute('title', c.hint ? `${c.label} — ${c.hint}` : c.label);
@@ -193,6 +195,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
           icon: roleIcon(role),
           label: stats.displayName,
           cost,
+          power: `-${stats.power}`,
           disabled: powerBlocked || w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
           powerBlocked,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role, kindKey: null }),
@@ -212,6 +215,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
           icon: unitIcon(meta.extraBarracksUnit, stats.role),
           label: stats.displayName,
           cost,
+          power: `-${stats.power}`,
           disabled: powerBlocked || w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
           powerBlocked,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role: stats.role, kindKey: meta.extraBarracksUnit! }),
@@ -231,6 +235,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
           icon: 'tank',
           label: stats.displayName,
           cost,
+          power: `-${stats.power}`,
           disabled: powerBlocked || w.factions[w.playerFaction].credits < cost || b.productionQueue.length >= 5,
           powerBlocked,
           onClick: () => w.bus.emit('input:trainUnit', { buildingId: b.id, role: 'tank', kindKey: meta.extraFactoryUnit! }),
@@ -281,6 +286,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
             w.bus.emit('input:startPlacement', { kind });
           },
         };
+        if (stats.power !== 0) cell.power = `${stats.power > 0 ? '+' : ''}${stats.power}`;
         if (powerBlocked) {
           cell.badge = 'PWR';
           cell.hint = `Need ${powerShortfallForBuilding(w, w.playerFaction, kind)} more power`;
