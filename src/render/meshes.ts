@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { UnitKind } from '@config/units';
+import type { WeaponBehavior } from '@config/gameplay';
 import type { BuildingKind } from '@config/buildings';
 
 // Shared tint material cache (by color key).
@@ -311,11 +312,16 @@ export function makeBuildingMesh(kind: BuildingKind, primary: number, accent: nu
 }
 
 // ---------------------- Projectile mesh ----------------------
-export function makeProjectileMesh(color: number): THREE.Mesh {
-  const geom = new THREE.SphereGeometry(0.18, 6, 6);
-  const m = new THREE.MeshLambertMaterial({ color, emissive: color, flatShading: true });
+export function makeProjectileMesh(color: number, behavior: WeaponBehavior = 'projectile'): THREE.Mesh {
+  const radius = behavior === 'rocket' ? 0.28 : behavior === 'arc' ? 0.24 : behavior === 'bounce' ? 0.2 : 0.18;
+  const geom = behavior === 'rocket'
+    ? new THREE.ConeGeometry(radius, 0.75, 8)
+    : new THREE.SphereGeometry(radius, 8, 8);
+  const projectileColor = behavior === 'arc' ? 0xffa45e : behavior === 'bounce' ? 0xa6ff5e : color;
+  const m = new THREE.MeshLambertMaterial({ color: projectileColor, emissive: projectileColor, flatShading: true });
   const mesh = new THREE.Mesh(geom, m);
   mesh.name = 'projectile';
+  if (behavior === 'rocket') mesh.rotation.x = Math.PI / 2;
   return mesh;
 }
 

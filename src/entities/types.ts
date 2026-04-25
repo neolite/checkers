@@ -1,7 +1,7 @@
 import type { UnitKind, UnitStats } from '@config/units';
 import type { BuildingKind, BuildingStats } from '@config/buildings';
 import type { FactionId } from '@config/palette';
-import type { Role } from '@config/gameplay';
+import type { Role, WeaponBehavior } from '@config/gameplay';
 
 export type UnitStateName = 'idle' | 'move' | 'attackMove' | 'attack' | 'harvest' | 'returnCargo' | 'build';
 
@@ -96,7 +96,17 @@ export interface Projectile {
   targetIsBuilding: boolean;
   damage: number;
   klass: 'aInfantry' | 'aArmor' | 'aStructure';
+  behavior: WeaponBehavior;
   splash: number; // 0 = none
+  width: number;
+  bounceLeft: number;
+  arcHeight: number;
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  ageMs: number;
+  lifeMs: number;
   ttlMs: number;
 }
 

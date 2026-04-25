@@ -1,7 +1,7 @@
 import type { FactionId } from '@config/palette';
 import type { UnitKind } from '@config/units';
 import type { BuildingKind } from '@config/buildings';
-import type { AbilityName, Role, WeaponClass } from '@config/gameplay';
+import type { AbilityName, Role, WeaponClass, WeaponBehavior } from '@config/gameplay';
 
 // All events — past-tense facts (no verbs like "set"). input:* = present-tense commands.
 export interface GameEvents {
@@ -30,8 +30,20 @@ export interface GameEvents {
   'building:completed':  { id: number; kind: BuildingKind; faction: FactionId };
   'building:damaged':    { id: number; amount: number; x: number; y: number };
   'building:destroyed':  { id: number; kind: BuildingKind; faction: FactionId };
-  'weapon:fired':        { attackerId: number; attackerIsBuilding: boolean; targetId: number };
-  'projectile:impact':   { x: number; y: number; targetId: number; damage: number; klass: WeaponClass };
+  'weapon:fired':        { attackerId: number; attackerIsBuilding: boolean; targetId: number; behavior: WeaponBehavior };
+  'weapon:effect':       {
+    behavior: WeaponBehavior | 'ambush';
+    faction: FactionId;
+    x: number;
+    y: number;
+    tx: number;
+    ty: number;
+    radius?: number;
+    width?: number;
+    angleDeg?: number;
+    points?: Array<{ x: number; y: number }>;
+  };
+  'projectile:impact':   { x: number; y: number; targetId: number; damage: number; klass: WeaponClass; behavior: WeaponBehavior };
   'credits:deposited':   { faction: FactionId; amount: number; x: number; y: number };
   'cargo:gathered':      { unitId: number; amount: number };
   'production:started':  { buildingId: number; role: Role };

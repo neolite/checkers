@@ -137,7 +137,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         info.innerHTML = `
           <h4>${escapeHtml(b.stats.displayName)}${b.completed ? '' : ' (building…)'}</h4>
           <div class="meta">HP ${Math.ceil(b.hp)} / ${b.stats.maxHp} · armor: ${armorLabel(b.stats.armor)}${
-            b.stats.weapon ? ` · wpn: ${weaponLabel(b.stats.weapon.klass)} · rng ${b.stats.weapon.range}` : ''
+            b.stats.weapon ? ` · wpn: ${weaponLabel(b.stats.weapon.klass)} · ${b.stats.weapon.behavior ?? 'projectile'} · rng ${b.stats.weapon.range}` : ''
           } · power ${b.stats.power >= 0 ? '+' : ''}${b.stats.power}${b.productionQueue.length > 0 ? ` · queue ${b.productionQueue.length}` : ''}</div>
         `;
         return;
@@ -150,7 +150,7 @@ export function mountCommandCard(world: World): CommandCardHandle {
         info.innerHTML = `
           <h4>${escapeHtml(u.stats.displayName)}</h4>
           <div class="meta">HP ${Math.ceil(u.hp)} / ${u.stats.maxHp} · armor: ${armorLabel(u.stats.armor)}${
-            u.stats.weapon ? ` · wpn: ${weaponLabel(u.stats.weapon.klass)} · rng ${u.stats.weapon.range}${(u.stats.weapon.splash ?? 0) > 0 ? ` · splash ${u.stats.weapon.splash}` : ''}` : ''
+            u.stats.weapon ? ` · wpn: ${weaponLabel(u.stats.weapon.klass)} · ${u.stats.weapon.behavior ?? 'projectile'} · rng ${u.stats.weapon.range}${(u.stats.weapon.splash ?? 0) > 0 ? ` · splash ${u.stats.weapon.splash}` : ''}` : ''
           } · power ${u.stats.power} · state: ${u.burrowed ? 'burrowed' : u.state}${
             u.cargo > 0 ? ` · cargo ${u.cargo}` : ''
           }</div>

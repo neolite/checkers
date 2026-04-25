@@ -8,6 +8,8 @@ const POUNCE_RANGE = 8;
 const POUNCE_DISTANCE = 5.5;
 const POUNCE_COOLDOWN_MS = 6000;
 const BURROW_AMBUSH_RANGE = 5.5;
+const BURROW_AMBUSH_DAMAGE = 28;
+const BURROW_AMBUSH_CLASS = 'aArmor' as const;
 const DETONATE_RADIUS_FALLBACK = 1.5;
 
 export function tryPounce(w: World, u: Unit): boolean {
@@ -67,6 +69,16 @@ export function tickBurrowAmbush(w: World, u: Unit): void {
     return;
   }
   unburrow(u);
+  applyDamage(w, target.id, false, BURROW_AMBUSH_DAMAGE, BURROW_AMBUSH_CLASS, target.x, target.y);
+  w.bus.emit('weapon:effect', {
+    behavior: 'ambush',
+    faction: u.faction,
+    x: u.x,
+    y: u.y,
+    tx: target.x,
+    ty: target.y,
+    radius: BURROW_AMBUSH_RANGE,
+  });
   u.state = 'attack';
   u.targetId = target.id;
   u.targetIsBuilding = false;
@@ -80,8 +92,9 @@ export function detonateUnit(w: World, u: Unit): void {
   const weapon = u.stats.weapon;
   if (!weapon) return;
   const radius = weapon.splash ?? DETONATE_RADIUS_FALLBACK;
-  w.bus.emit('weapon:fired', { attackerId: u.id, attackerIsBuilding: false, targetId: u.id });
-  w.bus.emit('projectile:impact', { x: u.x, y: u.y, targetId: u.id, damage: weapon.damage, klass: weapon.klass });
+  const behavior = weapon.behavior ?? (weapon.projectileSpeed === 0 ? 'contact' : 'projectile');
+  w.bus.emit('weapon:fired', { attackerId: u.id, attackerIsBuilding: false, targetId: u.id, behavior });
+  w.bus.emit('projectile:impact', { x: u.x, y: u.y, targetId: u.id, damage: weapon.damage, klass: weapon.klass, behavior });
   applyRadialDamage(w, u, weapon.damage, weapon.klass, radius);
   u.hp = 0;
 }

@@ -1,6 +1,7 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
-import { applyDamage, applySplashDamage } from '@systems/combat';
+import type { Projectile } from '@entities/types';
+import { applyDamage, applySplashDamage, findBounceTarget, getTargetInfo, retargetProjectile } from '@systems/combat';
 
 export class ProjectileSystem implements ISystem {
   readonly name = 'projectile';
@@ -11,35 +12,36 @@ export class ProjectileSystem implements ISystem {
     const dt = dtMs / 1000;
     const alive = w.projectiles;
     alive.forEachAlive((p) => {
-      if (p.vx === 0 && p.vy === 0 && p.vz === 0) {
-        // Stationary — detonate on spawn.
-        detonate(w, p, p.x, p.y);
-        return;
-      }
+      p.ageMs += dtMs;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.z += p.vz * dt;
+
+      if (p.behavior === 'arc') {
+        const t = Math.max(0, Math.min(1, p.ageMs / Math.max(1, p.lifeMs)));
+        p.z = 1.1 + Math.sin(t * Math.PI) * p.arcHeight;
+      } else if (p.behavior === 'rocket') {
+        p.z = 1.3 + Math.sin(p.ageMs / 80) * 0.06;
+      } else {
+        p.z += p.vz * dt;
+      }
+
       p.ttlMs -= dtMs;
       if (p.ttlMs <= 0) { alive.release(p); return; }
 
-      // Target chase: re-check distance each tick.
-      let targetX = 0, targetY = 0, targetRadius = 0, dead = false;
-      if (p.targetIsBuilding) {
-        const b = w.buildings.findById(p.targetId);
-        if (!b) dead = true;
-        else { targetX = b.x; targetY = b.y; targetRadius = b.stats.radius; }
-      } else {
-        const t = w.units.findById(p.targetId);
-        if (!t) dead = true;
-        else { targetX = t.x; targetY = t.y; targetRadius = t.stats.radius; }
-      }
-      if (dead) {
-        // Lose target — just let the projectile expire.
+      if (p.behavior === 'arc') {
+        if (p.ageMs >= p.lifeMs || distance2(p.x, p.y, p.targetX, p.targetY) <= 0.45 * 0.45) {
+          detonate(w, p, p.targetX, p.targetY);
+        }
         return;
       }
-      const dx = targetX - p.x;
-      const dy = targetY - p.y;
-      const hitRadius = targetRadius + 0.35;
+
+      const target = getTargetInfo(w, p.targetId, p.targetIsBuilding);
+      if (!target) return;
+      p.targetX = target.x;
+      p.targetY = target.y;
+      const dx = target.x - p.x;
+      const dy = target.y - p.y;
+      const hitRadius = target.radius + (p.behavior === 'rocket' ? 0.5 : 0.35);
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
         detonate(w, p, p.x, p.y);
       }
@@ -47,11 +49,34 @@ export class ProjectileSystem implements ISystem {
   }
 }
 
-function detonate(w: World, p: import('@entities/types').Projectile, x: number, y: number): void {
-  w.bus.emit('projectile:impact', { x, y, targetId: p.targetId, damage: p.damage, klass: p.klass });
+function detonate(w: World, p: Projectile, x: number, y: number): void {
+  w.bus.emit('projectile:impact', { x, y, targetId: p.targetId, damage: p.damage, klass: p.klass, behavior: p.behavior });
   applyDamage(w, p.targetId, p.targetIsBuilding, p.damage, p.klass, x, y);
   if (p.splash > 0) {
     applySplashDamage(w, p.ownerFaction, p.targetId, p.targetIsBuilding, p.damage, p.klass, p.splash, x, y);
   }
+
+  if (p.behavior === 'bounce' && p.bounceLeft > 0) {
+    const next = findBounceTarget(w, p.ownerFaction, x, y, p.width || 5, p.targetId, p.targetIsBuilding);
+    if (next) {
+      p.bounceLeft -= 1;
+      p.damage *= 0.72;
+      retargetProjectile(p, next, Math.max(8, Math.hypot(p.vx, p.vy) * 1.08));
+      w.bus.emit('weapon:effect', {
+        behavior: 'bounce',
+        faction: p.ownerFaction,
+        x,
+        y,
+        tx: next.x,
+        ty: next.y,
+        width: p.width || 5,
+      });
+      return;
+    }
+  }
   w.projectiles.release(p);
+}
+
+function distance2(x1: number, y1: number, x2: number, y2: number): number {
+  return (x1 - x2) ** 2 + (y1 - y2) ** 2;
 }

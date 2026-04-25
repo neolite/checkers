@@ -1,4 +1,4 @@
-import type { Role } from '@config/gameplay';
+import type { Role, WeaponBehavior } from '@config/gameplay';
 
 export type BuildingKind =
   | 'hq' | 'power' | 'refinery' | 'barracks' | 'factory' | 'tech' | 'turret';
@@ -20,10 +20,14 @@ export interface BuildingStats {
   // Optional anti-anything weapon (turret only).
   weapon?: {
     klass: 'aInfantry' | 'aArmor' | 'aStructure';
+    behavior?: WeaponBehavior;
     damage: number;
     range: number;
     cdMs: number;
     projectileSpeed: number;
+    splash?: number;
+    chainJumps?: number;
+    chainRange?: number;
     targetsGround?: boolean;
     targetsAir?: boolean;
   };
@@ -59,6 +63,6 @@ export const BUILDING_STATS: Record<BuildingKind, BuildingStats> = {
     kind: 'turret', displayName: 'Turret', maxHp: 360, tileW: 1, tileH: 1, radius: 1.3,
     cost: 220, buildMs: 5000, power: -10, prereq: 'barracks',
     armor: 'heavy', sightRange: 14,
-    weapon: { klass: 'aArmor', damage: 22, range: 12, cdMs: 1200, projectileSpeed: 42, targetsGround: true },
+    weapon: { klass: 'aArmor', behavior: 'chain', damage: 18, range: 11, cdMs: 1500, projectileSpeed: 0, chainJumps: 2, chainRange: 4.5, targetsGround: true },
   },
 };

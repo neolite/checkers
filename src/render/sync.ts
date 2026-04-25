@@ -27,6 +27,7 @@ interface BuildingView {
 
 interface ProjectileView {
   mesh: THREE.Mesh;
+  behavior: Projectile['behavior'];
 }
 
 interface ResourceView {
@@ -96,6 +97,7 @@ export class RenderBridge {
     const v = this.projectileViews.get(id);
     if (!v) return;
     this.scene.remove(v.mesh);
+    disposeObject(v.mesh);
     this.projectileViews.delete(id);
   }
 
@@ -229,13 +231,18 @@ export class RenderBridge {
 
   syncProjectile(p: Projectile, color: number): void {
     let v = this.projectileViews.get(p.id);
-    if (!v) {
-      const mesh = makeProjectileMesh(color);
+    if (!v || v.behavior !== p.behavior) {
+      if (v) {
+        this.scene.remove(v.mesh);
+        disposeObject(v.mesh);
+      }
+      const mesh = makeProjectileMesh(color, p.behavior);
       this.scene.add(mesh);
-      v = { mesh };
+      v = { mesh, behavior: p.behavior };
       this.projectileViews.set(p.id, v);
     }
     v.mesh.position.set(p.x, p.z, p.y);
+    if (p.vx !== 0 || p.vy !== 0) v.mesh.rotation.y = Math.atan2(p.vx, p.vy);
   }
 
   syncResource(r: ResourceNode, fogGrid: Uint8Array): void {

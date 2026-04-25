@@ -48,6 +48,23 @@ export function mountAudio(world: World): AudioKernelHandle {
   echoFilter.connect(echoGain);
   echoGain.connect(master);
 
+  const sampleBuffers = new Map<string, AudioBuffer>();
+  const sampleUrls: Record<string, string> = {
+    laserSmall: '/assets/kenney/sci-fi-sounds/laserSmall_000.ogg',
+    laserLarge: '/assets/kenney/sci-fi-sounds/laserLarge_000.ogg',
+    impactMetal: '/assets/kenney/sci-fi-sounds/impactMetal_000.ogg',
+    explosion: '/assets/kenney/sci-fi-sounds/explosionCrunch_000.ogg',
+    forceField: '/assets/kenney/sci-fi-sounds/forceField_000.ogg',
+    slime: '/assets/kenney/sci-fi-sounds/slime_000.ogg',
+  };
+  for (const [key, url] of Object.entries(sampleUrls)) {
+    fetch(url)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((audio) => { sampleBuffers.set(key, audio); })
+      .catch(() => { /* procedural fallback stays active */ });
+  }
+
   // --- synth helpers ---
   function spatialParams(wx: number, wy: number): { gain: number; pan: number; wet: number } {
     const cam = world.three.camera;
@@ -147,10 +164,24 @@ export function mountAudio(world: World): AudioKernelHandle {
     src.stop(ctx.currentTime + dur + 0.05);
   }
 
+  function sample(name: string, gain: number, wx?: number, wy?: number, rate = 1): void {
+    if (muted) return;
+    const buf = sampleBuffers.get(name);
+    if (!buf) return;
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    g.gain.value = gain;
+    src.connect(g);
+    connectOutput(g, wx, wy, 0.18);
+    src.start();
+  }
+
   // --- event subscriptions ---
   const offs: Array<() => void> = [];
 
-  offs.push(world.bus.on('weapon:fired', ({ attackerId, attackerIsBuilding }) => {
+  offs.push(world.bus.on('weapon:fired', ({ attackerId, attackerIsBuilding, behavior }) => {
     const u = attackerIsBuilding ? null : world.units.findById(attackerId);
     const b = attackerIsBuilding ? world.buildings.findById(attackerId) : null;
     const x = u ? u.x : (b?.x ?? 0);
@@ -158,7 +189,29 @@ export function mountAudio(world: World): AudioKernelHandle {
     const klass = u?.stats.weapon?.klass ?? b?.stats.weapon?.klass ?? 'aInfantry';
     // Per-class sonic identity: rifles = short high chirp; armor = low thump;
     // structure = slightly metallic warble.
-    if (klass === 'aInfantry') {
+    if (behavior === 'line') {
+      sample('laserLarge', 0.22, x, y, 1.1);
+      sweep(2400, 820, 0.11, 'sawtooth', 0.18, x, y);
+      tone(3200, 0.055, 'square', 0.08, x, y);
+    } else if (behavior === 'cone') {
+      sample('forceField', 0.14, x, y, 0.85);
+      noiseBurst(2400, 0.8, 0.18, 0.16, x, y);
+      sweep(460, 180, 0.2, 'sawtooth', 0.08, x, y);
+    } else if (behavior === 'chain') {
+      sample('forceField', 0.16, x, y, 1.4);
+      sweep(1800, 2600, 0.08, 'square', 0.12, x, y);
+      tone(1100, 0.12, 'triangle', 0.09, x, y);
+    } else if (behavior === 'arc') {
+      sample('impactMetal', 0.12, x, y, 0.8);
+      sweep(420, 160, 0.18, 'triangle', 0.12, x, y);
+    } else if (behavior === 'rocket') {
+      sample('laserSmall', 0.1, x, y, 0.65);
+      sweep(180, 75, 0.22, 'sawtooth', 0.18, x, y);
+      noiseBurst(700, 1.4, 0.11, 0.08, x, y);
+    } else if (behavior === 'bounce') {
+      sample('slime', 0.1, x, y, 1.6);
+      sweep(900, 1450, 0.09, 'triangle', 0.1, x, y);
+    } else if (klass === 'aInfantry') {
       sweep(1400 + Math.random() * 140, 520, 0.08, 'square', 0.08, x, y);
     } else if (klass === 'aArmor') {
       sweep(260, 90, 0.16, 'sawtooth', 0.18, x, y);
@@ -168,13 +221,28 @@ export function mountAudio(world: World): AudioKernelHandle {
     }
   }));
 
-  offs.push(world.bus.on('projectile:impact', ({ x, y, damage, klass }) => {
+  offs.push(world.bus.on('weapon:effect', ({ behavior, x, y, tx, ty }) => {
+    const mx = (x + tx) / 2;
+    const my = (y + ty) / 2;
+    if (behavior === 'ambush') {
+      sample('slime', 0.16, tx, ty, 0.72);
+      noiseBurst(420, 0.7, 0.22, 0.18, tx, ty);
+      sweep(170, 520, 0.16, 'sawtooth', 0.12, tx, ty);
+    } else if (behavior === 'bounce') {
+      tone(1320, 0.055, 'triangle', 0.08, mx, my);
+    } else if (behavior === 'chain') {
+      noiseBurst(3200, 4, 0.07, 0.08, mx, my);
+    }
+  }));
+
+  offs.push(world.bus.on('projectile:impact', ({ x, y, damage, klass, behavior }) => {
     if (damage <= 0) return;
     // Impact: low thud + broadband noise scaled by damage.
     const gain = Math.min(0.35, 0.06 + damage / 220);
-    const base = klass === 'aStructure' ? 95 : klass === 'aArmor' ? 125 : 165;
+    sample(behavior === 'arc' || behavior === 'rocket' ? 'explosion' : 'impactMetal', Math.min(0.22, gain), x, y, behavior === 'bounce' ? 1.35 : 1);
+    const base = behavior === 'arc' ? 82 : behavior === 'rocket' ? 105 : klass === 'aStructure' ? 95 : klass === 'aArmor' ? 125 : 165;
     tone(base - Math.random() * 20, 0.18, 'sine', gain, x, y);
-    noiseBurst(klass === 'aStructure' ? 700 : 1800, 0.9, 0.15, gain * 0.7, x, y);
+    noiseBurst(behavior === 'bounce' ? 2600 : klass === 'aStructure' ? 700 : 1800, 0.9, 0.15, gain * 0.7, x, y);
   }));
 
   offs.push(world.bus.on('unit:died', ({ x, y, faction }) => {

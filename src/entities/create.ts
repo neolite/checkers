@@ -149,7 +149,10 @@ export function resetProjectile(p: Projectile): void {
   p.x = 0; p.y = 0; p.z = 0;
   p.vx = 0; p.vy = 0; p.vz = 0;
   p.ownerId = 0; p.ownerFaction = 'vanguard'; p.targetId = 0; p.targetIsBuilding = false;
-  p.damage = 0; p.klass = 'aInfantry'; p.splash = 0;
+  p.damage = 0; p.klass = 'aInfantry'; p.behavior = 'projectile'; p.splash = 0;
+  p.width = 0; p.bounceLeft = 0; p.arcHeight = 0;
+  p.startX = 0; p.startY = 0; p.targetX = 0; p.targetY = 0;
+  p.ageMs = 0; p.lifeMs = 0;
   p.ttlMs = 0;
 }
 
@@ -159,7 +162,10 @@ export function makeProjectileSeed(id: number): Projectile {
     x: 0, y: 0, z: 0,
     vx: 0, vy: 0, vz: 0,
     ownerId: 0, ownerFaction: 'vanguard', targetId: 0, targetIsBuilding: false,
-    damage: 0, klass: 'aInfantry', splash: 0, ttlMs: 0,
+    damage: 0, klass: 'aInfantry', behavior: 'projectile', splash: 0,
+    width: 0, bounceLeft: 0, arcHeight: 0,
+    startX: 0, startY: 0, targetX: 0, targetY: 0, ageMs: 0, lifeMs: 0,
+    ttlMs: 0,
   };
 }
 

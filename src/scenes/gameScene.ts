@@ -28,6 +28,7 @@ import { mountCommandCard, type CommandCardHandle } from '@ui/commandCard';
 import { mountFloatingText, type FloatingTextHandle } from '@ui/floatingText';
 import { showGameOver } from '@ui/gameOver';
 import { mountAudio, type AudioKernelHandle } from '@render/audio';
+import { mountWeaponFx, type WeaponFxHandle } from '@render/weaponFx';
 import { initUnit, applyFactionMods } from '@entities/create';
 import { FACTION_COLORS as _ } from '@config/palette';
 void _;
@@ -160,6 +161,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   const card: CommandCardHandle = mountCommandCard(world);
   const floaters: FloatingTextHandle = mountFloatingText(world);
   const audio: AudioKernelHandle = mountAudio(world);
+  const weaponFx: WeaponFxHandle = mountWeaponFx(world, rc.scene);
 
   // Re-render command card on selection changes. We subscribe to events that imply selection change.
   const offSelChange = world.bus.on('unit:died', () => card.tick());
@@ -225,6 +227,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
       card.tick();
     }
     floaters.tick();
+    weaponFx.tick(dtMs);
     audio.updateListener();
 
     rc.renderer.render(rc.scene, rc.camera);
@@ -242,6 +245,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     card.destroy();
     floaters.destroy();
     audio.destroy();
+    weaponFx.destroy();
     // Drop three.js.
     rc.renderer.dispose();
     if (rc.renderer.domElement.parentElement) {

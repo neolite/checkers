@@ -36,9 +36,18 @@ export function buildSchema(roots: Roots): InspectorCategory[] {
         power: number(-80, 120, 1, 'Positive produces power, negative consumes it.'),
         buildMs: number(500, 30000, 100),
         sightRange: number(1, 30, 0.5),
+        'weapon.behavior': text('projectile/contact/rocket/arc/bounce/cone/line/chain'),
         'weapon.damage': number(1, 200, 1),
         'weapon.range': number(1, 30, 0.5),
         'weapon.cdMs': number(100, 5000, 50),
+        'weapon.splash': number(0, 6, 0.1),
+        'weapon.width': number(0, 10, 0.1),
+        'weapon.pierce': number(1, 10, 1),
+        'weapon.coneAngleDeg': number(10, 140, 1),
+        'weapon.chainJumps': number(0, 8, 1),
+        'weapon.chainRange': number(1, 12, 0.5),
+        'weapon.bounceCount': number(0, 6, 1),
+        'weapon.arcHeight': number(0, 12, 0.25),
       }),
     },
     {
@@ -165,11 +174,19 @@ function unitGroups(roots: Roots): InspectorGroup[] {
         speed: number(0.5, 15, 0.1),
         radius: number(0.1, 3, 0.05),
         sightRange: number(1, 40, 0.5),
+        'weapon.behavior': text('projectile/contact/rocket/arc/bounce/cone/line/chain'),
         'weapon.damage': number(0, 200, 1),
         'weapon.range': number(0.5, 30, 0.1),
         'weapon.cdMs': number(100, 5000, 25),
         'weapon.projectileSpeed': number(0, 120, 1),
         'weapon.splash': number(0, 6, 0.1),
+        'weapon.width': number(0, 10, 0.1),
+        'weapon.pierce': number(1, 10, 1),
+        'weapon.coneAngleDeg': number(10, 140, 1),
+        'weapon.chainJumps': number(0, 8, 1),
+        'weapon.chainRange': number(1, 12, 0.5),
+        'weapon.bounceCount': number(0, 6, 1),
+        'weapon.arcHeight': number(0, 12, 0.25),
         'weapon.selfDestruct': bool(),
         'harvest.capacity': number(10, 300, 5),
         'harvest.gatherMs': number(500, 10000, 100),
@@ -228,6 +245,10 @@ function bool(): Partial<InspectorField> {
 
 function color(): Partial<InspectorField> {
   return { kind: 'color' };
+}
+
+function text(hint?: string): Partial<InspectorField> {
+  return { kind: 'text', hint };
 }
 
 function label(path: string): string {
