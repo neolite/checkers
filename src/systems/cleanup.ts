@@ -33,7 +33,7 @@ export class CleanupSystem implements ISystem {
     // Buildings
     w.buildings.forEachAlive((b) => {
       if (b.hp <= 0) {
-        w.bus.emit('building:destroyed', { id: b.id, kind: b.kind, faction: b.faction });
+        w.bus.emit('building:destroyed', { id: b.id, kind: b.kind, faction: b.faction, x: b.x, y: b.y });
         w.navGrid.stampRect(b.tileX, b.tileY, b.stats.tileW, b.stats.tileH, false);
         this.bridge.removeBuilding(b.id);
         w.selectedBuildings.delete(b.id);

@@ -1,5 +1,6 @@
 import type { World } from '@engine/world';
 import { FX_TUNING } from '@config/fx';
+import { sampleFog } from '@render/fogOverlay';
 
 // Procedural SFX kernel. All sounds are synthesized at play-time from oscillators
 // and noise — no audio files, no licenses. Positional mix is camera-relative:
@@ -79,6 +80,16 @@ export function mountAudio(world: World): AudioKernelHandle {
     return { gain, pan, wet };
   }
 
+  function canHearPosition(wx?: number, wy?: number): boolean {
+    if (wx === undefined || wy === undefined) return true;
+    const fog = world.factions[world.playerFaction].fog;
+    if (sampleFog(fog, wx, wy) !== 2) return false;
+    const cam = world.three.camera;
+    if (!cam) return true;
+    const d = Math.hypot(wx - cam.position.x, wy - cam.position.z);
+    return d <= FX_TUNING.audio.maxSpatialDistance;
+  }
+
   function connectOutput(node: AudioNode, wx?: number, wy?: number, wetAmount = 0.12): void {
     if (wx === undefined || wy === undefined) {
       node.connect(master);
@@ -104,7 +115,7 @@ export function mountAudio(world: World): AudioKernelHandle {
   }
 
   function tone(freq: number, dur: number, type: OscillatorType, gain: number, wx?: number, wy?: number): void {
-    if (muted) return;
+    if (muted || !canHearPosition(wx, wy)) return;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
@@ -119,7 +130,7 @@ export function mountAudio(world: World): AudioKernelHandle {
   }
 
   function sweep(f0: number, f1: number, dur: number, type: OscillatorType, gain: number, wx?: number, wy?: number): void {
-    if (muted) return;
+    if (muted || !canHearPosition(wx, wy)) return;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
@@ -146,7 +157,7 @@ export function mountAudio(world: World): AudioKernelHandle {
     return buf;
   }
   function noiseBurst(centerHz: number, q: number, dur: number, gain: number, wx?: number, wy?: number): void {
-    if (muted) return;
+    if (muted || !canHearPosition(wx, wy)) return;
     const src = ctx.createBufferSource();
     src.buffer = getNoise();
     const filt = ctx.createBiquadFilter();
@@ -165,7 +176,7 @@ export function mountAudio(world: World): AudioKernelHandle {
   }
 
   function sample(name: string, gain: number, wx?: number, wy?: number, rate = 1): void {
-    if (muted) return;
+    if (muted || !canHearPosition(wx, wy)) return;
     const buf = sampleBuffers.get(name);
     if (!buf) return;
     const src = ctx.createBufferSource();
@@ -272,11 +283,10 @@ export function mountAudio(world: World): AudioKernelHandle {
     setTimeout(() => tone(1180, 0.08, 'triangle', 0.12, x, y), 40);
   }));
 
-  offs.push(world.bus.on('building:destroyed', ({ faction }) => {
-    // No position leak for destroyed enemy buildings in fog — use global rumble.
+  offs.push(world.bus.on('building:destroyed', ({ faction, x, y }) => {
     const isAlly = faction === world.playerFaction;
-    sweep(220, 40, 0.55, 'sawtooth', isAlly ? 0.28 : 0.2);
-    noiseBurst(600, 0.5, 0.6, isAlly ? 0.22 : 0.15);
+    sweep(220, 40, 0.55, 'sawtooth', isAlly ? 0.28 : 0.2, x, y);
+    noiseBurst(600, 0.5, 0.6, isAlly ? 0.22 : 0.15, x, y);
   }));
 
   offs.push(world.bus.on('hq:destroyed', () => {

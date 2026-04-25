@@ -7,6 +7,7 @@ export const FX_TUNING = {
     echoGain: 0.22,
     minSpatialGain: 0.16,
     distanceFalloff: 36,
+    maxSpatialDistance: 90,
     panDivisor: 42,
   },
   fog: {

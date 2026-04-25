@@ -29,7 +29,7 @@ export interface GameEvents {
   'building:placed':     { id: number; kind: BuildingKind; faction: FactionId };
   'building:completed':  { id: number; kind: BuildingKind; faction: FactionId };
   'building:damaged':    { id: number; amount: number; x: number; y: number };
-  'building:destroyed':  { id: number; kind: BuildingKind; faction: FactionId };
+  'building:destroyed':  { id: number; kind: BuildingKind; faction: FactionId; x: number; y: number };
   'weapon:fired':        { attackerId: number; attackerIsBuilding: boolean; targetId: number; behavior: WeaponBehavior };
   'weapon:effect':       {
     behavior: WeaponBehavior | 'ambush';
