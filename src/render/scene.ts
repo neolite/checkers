@@ -9,6 +9,7 @@ export interface RenderContext {
   camera: THREE.PerspectiveCamera;
   terrain: THREE.Mesh;
   sun: THREE.DirectionalLight;
+  destroy(): void;
 }
 
 function buildTerrainMesh(): THREE.Mesh {
@@ -93,13 +94,24 @@ export function createRenderContext(host: HTMLElement): RenderContext {
   (grid.material as THREE.Material).transparent = true;
   scene.add(grid);
 
-  window.addEventListener('resize', () => {
+  let destroyed = false;
+  const onResize = (): void => {
+    if (destroyed) return;
     const w = window.innerWidth;
     const h = window.innerHeight;
     renderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-  });
+  };
+  window.addEventListener('resize', onResize);
 
-  return { renderer, scene, camera, terrain, sun };
+  function destroy(): void {
+    if (destroyed) return;
+    destroyed = true;
+    window.removeEventListener('resize', onResize);
+    renderer.dispose();
+    renderer.domElement.remove();
+  }
+
+  return { renderer, scene, camera, terrain, sun, destroy };
 }

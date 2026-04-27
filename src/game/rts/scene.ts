@@ -214,10 +214,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     audio.destroy();
     weaponFx.destroy();
     // Drop three.js.
-    rc.renderer.dispose();
-    if (rc.renderer.domElement.parentElement) {
-      rc.renderer.domElement.parentElement.removeChild(rc.renderer.domElement);
-    }
+    rc.destroy();
     onExit();
   }
 

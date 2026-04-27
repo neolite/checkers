@@ -268,7 +268,7 @@ export function startTowerDefenseScene(host: HTMLElement, onExit: () => void): T
     rc.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
     overlay.root.remove();
     disposeObject(rc.scene);
-    rc.renderer.dispose();
+    rc.destroy();
     host.innerHTML = '';
     onExit();
   }

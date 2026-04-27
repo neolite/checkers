@@ -47,6 +47,7 @@
       .btn { background: var(--hud-accent); color: #041321; border: 0; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
       .btn.secondary { background: rgba(255,255,255,0.08); color: var(--hud-fg); border: 1px solid var(--hud-border); }
       .btn.secondary:hover { border-color: #ff8a55; color: #ffd0b8; }
+      .btn.secondary.purple:hover { border-color: #b28cff; color: #eadfff; }
       .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
       /* HUD */
@@ -176,6 +177,20 @@
       .td-status { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); font-size: 42px; font-weight: 900; letter-spacing: 0.08em; color: #ff6e6e; text-shadow: 0 0 20px rgba(255,80,40,0.55); pointer-events: none; }
       .td-notice { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); padding: 8px 12px; border: 1px solid rgba(255,110,110,0.6); border-radius: 6px; background: rgba(7,10,16,0.9); color: #ffadad; font-size: 12px; font-weight: 800; opacity: 0; transition: opacity 120ms ease; pointer-events: none; }
       .td-notice.show { opacity: 1; }
+
+      /* Roguelike module */
+      .rl-overlay { position: absolute; inset: 0; z-index: 26; pointer-events: none; }
+      .rl-overlay > * { pointer-events: auto; }
+      .rl-top { position: absolute; top: 12px; left: 16px; right: 16px; min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid rgba(178,140,255,0.35); border-radius: 6px; background: rgba(7,7,18,0.84); box-shadow: 0 12px 32px rgba(0,0,0,0.34); }
+      .rl-title { margin-right: 8px; font-size: 13px; font-weight: 900; letter-spacing: 0.09em; text-transform: uppercase; color: #d8c4ff; }
+      .rl-metric { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.72; }
+      .rl-metric span { display: inline-block; min-width: 34px; margin-left: 4px; color: #f0e9ff; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; opacity: 1; }
+      .rl-exit { margin-left: auto; padding: 6px 10px; border: 1px solid rgba(178,140,255,0.35); border-radius: 5px; background: rgba(255,255,255,0.06); color: var(--hud-fg); font-size: 11px; font-weight: 800; cursor: pointer; }
+      .rl-exit:hover { border-color: #b28cff; color: #eadfff; }
+      .rl-help { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 8px 12px; border: 1px solid rgba(178,140,255,0.35); border-radius: 6px; background: rgba(7,7,18,0.78); color: #eadfff; font-size: 12px; }
+      .rl-toast { position: absolute; top: 72px; left: 50%; transform: translateX(-50%); padding: 8px 12px; border: 1px solid rgba(178,140,255,0.62); border-radius: 6px; background: rgba(7,7,18,0.9); color: #eadfff; font-size: 12px; font-weight: 800; opacity: 0; transition: opacity 120ms ease; pointer-events: none; }
+      .rl-toast.show { opacity: 1; }
+      .rl-gameover { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); font-size: 42px; font-weight: 900; letter-spacing: 0.08em; color: #ff7c9a; text-shadow: 0 0 20px rgba(178,80,255,0.5); pointer-events: none; }
     </style>
   </head>
   <body>

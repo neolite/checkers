@@ -7,6 +7,7 @@ export function renderMenu(
   host: HTMLElement,
   onStart: (faction: FactionId, mode: GameMode) => void,
   onStartTowerDefense?: () => void,
+  onStartRoguelike?: () => void,
 ): void {
   host.innerHTML = '';
   const wrap = document.createElement('div');
@@ -40,6 +41,7 @@ export function renderMenu(
 
       <div class="menu-actions">
         <div class="hint">Single-player · procedural terrain · textured faction materials.</div>
+        <button class="btn secondary purple" id="rogue-btn">Roguelike</button>
         <button class="btn secondary" id="td-btn">Tripod Defense</button>
         <button class="btn" id="start-btn" disabled>Start</button>
       </div>
@@ -50,6 +52,7 @@ export function renderMenu(
   const modeRow = wrap.querySelector('#menu-modes') as HTMLDivElement;
   const btn = wrap.querySelector('#start-btn') as HTMLButtonElement;
   const tdBtn = wrap.querySelector('#td-btn') as HTMLButtonElement;
+  const rogueBtn = wrap.querySelector('#rogue-btn') as HTMLButtonElement;
   let chosen: FactionId | null = null;
   let mode: GameMode = 'ffa';
 
@@ -97,6 +100,9 @@ export function renderMenu(
   });
   tdBtn.addEventListener('click', () => {
     onStartTowerDefense?.();
+  });
+  rogueBtn.addEventListener('click', () => {
+    onStartRoguelike?.();
   });
 }
 
