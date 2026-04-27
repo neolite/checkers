@@ -15,6 +15,7 @@ export default defineConfig({
       '@ui': fileURLToPath(new URL('./src/ui', import.meta.url)),
       '@scenes': fileURLToPath(new URL('./src/scenes', import.meta.url)),
       '@engine': fileURLToPath(new URL('./src/engine', import.meta.url)),
+      '@game': fileURLToPath(new URL('./src/game', import.meta.url)),
     },
   },
   server: { port: 5173, strictPort: false },
