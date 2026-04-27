@@ -137,6 +137,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   let last = performance.now();
   let animFrame = 0;
   let finished = false;
+  let destroyed = false;
 
   const offVictory = world.bus.on('game:victory', ({ winner }) => {
     if (finished) return;
@@ -202,11 +203,14 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   animFrame = requestAnimationFrame(frame);
 
   function cleanupAndExit(): void {
+    if (destroyed) return;
+    destroyed = true;
     cancelAnimationFrame(animFrame);
     offSelChange();
     offBldChange();
     offVictory();
     offDefeat();
+    for (const s of systems) s.destroy?.();
     hud.destroy();
     card.destroy();
     playgroundPanel?.destroy();

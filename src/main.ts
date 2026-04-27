@@ -1,7 +1,8 @@
 import { renderMenu } from '@game/rts/ui/menu';
-import { startGameScene } from '@game/rts/scene';
-import { startRoguelikeScene } from '@game/roguelike/scene';
-import { startTowerDefenseScene } from '@game/tower-defense/scene';
+import { GameRouter } from '@engine/core/runtime';
+import { RTS_GAME_ROUTE } from '@game/rts/module';
+import { ROGUELIKE_ROUTE } from '@game/roguelike/module';
+import { TOWER_DEFENSE_ROUTE } from '@game/tower-defense/module';
 import type { FactionId } from '@config/palette';
 
 const host = document.getElementById('app');
@@ -13,32 +14,19 @@ if (import.meta.env.DEV) {
   void import('./dev/inspectorBridge').then((m) => m.installInspectorBridge());
 }
 
-function showMenu(): void {
+const router = new GameRouter(host, ({ start }) => {
   renderMenu(
-    host!,
+    host,
     (faction: FactionId, mode) => {
-      // Clear menu + launch game.
-      host!.innerHTML = '';
-      startGameScene(host!, faction, mode, () => {
-        host!.innerHTML = '';
-        showMenu();
-      });
+      start(RTS_GAME_ROUTE, { faction, mode });
     },
     () => {
-      host!.innerHTML = '';
-      startTowerDefenseScene(host!, () => {
-        host!.innerHTML = '';
-        showMenu();
-      });
+      start(TOWER_DEFENSE_ROUTE, {});
     },
     () => {
-      host!.innerHTML = '';
-      startRoguelikeScene(host!, () => {
-        host!.innerHTML = '';
-        showMenu();
-      });
+      start(ROGUELIKE_ROUTE, {});
     },
   );
-}
+});
 
-showMenu();
+router.showMenu();

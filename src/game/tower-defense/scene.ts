@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WORLD } from '@config/gameplay';
 import { createRenderContext } from '@render/scene';
 import { screenToGround } from '@render/picking';
+import { InputScope } from '@engine/input/inputScope';
 
 interface TowerDefenseSceneHandle {
   destroy(): void;
@@ -55,6 +56,7 @@ export function startTowerDefenseScene(host: HTMLElement, onExit: () => void): T
   const overlay = mountHud(host, () => destroyScene());
   const enemies: Enemy[] = [];
   const tripods: Tripod[] = [];
+  const input = new InputScope();
   let raf = 0;
   let last = performance.now();
   let nextId = 1;
@@ -65,6 +67,7 @@ export function startTowerDefenseScene(host: HTMLElement, onExit: () => void): T
   let spawnTimerMs = 1200;
   let nextWaveMs = 900;
   let gameEnded = false;
+  let destroyed = false;
 
   function spawnEnemy(): void {
     const waveMul = 1 + wave * 0.18;
@@ -125,7 +128,7 @@ export function startTowerDefenseScene(host: HTMLElement, onExit: () => void): T
     if (ground.x < 1 || ground.x > WORLD.width - 1 || ground.z < 1 || ground.z > WORLD.depth - 1) return;
     placeTripod(ground.x, ground.z);
   };
-  rc.renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  input.on(rc.renderer.domElement, 'pointerdown', onPointerDown);
 
   function tick(now: number): void {
     const dtMs = Math.min(80, now - last);
@@ -264,8 +267,10 @@ export function startTowerDefenseScene(host: HTMLElement, onExit: () => void): T
   raf = requestAnimationFrame(tick);
 
   function destroyScene(): void {
+    if (destroyed) return;
+    destroyed = true;
     cancelAnimationFrame(raf);
-    rc.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+    input.destroy();
     overlay.root.remove();
     disposeObject(rc.scene);
     rc.destroy();

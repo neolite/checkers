@@ -3,6 +3,7 @@ import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import { CAMERA, WORLD } from '@config/gameplay';
 import { clamp } from '@utils/math';
+import { InputScope } from '@engine/input/inputScope';
 
 // Pan-only orthographic-style top-down camera. Pitch is fixed.
 export class CameraSystem implements ISystem {
@@ -13,22 +14,23 @@ export class CameraSystem implements ISystem {
   private mouseX = window.innerWidth / 2;
   private mouseY = window.innerHeight / 2;
   private insideWindow = true;
+  private input = new InputScope();
 
   init(_w: World): void {
     // Using e.code (physical key) so keyboard layouts other than US still pan.
-    window.addEventListener('keydown', (e) => {
+    this.input.on(window, 'keydown', (e) => {
       this.keys.add(e.code);
     });
-    window.addEventListener('keyup', (e) => {
+    this.input.on(window, 'keyup', (e) => {
       this.keys.delete(e.code);
     });
-    window.addEventListener('mousemove', (e) => {
+    this.input.on(window, 'mousemove', (e) => {
       this.mouseX = e.clientX;
       this.mouseY = e.clientY;
     });
-    window.addEventListener('mouseleave', () => { this.insideWindow = false; });
-    window.addEventListener('mouseenter', () => { this.insideWindow = true; });
-    window.addEventListener('wheel', (e) => {
+    this.input.on(window, 'mouseleave', () => { this.insideWindow = false; });
+    this.input.on(window, 'mouseenter', () => { this.insideWindow = true; });
+    this.input.on(window, 'wheel', (e) => {
       const step = e.deltaY > 0 ? CAMERA.zoomStep : -CAMERA.zoomStep;
       this.distance = clamp(this.distance + step, CAMERA.zoomMin, CAMERA.zoomMax);
       e.preventDefault();
@@ -77,5 +79,10 @@ export class CameraSystem implements ISystem {
 
   getTarget(): { x: number; z: number } {
     return { x: this.target.x, z: this.target.z };
+  }
+
+  destroy(): void {
+    this.input.destroy();
+    this.keys.clear();
   }
 }

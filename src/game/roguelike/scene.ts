@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WORLD } from '@config/gameplay';
 import { createRenderContext } from '@render/scene';
 import { screenToGround } from '@render/picking';
+import { InputScope } from '@engine/input/inputScope';
 
 interface RoguelikeSceneHandle {
   destroy(): void;
@@ -74,6 +75,7 @@ const CORRIDORS: Rect[] = [
 
 const WALKABLE: Rect[] = [...ROOMS, ...CORRIDORS];
 const START = { x: 25, z: 24 };
+const WALKABLE_EDGE_PAD = 0.35;
 
 export function startRoguelikeScene(host: HTMLElement, onExit: () => void): RoguelikeSceneHandle {
   host.innerHTML = '';
@@ -103,6 +105,7 @@ export function startRoguelikeScene(host: HTMLElement, onExit: () => void): Rogu
   const enemies: Enemy[] = [];
   const loot: Loot[] = [];
   const slashFx: SlashFx[] = [];
+  const input = new InputScope();
   let raf = 0;
   let last = performance.now();
   let nextId = 1;
@@ -139,9 +142,9 @@ export function startRoguelikeScene(host: HTMLElement, onExit: () => void): Rogu
     if (aim.lengthSq() > 0.001) attack(aim.normalize());
   };
 
-  window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('keyup', onKeyUp);
-  rc.renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  input.on(window, 'keydown', onKeyDown);
+  input.on(window, 'keyup', onKeyUp);
+  input.on(rc.renderer.domElement, 'pointerdown', onPointerDown);
 
   function spawnEnemies(): void {
     for (let i = 1; i < ROOMS.length; i++) {
@@ -377,9 +380,7 @@ export function startRoguelikeScene(host: HTMLElement, onExit: () => void): Rogu
     destroyed = true;
     cancelAnimationFrame(raf);
     window.clearTimeout(messageTimer);
-    window.removeEventListener('keydown', onKeyDown);
-    window.removeEventListener('keyup', onKeyUp);
-    rc.renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+    input.destroy();
     overlay.root.remove();
     disposeObject(rc.scene);
     rc.destroy();
@@ -566,7 +567,12 @@ function makeLootMesh(kind: Loot['kind']): THREE.Group {
 
 function isWalkable(x: number, z: number): boolean {
   if (x < 1 || z < 1 || x > WORLD.width - 1 || z > WORLD.depth - 1) return false;
-  return WALKABLE.some((rect) => x >= rect.x + 0.8 && x <= rect.x + rect.w - 0.8 && z >= rect.z + 0.8 && z <= rect.z + rect.h - 0.8);
+  return WALKABLE.some((rect) => (
+    x >= rect.x + WALKABLE_EDGE_PAD
+    && x <= rect.x + rect.w - WALKABLE_EDGE_PAD
+    && z >= rect.z + WALKABLE_EDGE_PAD
+    && z <= rect.z + rect.h - WALKABLE_EDGE_PAD
+  ));
 }
 
 function disposeObject(obj: THREE.Object3D): void {

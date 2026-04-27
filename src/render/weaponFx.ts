@@ -4,11 +4,9 @@ import { FACTION_COLORS } from '@config/palette';
 import { sampleFog } from '@render/fogOverlay';
 import { VfxManager } from '@vfx/VfxManager';
 import type { VfxAttachmentTarget } from '@vfx/types';
+import type { VfxBoundary } from '@engine/vfx/boundary';
 
-export interface WeaponFxHandle {
-  tick(dtMs: number): void;
-  destroy(): void;
-}
+export type WeaponFxHandle = VfxBoundary;
 
 export function mountWeaponFx(world: World, scene: THREE.Scene): WeaponFxHandle {
   const vfx = new VfxManager(scene, world.three.camera, (target) => resolveAttachment(world, target));

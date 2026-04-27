@@ -7,6 +7,7 @@ import { sampleFog } from '@render/fogOverlay';
 import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { BuildingGhost } from '@game/rts/render/ghost';
 import { canPowerBuilding, powerShortfallForBuilding } from '@game/rts/power';
+import { InputScope } from '@engine/input/inputScope';
 
 // Inline-SVG cursors. Hotspot for "diamond" resource cursor is at bottom tip (spec).
 const CUR_ATTACK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><circle cx='14' cy='14' r='10' fill='none' stroke='%23ff6e6e' stroke-width='2'/><line x1='14' y1='2' x2='14' y2='26' stroke='%23ff6e6e' stroke-width='2'/><line x1='2' y1='14' x2='26' y2='14' stroke='%23ff6e6e' stroke-width='2'/></svg>") 14 14, crosshair`;
@@ -31,6 +32,8 @@ export class InputSystem implements ISystem {
   private ghostMesh: BuildingGhost | null = null;
   private dragMoveOff: ((e: MouseEvent) => void) | null = null;
   private dragUpOff: ((e: MouseEvent) => void) | null = null;
+  private input = new InputScope();
+  private busOffs: Array<() => void> = [];
   // Cursor type cache: DOM `style.cursor` writes re-render the OS cursor even when
   // value is identical in Chrome, which produces the visible "jump" on mousemove.
   // Track the last-applied value and only write when it changes.
@@ -44,9 +47,9 @@ export class InputSystem implements ISystem {
     const canvas = w.three.renderer?.domElement;
     if (!canvas) return;
 
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    this.input.on(canvas, 'contextmenu', (e) => e.preventDefault());
 
-    canvas.addEventListener('mousedown', (e) => {
+    this.input.on(canvas, 'mousedown', (e) => {
       if (e.button === 0 /* LMB */) {
         if (this.placement) {
           this.commitPlacement(w);
@@ -62,7 +65,7 @@ export class InputSystem implements ISystem {
       }
     });
 
-    canvas.addEventListener('mousemove', (e) => {
+    this.input.on(canvas, 'mousemove', (e) => {
       if (this.boxStart) {
         this.setCursor(canvas, CUR_SELECT);
         return;
@@ -75,7 +78,7 @@ export class InputSystem implements ISystem {
       }
     });
 
-    window.addEventListener('keydown', (e) => {
+    this.input.on(window, 'keydown', (e) => {
       // e.code = physical key; layout-independent so Russian QWERTY maps to KeyW/KeyS/etc.
       if (e.code === 'Escape') {
         if (this.placement) this.cancelPlacement(w);
@@ -95,7 +98,7 @@ export class InputSystem implements ISystem {
     });
 
     // Listen to placement start requests from UI.
-    w.bus.on('input:startPlacement', ({ kind }) => {
+    this.busOffs.push(w.bus.on('input:startPlacement', ({ kind }) => {
       if (!isBuildingKind(kind)) return;
       this.placement = kind;
       this.ensureGhost();
@@ -103,14 +106,27 @@ export class InputSystem implements ISystem {
         this.ghostMesh = new BuildingGhost(w.three.scene, w.playerFaction);
       }
       if (this.ghostMesh) this.ghostMesh.show(kind);
-    });
-    w.bus.on('input:cancelPlacement', () => {
+    }));
+    this.busOffs.push(w.bus.on('input:cancelPlacement', () => {
       this.cancelPlacement(w);
-    });
+    }));
   }
 
   update(_w: World, _dtMs: number): void {
     // No per-frame work; all input is event-driven.
+  }
+
+  destroy(): void {
+    this.input.destroy();
+    this.endSelectionDragListeners();
+    for (const off of this.busOffs) off();
+    this.busOffs.length = 0;
+    this.clearBox();
+    this.ghostMesh?.hide();
+    this.ghostMesh = null;
+    this.ghostDiv?.remove();
+    this.ghostDiv = null;
+    this.placement = null;
   }
 
   private beginSelectionDrag(w: World, canvas: HTMLCanvasElement, e: MouseEvent): void {
