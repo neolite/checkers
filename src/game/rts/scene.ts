@@ -9,6 +9,7 @@ import { World } from '@engine/world';
 import { createRenderContext } from '@render/scene';
 import { createFogOverlay } from '@render/fogOverlay';
 import { RenderBridge } from '@render/sync';
+import { RTS_RENDER_CONTENT } from '@game/rts/render/content';
 import type { ISystem } from '@systems/iface';
 import { CameraSystem } from '@systems/camera';
 import { InputSystem } from '@game/rts/systems/input';
@@ -72,7 +73,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   rc.scene.add(fog.mesh);
 
   // Render bridge (mesh lifecycle).
-  const bridge = new RenderBridge(rc.scene);
+  const bridge = new RenderBridge(rc.scene, RTS_RENDER_CONTENT);
 
   modeDef.setup({ world, spawn });
 

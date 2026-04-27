@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { BuildingKind } from '@game/rts/content/buildings';
 import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { MAP } from '@config/gameplay';
-import { makeBuildingMesh } from '@render/meshes';
+import { makeBuildingMesh } from '@game/rts/render/meshes';
 import { FACTION_COLORS, type FactionId } from '@config/palette';
 
 // A semi-transparent real-geometry preview of the building to place, plus a

@@ -2,12 +2,17 @@ import * as THREE from 'three';
 import type { Unit, Building, Projectile, ResourceNode } from '@entities/types';
 import type { FactionId } from '@config/palette';
 import { FACTION_COLORS, NEUTRAL_COLORS } from '@config/palette';
-import { makeUnitMesh, makeBuildingMesh, makeProjectileMesh, makeResourceMesh } from '@render/meshes';
 import { makeSelectionRing } from '@render/selection';
 import { sampleFog } from '@render/fogOverlay';
 import { makeRallyMarker } from '@render/rallyMarker';
 import { makeProjectileTrailGeometry, makeProjectileTrailMaterial } from '@render/shaders/weaponShaders';
-import { MAP } from '@config/gameplay';
+
+export interface RenderContentProvider {
+  makeUnitMesh(unit: Unit, primary: number, accent: number): THREE.Group;
+  makeBuildingMesh(building: Building, primary: number, accent: number): THREE.Group;
+  makeProjectileMesh(projectile: Projectile, color: number): THREE.Mesh;
+  makeResourceMesh(color: number): THREE.Group;
+}
 
 interface UnitView {
   group: THREE.Group;
@@ -47,7 +52,7 @@ export class RenderBridge {
   private selected: Set<number> = new Set();
   private selectedBuildings: Set<number> = new Set();
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, private readonly content: RenderContentProvider) {
     this.scene = scene;
   }
 
@@ -122,7 +127,7 @@ export class RenderBridge {
     let v = this.unitViews.get(u.id);
     if (!v) {
       const faction = FACTION_COLORS[u.faction];
-      const group = makeUnitMesh(u.kind, faction.primary, faction.accent);
+      const group = this.content.makeUnitMesh(u, faction.primary, faction.accent);
       const ring = makeSelectionRing(u.stats.radius + 0.45, NEUTRAL_COLORS.ally);
       ring.position.y = 0.05;
       group.add(ring);
@@ -194,7 +199,7 @@ export class RenderBridge {
     let v = this.buildingViews.get(b.id);
     if (!v) {
       const faction = FACTION_COLORS[b.faction];
-      const group = makeBuildingMesh(b.kind, b.faction, faction.primary, faction.accent, MAP.tileSize);
+      const group = this.content.makeBuildingMesh(b, faction.primary, faction.accent);
       const rad = b.stats.radius + 0.3;
       const ring = makeSelectionRing(rad, NEUTRAL_COLORS.ally);
       ring.position.y = 0.05;
@@ -246,7 +251,7 @@ export class RenderBridge {
         disposeObject(v.group);
       }
       const group = new THREE.Group();
-      const mesh = makeProjectileMesh(color, p.behavior);
+      const mesh = this.content.makeProjectileMesh(p, color);
       const trail = makeProjectileTrail(p.behavior, color);
       group.add(mesh);
       if (trail) group.add(trail);
@@ -266,7 +271,7 @@ export class RenderBridge {
   syncResource(r: ResourceNode, fogGrid: Uint8Array): void {
     let v = this.resourceViews.get(r.id);
     if (!v) {
-      const group = makeResourceMesh(NEUTRAL_COLORS.resource);
+      const group = this.content.makeResourceMesh(NEUTRAL_COLORS.resource);
       this.scene.add(group);
       v = { group };
       this.resourceViews.set(r.id, v);
