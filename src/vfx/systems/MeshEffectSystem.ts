@@ -10,22 +10,29 @@ export class MeshEffectSystem {
     const height = (layer.height ?? radius * 2) * lodScale;
     const opacity = layer.opacity ?? 0.32;
     const grow = layer.grow ?? 1.0;
-    const mat = makeGlowMaterial(color, opacity);
+    const mat = makeGlowMaterial(color, opacity, layer.blending ?? 'additive', layer.material ?? 'fire');
     const uniforms = mat.uniforms as GlowUniforms;
     const mesh = new THREE.Mesh(makeGeometry(layer), mat);
     mesh.renderOrder = 8;
-    mesh.position.set(params.x, initialY(layer, radius, height), params.y);
+    const baseX = params.x + (layer.offsetX ?? 0) * lodScale;
+    const baseY = initialY(layer, radius, height);
+    const baseZ = params.y + (layer.offsetZ ?? 0) * lodScale;
+    mesh.position.set(baseX, baseY, baseZ);
     if (layer.shape === 'ring') mesh.rotation.x = Math.PI / 2;
     this.scene.add(mesh);
 
     return {
       obj: mesh,
+      delayMs: layer.delayMs ?? 0,
       layerKind: 'mesh',
       lifeMs: layer.lifeMs ?? 650,
       update: (obj, t) => {
         const eased = 1 - Math.pow(1 - t, 3);
         const pulse = Math.sin(Math.PI * Math.min(1, t * 1.25));
-        updateScale(layer, obj, radius, height, grow, eased);
+        obj.position.set(baseX, baseY, baseZ);
+        updateScale(layer, obj, radius, height, grow, eased, baseY);
+        obj.position.y += (layer.rise ?? 0) * t * lodScale;
+        obj.rotation.y += (layer.shape === 'cap' || layer.shape === 'dome') ? 0.006 : 0;
         uniforms.uTime.value = t;
         uniforms.uOpacity.value = opacity * Math.max(0, (1 - t) * (0.35 + pulse * 0.65));
       },
@@ -40,6 +47,7 @@ export class MeshEffectSystem {
     this.scene.add(light);
     return {
       obj: light,
+      delayMs: layer.delayMs ?? 0,
       layerKind: 'light',
       lifeMs: layer.lifeMs ?? 300,
       update: (obj, t) => {
@@ -66,7 +74,7 @@ function initialY(layer: VfxMeshLayer, radius: number, height: number): number {
   return layer.y ?? radius * 0.45;
 }
 
-function updateScale(layer: VfxMeshLayer, obj: THREE.Object3D, radius: number, height: number, grow: number, eased: number): void {
+function updateScale(layer: VfxMeshLayer, obj: THREE.Object3D, radius: number, height: number, grow: number, eased: number, baseY: number): void {
   if (layer.shape === 'column') {
     const r = radius * (0.16 + eased * grow);
     const h = height * (0.18 + eased * 0.95);
@@ -88,7 +96,7 @@ function updateScale(layer: VfxMeshLayer, obj: THREE.Object3D, radius: number, h
   if (layer.shape === 'cap') {
     const r = radius * (0.22 + eased * grow);
     obj.scale.set(r, Math.max(0.45, r * 0.28), r);
-    obj.position.y = layer.y ?? radius * (0.92 + eased * 0.45);
+    obj.position.y = layer.y === undefined ? radius * (0.92 + eased * 0.45) : baseY;
     return;
   }
   if (layer.shape === 'dome') {
@@ -100,24 +108,29 @@ function updateScale(layer: VfxMeshLayer, obj: THREE.Object3D, radius: number, h
   obj.scale.set(r, Math.max(0.7, r * 0.42), r);
 }
 
-function makeGlowMaterial(color: number, opacity: number): THREE.ShaderMaterial {
+function makeGlowMaterial(color: number, opacity: number, blending: 'additive' | 'normal', material: 'fire' | 'smoke'): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       uColor: { value: new THREE.Color(color) },
+      uMode: { value: material === 'smoke' ? 1 : 0 },
       uOpacity: { value: opacity },
       uTime: { value: 0 },
     },
     vertexShader: `
+      uniform float uTime;
       varying vec2 vUv;
       varying vec3 vNormalView;
       void main() {
         vUv = uv;
         vNormalView = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        float warp = sin(position.x * 5.0 + uTime * 7.0) * sin(position.y * 4.0 - uTime * 5.0) * 0.055;
+        vec3 p = position + normal * warp;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
       }
     `,
     fragmentShader: `
       uniform vec3 uColor;
+      uniform float uMode;
       uniform float uOpacity;
       uniform float uTime;
       varying vec2 vUv;
@@ -133,20 +146,35 @@ function makeGlowMaterial(color: number, opacity: number): THREE.ShaderMaterial 
         float fresnel = pow(1.0 - abs(vNormalView.z), 1.75);
         float heat = band(vUv.y * 34.0 + centered.x * 8.0, 9.0, 2.6);
         float tornEdge = 0.62 + 0.38 * band(vUv.x * 52.0 + vUv.y * 19.0, 6.0, 3.5);
-        float alpha = uOpacity * max(radial, fresnel * 0.85) * (0.58 + heat * 0.42) * tornEdge;
-        vec3 hot = mix(uColor * 0.65, vec3(1.0, 0.92, 0.72), heat * 0.55);
-        gl_FragColor = vec4(hot, alpha);
+        float mask = max(radial, fresnel * 0.85) * tornEdge;
+        float fireAlpha = uOpacity * mask * (0.58 + heat * 0.42);
+        vec3 fireColor = mix(uColor * 0.65, vec3(1.0, 0.92, 0.72), heat * 0.55);
+        float smokeNoise = 0.45 + 0.55 * band(vUv.x * 27.0 + vUv.y * 18.0, 4.0, 1.6);
+        float emberPhase = smoothstep(0.0, 0.28, uTime);
+        float ashPhase = smoothstep(0.38, 0.92, uTime);
+        float fadePhase = smoothstep(0.78, 1.0, uTime);
+        vec3 emberRed = vec3(0.95, 0.22, 0.055);
+        vec3 burntBrown = mix(vec3(0.22, 0.075, 0.035), uColor * 0.92, 0.45);
+        vec3 sootBlack = vec3(0.035, 0.029, 0.026);
+        float coreHeat = smoothstep(0.82, 0.12, length(centered)) * (1.0 - emberPhase);
+        float smokeAlpha = uOpacity * mask * smokeNoise * (1.0 - fadePhase * 0.86);
+        vec3 smokeColor = mix(emberRed, burntBrown, emberPhase);
+        smokeColor = mix(smokeColor, sootBlack, ashPhase * 0.92);
+        smokeColor += vec3(1.0, 0.42, 0.12) * coreHeat * 0.42;
+        smokeColor *= 0.74 + smokeNoise * 0.42;
+        gl_FragColor = vec4(mix(fireColor, smokeColor, uMode), mix(fireAlpha, smokeAlpha, uMode));
       }
     `,
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: blending === 'normal' ? THREE.NormalBlending : THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   });
 }
 
 type GlowUniforms = {
   uColor: { value: THREE.Color };
+  uMode: { value: number };
   uOpacity: { value: number };
   uTime: { value: number };
 };

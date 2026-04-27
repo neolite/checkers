@@ -18,6 +18,7 @@ export class BeamSystem {
     this.scene.add(mesh);
     return {
       obj: mesh,
+      delayMs: layer.delayMs ?? 0,
       layerKind: 'beam',
       lifeMs: layer.lifeMs ?? 150,
       update: (obj, t) => {
@@ -56,6 +57,7 @@ export class BeamSystem {
     this.scene.add(mesh);
     return {
       obj: mesh,
+      delayMs: layer.delayMs ?? 0,
       layerKind: 'cone',
       lifeMs: layer.lifeMs ?? 180,
       update: (obj, t) => {
@@ -76,6 +78,7 @@ export class BeamSystem {
     this.scene.add(mesh);
     return {
       obj: mesh,
+      delayMs: layer.delayMs ?? 0,
       layerKind: 'shockwave',
       lifeMs: layer.lifeMs ?? 240,
       update: (obj, t) => {

@@ -24,6 +24,7 @@ export class DecalSystem {
     this.scene.add(mesh);
     return {
       obj: mesh,
+      delayMs: layer.delayMs ?? 0,
       layerKind: 'decal',
       lifeMs: layer.lifeMs ?? 30000,
       update: (obj, t) => {

@@ -90,7 +90,10 @@ export class VfxManager {
       instance.ageMs += dtMs;
       const done = !instance.preset.loop && instance.ageMs >= instance.preset.durationMs;
       for (const item of instance.items) {
-        const localAge = instance.preset.loop ? instance.ageMs % item.lifeMs : Math.min(instance.ageMs, item.lifeMs);
+        const delayedAge = instance.ageMs - (item.delayMs ?? 0);
+        item.obj.visible = delayedAge >= 0;
+        if (delayedAge < 0) continue;
+        const localAge = instance.preset.loop ? delayedAge % item.lifeMs : Math.min(delayedAge, item.lifeMs);
         const t = Math.max(0, Math.min(1, localAge / item.lifeMs));
         item.update?.(item.obj, t, localAge);
       }

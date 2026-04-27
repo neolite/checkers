@@ -32,7 +32,11 @@ export interface VfxLayerBase {
   type: VfxLayerKind;
   budgetClass?: VfxBudgetClass;
   color?: number;
+  delayMs?: number;
   lifeMs?: number;
+  offsetX?: number;
+  offsetZ?: number;
+  rise?: number;
   y?: number;
 }
 
@@ -71,6 +75,8 @@ export interface VfxLightLayer extends VfxLayerBase {
 export interface VfxMeshLayer extends VfxLayerBase {
   type: 'mesh';
   shape: 'cap' | 'column' | 'disc' | 'dome' | 'ring' | 'sphere';
+  blending?: 'additive' | 'normal';
+  material?: 'fire' | 'smoke';
   radius?: number;
   height?: number;
   opacity?: number;
@@ -105,6 +111,7 @@ export interface VfxPreset {
 
 export interface RuntimeVfxItem {
   obj: THREE.Object3D;
+  delayMs: number;
   layerKind: VfxLayerKind;
   lifeMs: number;
   update?: (obj: THREE.Object3D, t: number, ageMs: number) => void;
