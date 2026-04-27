@@ -66,3 +66,7 @@ export const BUILDING_STATS: Record<BuildingKind, BuildingStats> = {
     weapon: { klass: 'aArmor', behavior: 'chain', damage: 18, range: 11, cdMs: 1500, projectileSpeed: 0, chainJumps: 2, chainRange: 4.5, targetsGround: true },
   },
 };
+
+export function isBuildingKind(kind: string): kind is BuildingKind {
+  return kind in BUILDING_STATS;
+}

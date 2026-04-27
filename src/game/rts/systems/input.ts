@@ -1,7 +1,7 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import { screenToGround } from '@render/picking';
-import type { BuildingKind } from '@game/rts/content/buildings';
+import { isBuildingKind, type BuildingKind } from '@game/rts/content/buildings';
 import { UI, MAP, WORLD } from '@config/gameplay';
 import { sampleFog } from '@render/fogOverlay';
 import { BUILDING_STATS } from '@game/rts/content/buildings';
@@ -96,6 +96,7 @@ export class InputSystem implements ISystem {
 
     // Listen to placement start requests from UI.
     w.bus.on('input:startPlacement', ({ kind }) => {
+      if (!isBuildingKind(kind)) return;
       this.placement = kind;
       this.ensureGhost();
       if (!this.ghostMesh && w.three.scene) {

@@ -121,3 +121,7 @@ export const UNIT_STATS: Record<UnitKind, UnitStats> = {
   atGrenadier: inf({ kind: 'atGrenadier', displayName: 'Grenadier', maxHp: 80, armor: 'medium', speed: 3.5, cost: 200, power: 2, buildMs: 5200, radius: 0.58,
                      weapon: { klass: 'aArmor', behavior: 'arc', damage: 18, range: 6.2, cdMs: 1250, projectileSpeed: 18, splash: 1.2, arcHeight: 3.5, targetsGround: true } }),
 };
+
+export function isUnitKind(kind: string): kind is UnitKind {
+  return kind in UNIT_STATS;
+}

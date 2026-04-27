@@ -2,9 +2,9 @@ import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Role } from '@config/gameplay';
 import type { UnitKind } from '@game/rts/content/units';
-import { UNIT_STATS } from '@game/rts/content/units';
+import { UNIT_STATS, isUnitKind } from '@game/rts/content/units';
 import { FACTIONS } from '@game/rts/content/factions';
-import { BUILDING_STATS } from '@game/rts/content/buildings';
+import { BUILDING_STATS, isBuildingKind } from '@game/rts/content/buildings';
 import { MAP } from '@config/gameplay';
 import { SpawnService } from '@engine/core/spawnService';
 import { AI_TUNING } from '@config/gameplay';
@@ -19,6 +19,7 @@ export class ProductionSystem implements ISystem {
 
   init(w: World): void {
     w.bus.on('input:placeBuilding', ({ x, y, kind }) => {
+      if (!isBuildingKind(kind)) return;
       const faction = FACTIONS[w.playerFaction];
       const stats = BUILDING_STATS[kind];
       if (stats.prereq && !hasCompleted(w, w.playerFaction, stats.prereq)) return;
@@ -102,7 +103,8 @@ export class ProductionSystem implements ISystem {
         if (!kindKey) return;
       }
       const faction = FACTIONS[w.playerFaction];
-      const kind = resolveKind(role, faction, kindKey);
+      const override = kindKey && isUnitKind(kindKey) ? kindKey : null;
+      const kind = resolveKind(role, faction, override);
       if (!kind) return;
       const baseStats = UNIT_STATS[kind];
       const cost = baseStats.cost;

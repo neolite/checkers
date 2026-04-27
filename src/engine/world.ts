@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Unit, Building, Projectile, ResourceNode } from '@entities/types';
 import { ObjectPool } from '@utils/objectPool';
 import { EventBus } from '@utils/eventBus';
+import type { GameEvents } from '@engine/events';
 import { NavGrid, FlowField } from '@utils/flowField';
 import type { FactionId } from '@config/palette';
 import { FACTION_IDS } from '@config/palette';
@@ -34,7 +35,7 @@ export interface FactionState {
 }
 
 export class World {
-  bus = new EventBus();
+  bus = new EventBus<GameEvents>();
   units: ObjectPool<Unit>;
   buildings: ObjectPool<Building>;
   projectiles: ObjectPool<Projectile>;
