@@ -2,7 +2,7 @@ import type * as THREE from 'three';
 
 export type VfxBudgetClass = 'cheap' | 'normal' | 'expensive';
 export type VfxLod = 'high' | 'medium' | 'low' | 'culled';
-export type VfxLayerKind = 'beam' | 'cone' | 'decal' | 'shockwave' | 'sprite';
+export type VfxLayerKind = 'beam' | 'cone' | 'decal' | 'light' | 'mesh' | 'shockwave' | 'sprite';
 export type VfxTextureId = 'spark' | 'flame' | 'magic' | 'smoke' | 'trace' | 'scorch' | 'crater';
 
 export interface VfxParams {
@@ -62,6 +62,21 @@ export interface VfxShockwaveLayer extends VfxLayerBase {
   radius?: number;
 }
 
+export interface VfxLightLayer extends VfxLayerBase {
+  type: 'light';
+  intensity?: number;
+  distance?: number;
+}
+
+export interface VfxMeshLayer extends VfxLayerBase {
+  type: 'mesh';
+  shape: 'sphere' | 'column';
+  radius?: number;
+  height?: number;
+  opacity?: number;
+  grow?: number;
+}
+
 export interface VfxSpriteLayer extends VfxLayerBase {
   type: 'sprite';
   texture: Exclude<VfxTextureId, 'scorch' | 'crater'>;
@@ -71,7 +86,14 @@ export interface VfxSpriteLayer extends VfxLayerBase {
   randomRotation?: boolean;
 }
 
-export type VfxLayer = VfxBeamLayer | VfxConeLayer | VfxDecalLayer | VfxShockwaveLayer | VfxSpriteLayer;
+export type VfxLayer =
+  | VfxBeamLayer
+  | VfxConeLayer
+  | VfxDecalLayer
+  | VfxLightLayer
+  | VfxMeshLayer
+  | VfxShockwaveLayer
+  | VfxSpriteLayer;
 
 export interface VfxPreset {
   id: string;

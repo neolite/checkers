@@ -5,6 +5,8 @@ const DEFAULT_LIMITS: Record<VfxLayerKind, number> = {
   beam: 180,
   cone: 60,
   decal: 240,
+  light: 18,
+  mesh: 80,
   shockwave: 100,
   sprite: 360,
 };
@@ -14,6 +16,8 @@ export class VfxBudget {
     beam: 0,
     cone: 0,
     decal: 0,
+    light: 0,
+    mesh: 0,
     shockwave: 0,
     sprite: 0,
   };

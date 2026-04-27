@@ -6,6 +6,7 @@ import { VFX_PRESETS } from '@vfx/presets/weapons';
 import { AttachedLoopSystem, type ResolveVfxAttachment } from '@vfx/systems/AttachedLoopSystem';
 import { BeamSystem } from '@vfx/systems/BeamSystem';
 import { DecalSystem } from '@vfx/systems/DecalSystem';
+import { MeshEffectSystem } from '@vfx/systems/MeshEffectSystem';
 import { SpriteBurstSystem } from '@vfx/systems/SpriteBurstSystem';
 import type { RuntimeVfxItem, VfxAttachmentTarget, VfxLayer, VfxLayerKind, VfxLod, VfxParams, VfxPreset } from '@vfx/types';
 
@@ -31,6 +32,7 @@ export class VfxManager {
   private beams: BeamSystem;
   private sprites: SpriteBurstSystem;
   private decals: DecalSystem;
+  private meshEffects: MeshEffectSystem;
 
   constructor(
     private scene: THREE.Scene,
@@ -42,6 +44,7 @@ export class VfxManager {
     this.beams = new BeamSystem(scene);
     this.sprites = new SpriteBurstSystem(scene, this.assets);
     this.decals = new DecalSystem(scene, this.assets);
+    this.meshEffects = new MeshEffectSystem(scene);
   }
 
   play(name: string, params: VfxParams): void {
@@ -139,6 +142,10 @@ export class VfxManager {
         return this.beams.cone(layer, params, lodScale);
       case 'decal':
         return this.decals.decal(layer, params, lodScale);
+      case 'light':
+        return this.meshEffects.light(layer, params, lodScale);
+      case 'mesh':
+        return this.meshEffects.glowMesh(layer, params, lodScale);
       case 'shockwave':
         return this.beams.shockwave(layer, params, lodScale);
       case 'sprite':
