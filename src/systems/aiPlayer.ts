@@ -8,7 +8,7 @@ import { BUILDING_STATS } from '@config/buildings';
 import { FACTIONS } from '@config/factions';
 import { UNIT_STATS } from '@config/units';
 import { MAP, AI_TUNING } from '@config/gameplay';
-import { spawnBuilding } from '@systems/production';
+import { SpawnService } from '@engine/core/spawnService';
 import { dist } from '@utils/math';
 import { canPowerBuilding, canPowerUnit } from '@utils/power';
 
@@ -134,7 +134,7 @@ export class AIPlayerSystem implements ISystem {
         }
         if (!ok) continue;
         fs.credits -= cost;
-        const b = spawnBuilding(w, id, kind, tx, ty, false);
+        const b = new SpawnService(w).building({ faction: id, kind, tileX: tx, tileY: ty, preBuilt: false });
         if (!b) return false;
         if (meta.buildMode === 'morph') {
           worker.hp = 0; // consume drone

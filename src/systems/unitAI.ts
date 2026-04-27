@@ -4,7 +4,7 @@ import type { Unit, Building, ResourceNode } from '@entities/types';
 import { ECONOMY, MAP } from '@config/gameplay';
 import { dist, dist2, TAU } from '@utils/math';
 import { BUILDING_STATS } from '@config/buildings';
-import { spawnBuilding } from '@systems/production';
+import { SpawnService } from '@engine/core/spawnService';
 import { tickBurrowAmbush, tryPounce } from '@systems/abilities';
 
 // FSM transitions run here. Movement/combat systems consume the resulting fields.
@@ -301,7 +301,7 @@ function performMorph(w: World, u: Unit): void {
       return;
     }
   }
-  const b = spawnBuilding(w, u.faction, kind, placeTx, placeTy, false);
+  const b = new SpawnService(w).building({ faction: u.faction, kind, tileX: placeTx, tileY: placeTy, preBuilt: false });
   if (b) {
     b.builderUnitId = null; // autonomous build
     if (u.faction === w.playerFaction && w.selectedUnits.has(u.id)) {
