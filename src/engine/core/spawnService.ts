@@ -16,11 +16,8 @@ export class SpawnService {
   constructor(private readonly world: World) {}
 
   unit(input: SpawnUnitInput): Unit | null {
-    const u = this.world.units.acquire();
+    const u = this.initUnit(input);
     if (!u) return null;
-    const faction = FACTIONS[input.faction];
-    const stats = applyFactionMods(input.kind, faction.mods);
-    initUnit(u, input.kind, input.faction, stats, input.x, input.y);
     this.world.bus.emit('unit:spawned', { id: u.id, kind: input.kind, faction: input.faction, x: input.x, y: input.y });
     return u;
   }
@@ -51,13 +48,24 @@ export class SpawnService {
 
   unitAdjacentToBuilding(building: Building, kind: UnitKind): Unit | null {
     const { x, y } = findFreeSpawnAdjacent(this.world, building);
-    const u = this.unit({ faction: building.faction, kind, x, y });
+    const input = { faction: building.faction, kind, x, y };
+    const u = this.initUnit(input);
     if (!u) return null;
     if (building.rallyX !== null && building.rallyY !== null) {
       u.state = 'move';
       u.destX = building.rallyX;
       u.destY = building.rallyY;
     }
+    this.world.bus.emit('unit:spawned', { id: u.id, kind, faction: building.faction, x, y });
+    return u;
+  }
+
+  private initUnit(input: SpawnUnitInput): Unit | null {
+    const u = this.world.units.acquire();
+    if (!u) return null;
+    const faction = FACTIONS[input.faction];
+    const stats = applyFactionMods(input.kind, faction.mods);
+    initUnit(u, input.kind, input.faction, stats, input.x, input.y);
     return u;
   }
 }
