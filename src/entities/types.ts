@@ -1,5 +1,4 @@
-import type { UnitKind, UnitStats } from '@game/rts/content/units';
-import type { BuildingKind, BuildingStats } from '@game/rts/content/buildings';
+import type { UnitKind, UnitStats, BuildingKind, BuildingStats } from '@engine/contentTypes';
 import type { FactionId } from '@config/palette';
 import type { Role, WeaponBehavior } from '@config/gameplay';
 
@@ -49,7 +48,7 @@ export interface Unit {
   buildTargetId: number | null;
   // Morph mode (Swarm): when set, the drone will consume itself into a building
   // of this kind as soon as it reaches destX/destY.
-  pendingMorphKind: import('@game/rts/content/buildings').BuildingKind | null;
+  pendingMorphKind: BuildingKind | null;
 }
 
 export interface Building {

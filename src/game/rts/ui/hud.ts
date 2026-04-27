@@ -5,10 +5,10 @@ import type { CameraSystem } from '@systems/camera';
 import { WORLD } from '@config/gameplay';
 import { MAP } from '@config/gameplay';
 import { TERRAIN_MINIMAP_COLORS } from '@config/terrain';
-import { UNIT_STATS, type UnitKind } from '@game/rts/content/units';
+import { UNIT_STATS, isUnitKind, type UnitKind } from '@game/rts/content/units';
 import { icon, type IconName } from '@game/rts/ui/icons';
 import type { Role } from '@config/gameplay';
-import type { BuildingKind } from '@game/rts/content/buildings';
+import { isBuildingKind, type BuildingKind } from '@game/rts/content/buildings';
 import { blueprintPortrait } from '@game/rts/ui/blueprintPortrait';
 
 export interface HudHandle {
@@ -248,6 +248,7 @@ function renderMidPanel(
   world.buildings.forEachAlive((b) => {
     if (b.faction !== world.playerFaction) return;
     if (b.completed) return;
+    if (!isBuildingKind(b.kind)) return;
     const pct = 1 - b.buildMsLeft / Math.max(1, b.stats.buildMs);
     constructing.push({ id: b.id, kind: b.kind, pct, label: b.stats.displayName });
   });
@@ -297,6 +298,7 @@ function renderMidPanel(
       const keys = items.map((x) => `${x.idx}:${x.kind}`).join('|') + `|b:${b.id}`;
       const cache = ensureRow(queueRow, midCache.queue, keys);
       for (const it of items) {
+        if (!isUnitKind(it.kind)) continue;
         const key = `${it.idx}:${it.kind}`;
         let el = cache.tiles.get(key);
         if (!el) {
@@ -341,6 +343,7 @@ function renderMidPanel(
     for (const id of world.selectedUnits) {
       const u = world.units.findById(id);
       if (!u) continue;
+      if (!isUnitKind(u.kind)) continue;
       let bk = buckets.get(u.kind);
       if (!bk) { bk = { kind: u.kind, ids: [], hpSum: 0, hpMaxSum: 0 }; buckets.set(u.kind, bk); }
       bk.ids.push(u.id);
@@ -402,6 +405,7 @@ function renderBlueprintPanel(world: World, panel: HTMLDivElement): void {
     const id = [...world.selectedBuildings][0]!;
     const b = world.buildings.findById(id);
     if (b) {
+      if (!isBuildingKind(b.kind)) return;
       const hpPct = b.completed ? b.hp / Math.max(1, b.stats.maxHp) : 1 - b.buildMsLeft / Math.max(1, b.stats.buildMs);
       panel.innerHTML = blueprintPortrait({
         faction: b.faction,
@@ -419,6 +423,7 @@ function renderBlueprintPanel(world: World, panel: HTMLDivElement): void {
     const selected = [...world.selectedUnits].map((id) => world.units.findById(id)).filter((u) => u !== null);
     if (selected.length === 1) {
       const u = selected[0]!;
+      if (!isUnitKind(u.kind)) return;
       panel.innerHTML = blueprintPortrait({
         faction: u.faction,
         kind: u.kind,
@@ -435,13 +440,16 @@ function renderBlueprintPanel(world: World, panel: HTMLDivElement): void {
       let max = 0;
       const kinds = new Set<UnitKind>();
       for (const u of selected) {
+        if (!isUnitKind(u!.kind)) continue;
         hp += u!.hp;
         max += u!.stats.maxHp;
         kinds.add(u!.kind);
       }
+      if (kinds.size === 0) return;
+      const onlyKind = [...kinds][0]!;
       panel.innerHTML = blueprintPortrait({
         faction,
-        kind: kinds.size === 1 ? selected[0]!.kind : 'mixed',
+        kind: kinds.size === 1 ? onlyKind : 'mixed',
         label: `${selected.length} selected`,
         sublabel: kinds.size === 1 ? selected[0]!.stats.displayName : `${kinds.size} unit types`,
         hpPct: hp / Math.max(1, max),

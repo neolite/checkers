@@ -159,6 +159,7 @@ export class ProductionSystem implements ISystem {
         // Kick off next in queue.
         if (b.productionQueue.length > 0) {
           const next = b.productionQueue[0]!;
+          if (!isUnitKind(next.kind)) return;
           const aiMul = w.factions[b.faction].isHuman ? 1 : AI_TUNING.buildTimeMul;
           b.productionMsLeft = Math.round(UNIT_STATS[next.kind].buildMs * aiMul);
           w.bus.emit('production:started', { buildingId: b.id, role: next.role });

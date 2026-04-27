@@ -1,6 +1,6 @@
 import type { World } from '@engine/world';
 import { BUILDING_STATS, type BuildingKind } from '@game/rts/content/buildings';
-import { UNIT_STATS, type UnitKind } from '@game/rts/content/units';
+import { UNIT_STATS, isUnitKind, type UnitKind } from '@game/rts/content/units';
 import type { FactionId } from '@config/palette';
 
 export interface PowerSnapshot {
@@ -20,6 +20,7 @@ export function powerSnapshot(w: World, faction: FactionId): PowerSnapshot {
       consumed += -b.stats.power;
     }
     for (const order of b.productionQueue) {
+      if (!isUnitKind(order.kind)) continue;
       consumed += UNIT_STATS[order.kind].power;
     }
   });

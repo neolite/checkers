@@ -1,6 +1,5 @@
 import type { Unit, Building, Projectile, ResourceNode } from '@entities/types';
-import type { UnitKind, UnitStats } from '@game/rts/content/units';
-import type { BuildingKind, BuildingStats } from '@game/rts/content/buildings';
+import type { UnitKind, UnitStats, BuildingKind, BuildingStats } from '@engine/contentTypes';
 import type { FactionId } from '@config/palette';
 
 const EMPTY_UNIT_STATS: UnitStats = {

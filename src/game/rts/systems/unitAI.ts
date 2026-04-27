@@ -3,7 +3,7 @@ import type { World } from '@engine/world';
 import type { Unit, Building, ResourceNode } from '@entities/types';
 import { ECONOMY, MAP } from '@config/gameplay';
 import { dist, dist2, TAU } from '@utils/math';
-import { BUILDING_STATS } from '@game/rts/content/buildings';
+import { BUILDING_STATS, isBuildingKind } from '@game/rts/content/buildings';
 import { SpawnService } from '@engine/core/spawnService';
 import { RTS_SPAWN_CONTENT } from '@game/rts/spawnContent';
 import { tickBurrowAmbush, tryPounce } from '@game/rts/systems/abilities';
@@ -273,6 +273,10 @@ function harvestSlot(node: ResourceNode, u: Unit): [number, number] {
 // tile. Used by tickMove when the drone reaches the queued morph destination.
 function performMorph(w: World, u: Unit): void {
   const kind = u.pendingMorphKind!;
+  if (!isBuildingKind(kind)) {
+    u.pendingMorphKind = null;
+    return;
+  }
   const stats = BUILDING_STATS[kind];
   const tx = Math.floor(u.x / MAP.tileSize) - Math.floor(stats.tileW / 2);
   const ty = Math.floor(u.y / MAP.tileSize) - Math.floor(stats.tileH / 2);
