@@ -2,6 +2,7 @@ import type { World } from '@engine/world';
 import type { Building, Unit } from '@entities/types';
 import { WORLD } from '@config/gameplay';
 import { applyDamage } from '@systems/combat';
+import { RTS_COMBAT_RULES } from '@game/rts/combatRules';
 import { clamp, dist2, normalize } from '@utils/math';
 
 const POUNCE_RANGE = 8;
@@ -69,7 +70,7 @@ export function tickBurrowAmbush(w: World, u: Unit): void {
     return;
   }
   unburrow(u);
-  applyDamage(w, target.id, false, BURROW_AMBUSH_DAMAGE, BURROW_AMBUSH_CLASS, target.x, target.y);
+  applyDamage(RTS_COMBAT_RULES, w, target.id, false, BURROW_AMBUSH_DAMAGE, BURROW_AMBUSH_CLASS, target.x, target.y);
   w.bus.emit('weapon:effect', {
     behavior: 'ambush',
     faction: u.faction,
@@ -158,7 +159,7 @@ function applyRadialDamage(
     if (!w.areHostile(u.faction, source.faction)) return;
     const r = radius + u.stats.radius;
     if (dist2(source.x, source.y, u.x, u.y) <= r * r) {
-      applyDamage(w, u.id, false, rawDamage, klass, u.x, u.y);
+      applyDamage(RTS_COMBAT_RULES, w, u.id, false, rawDamage, klass, u.x, u.y);
     }
   });
   w.buildings.forEachAlive((b) => {
@@ -166,7 +167,7 @@ function applyRadialDamage(
     if (!w.areHostile(b.faction, source.faction)) return;
     const r = radius + b.stats.radius;
     if (dist2(source.x, source.y, b.x, b.y) <= r * r) {
-      applyDamage(w, b.id, true, rawDamage, klass, b.x, b.y);
+      applyDamage(RTS_COMBAT_RULES, w, b.id, true, rawDamage, klass, b.x, b.y);
     }
   });
 }

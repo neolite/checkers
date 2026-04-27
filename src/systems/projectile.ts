@@ -1,10 +1,12 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Projectile } from '@entities/types';
-import { applyDamage, applySplashDamage, findBounceTarget, getTargetInfo, retargetProjectile } from '@systems/combat';
+import { applyDamage, applySplashDamage, findBounceTarget, getTargetInfo, retargetProjectile, type CombatRules } from '@systems/combat';
 
 export class ProjectileSystem implements ISystem {
   readonly name = 'projectile';
+
+  constructor(private readonly rules: CombatRules) {}
 
   init(_w: World): void { /* noop */ }
 
@@ -30,7 +32,7 @@ export class ProjectileSystem implements ISystem {
 
       if (p.behavior === 'arc') {
         if (p.ageMs >= p.lifeMs || distance2(p.x, p.y, p.targetX, p.targetY) <= 0.45 * 0.45) {
-          detonate(w, p, p.targetX, p.targetY);
+          detonate(this.rules, w, p, p.targetX, p.targetY);
         }
         return;
       }
@@ -43,17 +45,17 @@ export class ProjectileSystem implements ISystem {
       const dy = target.y - p.y;
       const hitRadius = target.radius + (p.behavior === 'rocket' ? 0.5 : 0.35);
       if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-        detonate(w, p, p.x, p.y);
+        detonate(this.rules, w, p, p.x, p.y);
       }
     });
   }
 }
 
-function detonate(w: World, p: Projectile, x: number, y: number): void {
+function detonate(rules: CombatRules, w: World, p: Projectile, x: number, y: number): void {
   w.bus.emit('projectile:impact', { x, y, targetId: p.targetId, damage: p.damage, klass: p.klass, behavior: p.behavior });
-  applyDamage(w, p.targetId, p.targetIsBuilding, p.damage, p.klass, x, y);
+  applyDamage(rules, w, p.targetId, p.targetIsBuilding, p.damage, p.klass, x, y);
   if (p.splash > 0) {
-    applySplashDamage(w, p.ownerFaction, p.targetId, p.targetIsBuilding, p.damage, p.klass, p.splash, x, y);
+    applySplashDamage(rules, w, p.ownerFaction, p.targetId, p.targetIsBuilding, p.damage, p.klass, p.splash, x, y);
   }
 
   if (p.behavior === 'bounce' && p.bounceLeft > 0) {

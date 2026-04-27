@@ -1,11 +1,32 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Unit, Building, Projectile } from '@entities/types';
-import type { Weapon } from '@game/rts/content/units';
 import type { FactionId } from '@config/palette';
-import type { WeaponBehavior, WeaponClass } from '@config/gameplay';
+import type { ArmorClass, WeaponBehavior, WeaponClass } from '@config/gameplay';
 import { dist, dist2 } from '@utils/math';
-import { damageMultiplier } from '@game/rts/content/matrix';
+
+export interface CombatRules {
+  damageMultiplier(weaponClass: WeaponClass, armorClass: ArmorClass): number;
+  burrowedDamageMultiplier: number;
+}
+
+export interface CombatWeapon {
+  klass: WeaponClass;
+  behavior?: WeaponBehavior;
+  damage: number;
+  range: number;
+  cdMs: number;
+  projectileSpeed: number;
+  splash?: number;
+  selfDestruct?: boolean;
+  width?: number;
+  pierce?: number;
+  coneAngleDeg?: number;
+  chainJumps?: number;
+  chainRange?: number;
+  bounceCount?: number;
+  arcHeight?: number;
+}
 
 interface TargetInfo {
   id: number;
@@ -30,6 +51,8 @@ interface AreaHit {
 export class CombatSystem implements ISystem {
   readonly name = 'combat';
 
+  constructor(private readonly rules: CombatRules) {}
+
   init(_w: World): void { /* noop */ }
 
   update(w: World, dtMs: number): void {
@@ -47,7 +70,7 @@ export class CombatSystem implements ISystem {
       const edgeDistance = Math.max(0, d - target.radius - u.stats.radius);
       if (edgeDistance > u.stats.weapon.range + 0.2) return;
 
-      fireWeapon(w, {
+      fireWeapon(this.rules, w, {
         ownerId: u.id,
         ownerFaction: u.faction,
         attackerIsBuilding: false,
@@ -79,7 +102,7 @@ export class CombatSystem implements ISystem {
       const target = getTargetInfo(w, b.targetId, b.targetIsBuilding);
       if (!target) return;
       if (dist(b.x, b.y, target.x, target.y) > b.stats.weapon.range + target.radius) return;
-      fireWeapon(w, {
+      fireWeapon(this.rules, w, {
         ownerId: b.id,
         ownerFaction: b.faction,
         attackerIsBuilding: true,
@@ -95,6 +118,7 @@ export class CombatSystem implements ISystem {
 }
 
 function fireWeapon(
+  rules: CombatRules,
   w: World,
   shot: {
     ownerId: number;
@@ -103,7 +127,7 @@ function fireWeapon(
     x: number;
     y: number;
     radius: number;
-    weapon: Weapon;
+    weapon: CombatWeapon;
     target: TargetInfo;
   },
 ): void {
@@ -116,19 +140,19 @@ function fireWeapon(
   });
 
   if (behavior === 'contact') {
-    directImpact(w, shot.ownerFaction, shot.target, shot.weapon, behavior, shot.target.x, shot.target.y);
+    directImpact(rules, w, shot.ownerFaction, shot.target, shot.weapon, behavior, shot.target.x, shot.target.y);
     return;
   }
   if (behavior === 'line') {
-    fireLine(w, shot.ownerFaction, shot.x, shot.y, shot.weapon, shot.target);
+    fireLine(rules, w, shot.ownerFaction, shot.x, shot.y, shot.weapon, shot.target);
     return;
   }
   if (behavior === 'cone') {
-    fireCone(w, shot.ownerFaction, shot.x, shot.y, shot.weapon, shot.target);
+    fireCone(rules, w, shot.ownerFaction, shot.x, shot.y, shot.weapon, shot.target);
     return;
   }
   if (behavior === 'chain') {
-    fireChain(w, shot.ownerFaction, shot.x, shot.y, shot.weapon, shot.target);
+    fireChain(rules, w, shot.ownerFaction, shot.x, shot.y, shot.weapon, shot.target);
     return;
   }
   spawnProjectile(w, shot.ownerId, shot.ownerFaction, shot.attackerIsBuilding, shot.x, shot.y, shot.weapon, shot.target, behavior);
@@ -141,7 +165,7 @@ function spawnProjectile(
   ownerIsBuilding: boolean,
   x: number,
   y: number,
-  weapon: Weapon,
+  weapon: CombatWeapon,
   target: TargetInfo,
   behavior: WeaponBehavior,
 ): void {
@@ -173,15 +197,15 @@ function spawnProjectile(
   p.ttlMs = Math.max(1000, p.lifeMs + 500);
 }
 
-function directImpact(w: World, ownerFaction: FactionId, target: TargetInfo, weapon: Weapon, behavior: WeaponBehavior, x: number, y: number): void {
+function directImpact(rules: CombatRules, w: World, ownerFaction: FactionId, target: TargetInfo, weapon: CombatWeapon, behavior: WeaponBehavior, x: number, y: number): void {
   w.bus.emit('projectile:impact', { x, y, targetId: target.id, damage: weapon.damage, klass: weapon.klass, behavior });
-  applyDamage(w, target.id, target.isBuilding, weapon.damage, weapon.klass, x, y);
+  applyDamage(rules, w, target.id, target.isBuilding, weapon.damage, weapon.klass, x, y);
   if ((weapon.splash ?? 0) > 0) {
-    applySplashDamage(w, ownerFaction, target.id, target.isBuilding, weapon.damage, weapon.klass, weapon.splash!, x, y);
+    applySplashDamage(rules, w, ownerFaction, target.id, target.isBuilding, weapon.damage, weapon.klass, weapon.splash!, x, y);
   }
 }
 
-function fireLine(w: World, ownerFaction: FactionId, x: number, y: number, weapon: Weapon, target: TargetInfo): void {
+function fireLine(rules: CombatRules, w: World, ownerFaction: FactionId, x: number, y: number, weapon: CombatWeapon, target: TargetInfo): void {
   const dx = target.x - x;
   const dy = target.y - y;
   const len = Math.hypot(dx, dy) || 1;
@@ -192,12 +216,12 @@ function fireLine(w: World, ownerFaction: FactionId, x: number, y: number, weapo
   const hits = collectSegmentHits(w, ownerFaction, x, y, endX, endY, weapon.width ?? 0.45)
     .slice(0, weapon.pierce ?? 4);
   hits.forEach((hit, index) => {
-    applyDamage(w, hit.id, hit.isBuilding, weapon.damage * Math.pow(0.72, index), weapon.klass, hit.x, hit.y);
+    applyDamage(rules, w, hit.id, hit.isBuilding, weapon.damage * Math.pow(0.72, index), weapon.klass, hit.x, hit.y);
   });
   w.bus.emit('weapon:effect', { behavior: 'line', faction: ownerFaction, x, y, tx: endX, ty: endY, width: weapon.width ?? 0.45 });
 }
 
-function fireCone(w: World, ownerFaction: FactionId, x: number, y: number, weapon: Weapon, target: TargetInfo): void {
+function fireCone(rules: CombatRules, w: World, ownerFaction: FactionId, x: number, y: number, weapon: CombatWeapon, target: TargetInfo): void {
   const angle = Math.atan2(target.y - y, target.x - x);
   const half = ((weapon.coneAngleDeg ?? 45) * Math.PI / 180) / 2;
   const hits = collectAllHostiles(w, ownerFaction);
@@ -209,7 +233,7 @@ function fireCone(w: World, ownerFaction: FactionId, x: number, y: number, weapo
     const a = Math.atan2(Math.sin(Math.atan2(dy, dx) - angle), Math.cos(Math.atan2(dy, dx) - angle));
     if (Math.abs(a) > half) continue;
     const primary = hit.id === target.id && hit.isBuilding === target.isBuilding;
-    applyDamage(w, hit.id, hit.isBuilding, weapon.damage * (primary ? 1 : 0.68), weapon.klass, hit.x, hit.y);
+    applyDamage(rules, w, hit.id, hit.isBuilding, weapon.damage * (primary ? 1 : 0.68), weapon.klass, hit.x, hit.y);
   }
   w.bus.emit('weapon:effect', {
     behavior: 'cone',
@@ -223,7 +247,7 @@ function fireCone(w: World, ownerFaction: FactionId, x: number, y: number, weapo
   });
 }
 
-function fireChain(w: World, ownerFaction: FactionId, x: number, y: number, weapon: Weapon, target: TargetInfo): void {
+function fireChain(rules: CombatRules, w: World, ownerFaction: FactionId, x: number, y: number, weapon: CombatWeapon, target: TargetInfo): void {
   const points = [{ x, y }];
   const hitKeys = new Set<string>();
   let current: TargetInfo | null = target;
@@ -231,7 +255,7 @@ function fireChain(w: World, ownerFaction: FactionId, x: number, y: number, weap
   const jumps = Math.max(1, (weapon.chainJumps ?? 3) + 1);
   for (let i = 0; i < jumps && current; i++) {
     hitKeys.add(targetKey(current));
-    applyDamage(w, current.id, current.isBuilding, raw, weapon.klass, current.x, current.y);
+    applyDamage(rules, w, current.id, current.isBuilding, raw, weapon.klass, current.x, current.y);
     points.push({ x: current.x, y: current.y });
     raw *= 0.72;
     current = findNearestChainTarget(w, ownerFaction, current.x, current.y, weapon.chainRange ?? 5, hitKeys);
@@ -240,6 +264,7 @@ function fireChain(w: World, ownerFaction: FactionId, x: number, y: number, weap
 }
 
 export function applySplashDamage(
+  rules: CombatRules,
   w: World,
   attackerFaction: FactionId,
   primaryTargetId: number,
@@ -256,7 +281,7 @@ export function applySplashDamage(
     if (!w.areHostile(u.faction, attackerFaction)) return;
     if (!primaryTargetIsBuilding && u.id === primaryTargetId) return;
     if (dist2(u.x, u.y, impactX, impactY) <= r2) {
-      applyDamage(w, u.id, false, rawDamage * rawPct, klass, u.x, u.y);
+      applyDamage(rules, w, u.id, false, rawDamage * rawPct, klass, u.x, u.y);
     }
   });
   w.buildings.forEachAlive((b) => {
@@ -264,7 +289,7 @@ export function applySplashDamage(
     if (!w.areHostile(b.faction, attackerFaction)) return;
     if (primaryTargetIsBuilding && b.id === primaryTargetId) return;
     if (dist2(b.x, b.y, impactX, impactY) <= (splash + b.stats.radius) ** 2) {
-      applyDamage(w, b.id, true, rawDamage * rawPct, klass, b.x, b.y);
+      applyDamage(rules, w, b.id, true, rawDamage * rawPct, klass, b.x, b.y);
     }
   });
 }
@@ -282,6 +307,7 @@ function pickNearestEnemyUnit(w: World, b: Building, range: number): Unit | null
 }
 
 export function applyDamage(
+  rules: CombatRules,
   w: World,
   targetId: number,
   isBuilding: boolean,
@@ -293,7 +319,7 @@ export function applyDamage(
   if (isBuilding) {
     const b = w.buildings.findById(targetId);
     if (!b) return;
-    const mult = damageMultiplier(klass, b.stats.armor);
+    const mult = rules.damageMultiplier(klass, b.stats.armor);
     const final = Math.max(0, Math.round(rawDamage * mult));
     b.hp -= final;
     w.bus.emit('building:damaged', { id: b.id, amount: final, x: impactX, y: impactY });
@@ -301,8 +327,8 @@ export function applyDamage(
   } else {
     const u = w.units.findById(targetId);
     if (!u) return;
-    const mult = damageMultiplier(klass, u.stats.armor);
-    const mitigation = u.burrowed ? 0.4 : 1;
+    const mult = rules.damageMultiplier(klass, u.stats.armor);
+    const mitigation = u.burrowed ? rules.burrowedDamageMultiplier : 1;
     const final = Math.max(0, Math.round(rawDamage * mult * mitigation));
     u.hp -= final;
     w.bus.emit('unit:damaged', { id: u.id, amount: final, x: impactX, y: impactY });
@@ -321,7 +347,7 @@ export function getTargetInfo(w: World, id: number, isBuilding: boolean): Target
   return { id: u.id, isBuilding: false, x: u.x, y: u.y, radius: u.stats.radius, hp: u.hp, faction: u.faction };
 }
 
-function weaponBehavior(weapon: Weapon): WeaponBehavior {
+function weaponBehavior(weapon: CombatWeapon): WeaponBehavior {
   if (weapon.behavior) return weapon.behavior;
   return weapon.projectileSpeed === 0 ? 'contact' : 'projectile';
 }

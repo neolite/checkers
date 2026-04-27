@@ -19,6 +19,7 @@ import { UnitAISystem } from '@game/rts/systems/unitAI';
 import { MovementSystem } from '@systems/movement';
 import { CombatSystem } from '@systems/combat';
 import { ProjectileSystem } from '@systems/projectile';
+import { RTS_COMBAT_RULES } from '@game/rts/combatRules';
 import { ProductionSystem } from '@game/rts/systems/production';
 import { EconomySystem } from '@game/rts/systems/economy';
 import { AIPlayerSystem } from '@game/rts/systems/aiPlayer';
@@ -94,8 +95,8 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     new CommandSystem(),
     new UnitAISystem(),
     new MovementSystem(),
-    new CombatSystem(),
-    new ProjectileSystem(),
+    new CombatSystem(RTS_COMBAT_RULES),
+    new ProjectileSystem(RTS_COMBAT_RULES),
     new EconomySystem(),
     ...(battleLab ? [] : [new ProductionSystem(), new AIPlayerSystem(), fogSystem, new VictorySystem()]),
     ...modeSystems,
