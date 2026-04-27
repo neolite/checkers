@@ -4,7 +4,7 @@ import type { Unit } from '@entities/types';
 import type { AbilityName } from '@config/gameplay';
 import { TAU } from '@utils/math';
 import { MAP } from '@config/gameplay';
-import { detonateUnit, toggleBurrow, tryPounce, unburrow } from '@systems/abilities';
+import { detonateUnit, toggleBurrow, tryPounce, unburrow } from '@game/rts/systems/abilities';
 
 // Translate input intents into unit state transitions.
 export class CommandSystem implements ISystem {

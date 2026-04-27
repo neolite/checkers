@@ -6,7 +6,7 @@ import { dist, dist2, TAU } from '@utils/math';
 import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { SpawnService } from '@engine/core/spawnService';
 import { RTS_SPAWN_CONTENT } from '@game/rts/spawnContent';
-import { tickBurrowAmbush, tryPounce } from '@systems/abilities';
+import { tickBurrowAmbush, tryPounce } from '@game/rts/systems/abilities';
 
 // FSM transitions run here. Movement/combat systems consume the resulting fields.
 export class UnitAISystem implements ISystem {

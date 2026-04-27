@@ -5,7 +5,7 @@ import type { BuildingKind } from '@game/rts/content/buildings';
 import { UI, MAP, WORLD } from '@config/gameplay';
 import { sampleFog } from '@render/fogOverlay';
 import { BUILDING_STATS } from '@game/rts/content/buildings';
-import { BuildingGhost } from '@render/ghost';
+import { BuildingGhost } from '@game/rts/render/ghost';
 import { canPowerBuilding, powerShortfallForBuilding } from '@game/rts/power';
 
 // Inline-SVG cursors. Hotspot for "diamond" resource cursor is at bottom tip (spec).
