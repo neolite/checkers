@@ -70,7 +70,7 @@ export interface VfxLightLayer extends VfxLayerBase {
 
 export interface VfxMeshLayer extends VfxLayerBase {
   type: 'mesh';
-  shape: 'sphere' | 'column';
+  shape: 'cap' | 'column' | 'disc' | 'dome' | 'ring' | 'sphere';
   radius?: number;
   height?: number;
   opacity?: number;
