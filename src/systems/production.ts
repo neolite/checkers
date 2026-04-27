@@ -1,15 +1,14 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
-import type { Building, Unit } from '@entities/types';
+import type { Building } from '@entities/types';
 import type { Role } from '@config/gameplay';
 import type { UnitKind } from '@config/units';
 import { UNIT_STATS } from '@config/units';
 import { FACTIONS } from '@config/factions';
-import { applyFactionMods } from '@entities/create';
 import { BUILDING_STATS } from '@config/buildings';
 import { MAP } from '@config/gameplay';
-import { initUnit } from '@entities/create';
 import { initBuilding } from '@entities/create';
+import { SpawnService } from '@engine/core/spawnService';
 import { AI_TUNING } from '@config/gameplay';
 import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@utils/power';
 
@@ -154,8 +153,7 @@ export class ProductionSystem implements ISystem {
       b.productionMsLeft -= dtMs;
       if (b.productionMsLeft <= 0) {
         const order = b.productionQueue.shift()!;
-        const faction = FACTIONS[b.faction];
-        spawnUnit(w, b, order.kind);
+        new SpawnService(w).unitAdjacentToBuilding(b, order.kind);
         // Kick off next in queue.
         if (b.productionQueue.length > 0) {
           const next = b.productionQueue[0]!;
@@ -269,38 +267,4 @@ export function spawnBuilding(w: World, faction: import('@config/palette').Facti
     w.bus.emit('building:completed', { id: b.id, kind, faction });
   }
   return b;
-}
-
-export function spawnUnit(w: World, b: Building, kind: UnitKind): Unit | null {
-  const u = w.units.acquire();
-  if (!u) return null;
-  const faction = FACTIONS[b.faction];
-  const stats = applyFactionMods(kind, faction.mods);
-  // Choose a spawn cell in a ring around building footprint.
-  const { x, y } = findFreeSpawnAdjacent(w, b);
-  initUnit(u, kind, b.faction, stats, x, y);
-  // Rally point: if set, move toward it.
-  if (b.rallyX !== null && b.rallyY !== null) {
-    u.state = 'move';
-    u.destX = b.rallyX;
-    u.destY = b.rallyY;
-  }
-  w.bus.emit('unit:spawned', { id: u.id, kind, faction: b.faction, x, y });
-  return u;
-}
-
-function findFreeSpawnAdjacent(w: World, b: Building): { x: number; y: number } {
-  // Start just outside footprint on the +Z side, spiral out until tile is free.
-  const startX = b.x;
-  const startY = b.y + (b.stats.tileH / 2 + 0.6) * MAP.tileSize;
-  for (let r = 0; r < 6; r++) {
-    for (let a = 0; a < 12; a++) {
-      const ang = (a / 12) * Math.PI * 2;
-      const wx = startX + Math.cos(ang) * (r + 0.5) * MAP.tileSize;
-      const wy = startY + Math.sin(ang) * (r + 0.5) * MAP.tileSize;
-      const [tx, ty] = w.navGrid.worldToTile(wx, wy);
-      if (!w.navGrid.isBlocked(tx, ty)) return { x: wx, y: wy };
-    }
-  }
-  return { x: startX, y: startY };
 }
