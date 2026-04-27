@@ -3,7 +3,11 @@ import { FACTION_COLORS, type FactionId } from '@config/palette';
 
 export type GameMode = 'ffa' | 'allVsYou' | 'playground';
 
-export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode: GameMode) => void): void {
+export function renderMenu(
+  host: HTMLElement,
+  onStart: (faction: FactionId, mode: GameMode) => void,
+  onStartTowerDefense?: () => void,
+): void {
   host.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'menu';
@@ -36,6 +40,7 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode
 
       <div class="menu-actions">
         <div class="hint">Single-player · procedural terrain · textured faction materials.</div>
+        <button class="btn secondary" id="td-btn">Tripod Defense</button>
         <button class="btn" id="start-btn" disabled>Start</button>
       </div>
     </div>
@@ -44,6 +49,7 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode
   const row = wrap.querySelector('#menu-factions') as HTMLDivElement;
   const modeRow = wrap.querySelector('#menu-modes') as HTMLDivElement;
   const btn = wrap.querySelector('#start-btn') as HTMLButtonElement;
+  const tdBtn = wrap.querySelector('#td-btn') as HTMLButtonElement;
   let chosen: FactionId | null = null;
   let mode: GameMode = 'ffa';
 
@@ -88,6 +94,9 @@ export function renderMenu(host: HTMLElement, onStart: (faction: FactionId, mode
 
   btn.addEventListener('click', () => {
     if (chosen) onStart(chosen, mode);
+  });
+  tdBtn.addEventListener('click', () => {
+    onStartTowerDefense?.();
   });
 }
 

@@ -1,5 +1,6 @@
 import { renderMenu } from '@game/rts/ui/menu';
 import { startGameScene } from '@game/rts/scene';
+import { startTowerDefenseScene } from '@game/tower-defense/scene';
 import type { FactionId } from '@config/palette';
 
 const host = document.getElementById('app');
@@ -12,14 +13,24 @@ if (import.meta.env.DEV) {
 }
 
 function showMenu(): void {
-  renderMenu(host!, (faction: FactionId, mode) => {
-    // Clear menu + launch game.
-    host!.innerHTML = '';
-    startGameScene(host!, faction, mode, () => {
+  renderMenu(
+    host!,
+    (faction: FactionId, mode) => {
+      // Clear menu + launch game.
       host!.innerHTML = '';
-      showMenu();
-    });
-  });
+      startGameScene(host!, faction, mode, () => {
+        host!.innerHTML = '';
+        showMenu();
+      });
+    },
+    () => {
+      host!.innerHTML = '';
+      startTowerDefenseScene(host!, () => {
+        host!.innerHTML = '';
+        showMenu();
+      });
+    },
+  );
 }
 
 showMenu();
