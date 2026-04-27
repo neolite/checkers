@@ -1,13 +1,11 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
-import type { Building } from '@entities/types';
 import type { Role } from '@config/gameplay';
 import type { UnitKind } from '@config/units';
 import { UNIT_STATS } from '@config/units';
 import { FACTIONS } from '@config/factions';
 import { BUILDING_STATS } from '@config/buildings';
 import { MAP } from '@config/gameplay';
-import { initBuilding } from '@entities/create';
 import { SpawnService } from '@engine/core/spawnService';
 import { AI_TUNING } from '@config/gameplay';
 import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@utils/power';
@@ -45,6 +43,7 @@ export class ProductionSystem implements ISystem {
       if (!worker) return;
 
       fs.credits -= cost;
+      const spawn = new SpawnService(w);
 
       if (faction.buildMode === 'morph') {
         // Zerg-style: the click names the spot; the drone walks there and THEN
@@ -64,7 +63,7 @@ export class ProductionSystem implements ISystem {
       }
 
       if (faction.buildMode === 'quickset') {
-        const b = spawnBuilding(w, w.playerFaction, kind, tx, ty, false);
+        const b = spawn.building({ faction: w.playerFaction, kind, tileX: tx, tileY: ty, preBuilt: false });
         if (!b) return;
         // Worker pops over, stakes, and returns to idle work on its own.
         worker.state = 'move';
@@ -77,7 +76,7 @@ export class ProductionSystem implements ISystem {
       }
 
       // supervised
-      const b = spawnBuilding(w, w.playerFaction, kind, tx, ty, false);
+      const b = spawn.building({ faction: w.playerFaction, kind, tileX: tx, tileY: ty, preBuilt: false });
       if (!b) return;
       // Lock the worker to this build site. UnitAI.tickBuild keeps it there.
       worker.buildTargetId = b.id;
@@ -252,19 +251,4 @@ function constructionCanProgress(w: World, b: import('@entities/types').Building
   const d = Math.hypot(builder.x - b.x, builder.y - b.y);
   const edge = b.stats.radius + builder.stats.radius + 0.9;
   return d <= edge;
-}
-
-export function spawnBuilding(w: World, faction: import('@config/palette').FactionId, kind: import('@config/buildings').BuildingKind, tileX: number, tileY: number, preBuilt: boolean): Building | null {
-  const b = w.buildings.acquire();
-  if (!b) return null;
-  const stats = BUILDING_STATS[kind];
-  const worldX = (tileX + stats.tileW / 2) * MAP.tileSize;
-  const worldY = (tileY + stats.tileH / 2) * MAP.tileSize;
-  initBuilding(b, kind, faction, stats, tileX, tileY, worldX, worldY, preBuilt);
-  w.navGrid.stampRect(tileX, tileY, stats.tileW, stats.tileH, true);
-  w.bus.emit('building:placed', { id: b.id, kind, faction });
-  if (preBuilt) {
-    w.bus.emit('building:completed', { id: b.id, kind, faction });
-  }
-  return b;
 }
