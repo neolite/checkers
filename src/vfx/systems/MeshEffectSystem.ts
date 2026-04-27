@@ -157,11 +157,11 @@ function makeGlowMaterial(color: number, opacity: number, blending: 'additive' |
         vec3 burntBrown = mix(vec3(0.22, 0.075, 0.035), uColor * 0.92, 0.45);
         vec3 sootBlack = vec3(0.035, 0.029, 0.026);
         float coreHeat = smoothstep(0.82, 0.12, length(centered)) * (1.0 - emberPhase);
-        float smokeAlpha = uOpacity * mask * smokeNoise * (1.0 - fadePhase * 0.86);
+        float smokeAlpha = uOpacity * (0.42 + mask * 0.88) * (0.72 + smokeNoise * 0.42) * (1.0 - fadePhase * 0.42);
         vec3 smokeColor = mix(emberRed, burntBrown, emberPhase);
-        smokeColor = mix(smokeColor, sootBlack, ashPhase * 0.92);
+        smokeColor = mix(smokeColor, sootBlack, ashPhase);
         smokeColor += vec3(1.0, 0.42, 0.12) * coreHeat * 0.42;
-        smokeColor *= 0.74 + smokeNoise * 0.42;
+        smokeColor *= 0.52 + smokeNoise * 0.26;
         gl_FragColor = vec4(mix(fireColor, smokeColor, uMode), mix(fireAlpha, smokeAlpha, uMode));
       }
     `,
