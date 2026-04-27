@@ -27,7 +27,8 @@
       "@systems/*": ["src/systems/*"],
       "@ui/*": ["src/ui/*"],
       "@scenes/*": ["src/scenes/*"],
-      "@engine/*": ["src/engine/*"]
+      "@engine/*": ["src/engine/*"],
+      "@game/*": ["src/game/*"]
     }
   },
   "include": ["src/**/*.ts"]
