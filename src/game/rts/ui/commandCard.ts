@@ -1,11 +1,11 @@
 import type { World } from '@engine/world';
-import { FACTIONS } from '@config/factions';
-import { BUILDING_STATS, type BuildingKind } from '@config/buildings';
+import { FACTIONS } from '@game/rts/content/factions';
+import { BUILDING_STATS, type BuildingKind } from '@game/rts/content/buildings';
 import type { Role } from '@config/gameplay';
-import { UNIT_STATS, type UnitKind } from '@config/units';
-import { icon, type IconName } from '@ui/icons';
+import { UNIT_STATS, type UnitKind } from '@game/rts/content/units';
+import { icon, type IconName } from '@game/rts/ui/icons';
 import type { ArmorClass, WeaponClass } from '@config/gameplay';
-import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@utils/power';
+import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@game/rts/power';
 
 interface CommandContext {
   world: World;

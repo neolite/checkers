@@ -1,4 +1,4 @@
-import { FACTIONS } from '@config/factions';
+import { FACTIONS } from '@game/rts/content/factions';
 import { FACTION_COLORS, type FactionId } from '@config/palette';
 
 export function showGameOver(

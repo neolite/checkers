@@ -1,15 +1,15 @@
 import type { World } from '@engine/world';
 import { FACTION_COLORS } from '@config/palette';
-import { FACTIONS } from '@config/factions';
+import { FACTIONS } from '@game/rts/content/factions';
 import type { CameraSystem } from '@systems/camera';
 import { WORLD } from '@config/gameplay';
 import { MAP } from '@config/gameplay';
 import { TERRAIN_MINIMAP_COLORS } from '@config/terrain';
-import { UNIT_STATS, type UnitKind } from '@config/units';
-import { icon, type IconName } from '@ui/icons';
+import { UNIT_STATS, type UnitKind } from '@game/rts/content/units';
+import { icon, type IconName } from '@game/rts/ui/icons';
 import type { Role } from '@config/gameplay';
-import type { BuildingKind } from '@config/buildings';
-import { blueprintPortrait } from '@ui/blueprintPortrait';
+import type { BuildingKind } from '@game/rts/content/buildings';
+import { blueprintPortrait } from '@game/rts/ui/blueprintPortrait';
 
 export interface HudHandle {
   tick(): void;

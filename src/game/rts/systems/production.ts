@@ -1,14 +1,15 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Role } from '@config/gameplay';
-import type { UnitKind } from '@config/units';
-import { UNIT_STATS } from '@config/units';
-import { FACTIONS } from '@config/factions';
-import { BUILDING_STATS } from '@config/buildings';
+import type { UnitKind } from '@game/rts/content/units';
+import { UNIT_STATS } from '@game/rts/content/units';
+import { FACTIONS } from '@game/rts/content/factions';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { MAP } from '@config/gameplay';
 import { SpawnService } from '@engine/core/spawnService';
 import { AI_TUNING } from '@config/gameplay';
-import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@utils/power';
+import { canPowerBuilding, canPowerUnit, powerShortfallForBuilding, powerShortfallForUnit } from '@game/rts/power';
+import { RTS_SPAWN_CONTENT } from '@game/rts/spawnContent';
 
 // Building construction + unit training.
 // NOTE: "production" in this codebase covers BOTH finishing buildings under construction
@@ -43,7 +44,7 @@ export class ProductionSystem implements ISystem {
       if (!worker) return;
 
       fs.credits -= cost;
-      const spawn = new SpawnService(w);
+      const spawn = new SpawnService(w, RTS_SPAWN_CONTENT);
 
       if (faction.buildMode === 'morph') {
         // Zerg-style: the click names the spot; the drone walks there and THEN
@@ -152,7 +153,7 @@ export class ProductionSystem implements ISystem {
       b.productionMsLeft -= dtMs;
       if (b.productionMsLeft <= 0) {
         const order = b.productionQueue.shift()!;
-        new SpawnService(w).unitAdjacentToBuilding(b, order.kind);
+        new SpawnService(w, RTS_SPAWN_CONTENT).unitAdjacentToBuilding(b, order.kind);
         // Kick off next in queue.
         if (b.productionQueue.length > 0) {
           const next = b.productionQueue[0]!;
@@ -182,11 +183,11 @@ function resolveKind(role: Role, meta: ReturnType<typeof _factionMeta>, override
 
 // Type helper to get FactionMeta shape without import loop.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _factionMeta(): import('@config/factions').FactionMeta {
+function _factionMeta(): import('@game/rts/content/factions').FactionMeta {
   return FACTIONS.vanguard;
 }
 
-function hasCompleted(w: World, faction: import('@config/palette').FactionId, kind: import('@config/buildings').BuildingKind): boolean {
+function hasCompleted(w: World, faction: import('@config/palette').FactionId, kind: import('@game/rts/content/buildings').BuildingKind): boolean {
   let found = false;
   w.buildings.forEachAlive((b) => {
     if (b.faction === faction && b.kind === kind && b.completed) found = true;

@@ -1,7 +1,7 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import { FACTION_IDS } from '@config/palette';
-import { powerSnapshot } from '@utils/power';
+import { powerSnapshot } from '@game/rts/power';
 
 // Recalculates power produced/consumed and credits trickle. Minimal.
 export class EconomySystem implements ISystem {

@@ -1,19 +1,26 @@
 import type { World } from '@engine/world';
 import type { Unit, Building, ResourceNode } from '@entities/types';
 import type { FactionId } from '@config/palette';
-import type { UnitKind } from '@config/units';
-import type { BuildingKind } from '@config/buildings';
-import { BUILDING_STATS } from '@config/buildings';
-import { FACTIONS } from '@config/factions';
 import { MAP } from '@config/gameplay';
-import { applyFactionMods, initBuilding, initUnit } from '@entities/create';
+import { initBuilding, initUnit } from '@entities/create';
 
-export interface SpawnUnitInput { faction: FactionId; kind: UnitKind; x: number; y: number; }
-export interface SpawnBuildingInput { faction: FactionId; kind: BuildingKind; tileX: number; tileY: number; preBuilt: boolean; }
+export type SpawnUnitKind = Unit['kind'];
+export type SpawnBuildingKind = Building['kind'];
+
+export interface SpawnContentProvider {
+  unitStats(kind: SpawnUnitKind, faction: FactionId): Unit['stats'];
+  buildingStats(kind: SpawnBuildingKind): Building['stats'];
+}
+
+export interface SpawnUnitInput { faction: FactionId; kind: SpawnUnitKind; x: number; y: number; }
+export interface SpawnBuildingInput { faction: FactionId; kind: SpawnBuildingKind; tileX: number; tileY: number; preBuilt: boolean; }
 export interface SpawnResourceInput { x: number; y: number; amount: number; }
 
 export class SpawnService {
-  constructor(private readonly world: World) {}
+  constructor(
+    private readonly world: World,
+    private readonly content: SpawnContentProvider,
+  ) {}
 
   unit(input: SpawnUnitInput): Unit | null {
     const u = this.initUnit(input);
@@ -25,7 +32,7 @@ export class SpawnService {
   building(input: SpawnBuildingInput): Building | null {
     const b = this.world.buildings.acquire();
     if (!b) return null;
-    const stats = BUILDING_STATS[input.kind];
+    const stats = this.content.buildingStats(input.kind);
     const worldX = (input.tileX + stats.tileW / 2) * MAP.tileSize;
     const worldY = (input.tileY + stats.tileH / 2) * MAP.tileSize;
     initBuilding(b, input.kind, input.faction, stats, input.tileX, input.tileY, worldX, worldY, input.preBuilt);
@@ -46,7 +53,7 @@ export class SpawnService {
     return r;
   }
 
-  unitAdjacentToBuilding(building: Building, kind: UnitKind): Unit | null {
+  unitAdjacentToBuilding(building: Building, kind: SpawnUnitKind): Unit | null {
     const { x, y } = findFreeSpawnAdjacent(this.world, building);
     const input = { faction: building.faction, kind, x, y };
     const u = this.initUnit(input);
@@ -63,8 +70,7 @@ export class SpawnService {
   private initUnit(input: SpawnUnitInput): Unit | null {
     const u = this.world.units.acquire();
     if (!u) return null;
-    const faction = FACTIONS[input.faction];
-    const stats = applyFactionMods(input.kind, faction.mods);
+    const stats = this.content.unitStats(input.kind, input.faction);
     initUnit(u, input.kind, input.faction, stats, input.x, input.y);
     return u;
   }

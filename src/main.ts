@@ -1,5 +1,5 @@
-import { renderMenu } from '@ui/menu';
-import { startGameScene } from '@scenes/gameScene';
+import { renderMenu } from '@game/rts/ui/menu';
+import { startGameScene } from '@game/rts/scene';
 import type { FactionId } from '@config/palette';
 
 const host = document.getElementById('app');

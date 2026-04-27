@@ -3,8 +3,9 @@ import type { World } from '@engine/world';
 import type { Unit, Building, ResourceNode } from '@entities/types';
 import { ECONOMY, MAP } from '@config/gameplay';
 import { dist, dist2, TAU } from '@utils/math';
-import { BUILDING_STATS } from '@config/buildings';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { SpawnService } from '@engine/core/spawnService';
+import { RTS_SPAWN_CONTENT } from '@game/rts/spawnContent';
 import { tickBurrowAmbush, tryPounce } from '@systems/abilities';
 
 // FSM transitions run here. Movement/combat systems consume the resulting fields.
@@ -301,7 +302,7 @@ function performMorph(w: World, u: Unit): void {
       return;
     }
   }
-  const b = new SpawnService(w).building({ faction: u.faction, kind, tileX: placeTx, tileY: placeTy, preBuilt: false });
+  const b = new SpawnService(w, RTS_SPAWN_CONTENT).building({ faction: u.faction, kind, tileX: placeTx, tileY: placeTy, preBuilt: false });
   if (b) {
     b.builderUnitId = null; // autonomous build
     if (u.faction === w.playerFaction && w.selectedUnits.has(u.id)) {

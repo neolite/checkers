@@ -1,12 +1,12 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import { screenToGround } from '@render/picking';
-import type { BuildingKind } from '@config/buildings';
+import type { BuildingKind } from '@game/rts/content/buildings';
 import { UI, MAP, WORLD } from '@config/gameplay';
 import { sampleFog } from '@render/fogOverlay';
-import { BUILDING_STATS } from '@config/buildings';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { BuildingGhost } from '@render/ghost';
-import { canPowerBuilding, powerShortfallForBuilding } from '@utils/power';
+import { canPowerBuilding, powerShortfallForBuilding } from '@game/rts/power';
 
 // Inline-SVG cursors. Hotspot for "diamond" resource cursor is at bottom tip (spec).
 const CUR_ATTACK = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'><circle cx='14' cy='14' r='10' fill='none' stroke='%23ff6e6e' stroke-width='2'/><line x1='14' y1='2' x2='14' y2='26' stroke='%23ff6e6e' stroke-width='2'/><line x1='2' y1='14' x2='26' y2='14' stroke='%23ff6e6e' stroke-width='2'/></svg>") 14 14, crosshair`;
@@ -411,7 +411,7 @@ export class InputSystem implements ISystem {
   }
 }
 
-function hasSelectedKind(w: World, kind: import('@config/units').UnitKind): boolean {
+function hasSelectedKind(w: World, kind: import('@game/rts/content/units').UnitKind): boolean {
   for (const id of w.selectedUnits) {
     const u = w.units.findById(id);
     if (u && u.faction === w.playerFaction && u.kind === kind) return true;

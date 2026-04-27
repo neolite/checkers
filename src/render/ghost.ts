@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import type { BuildingKind } from '@config/buildings';
-import { BUILDING_STATS } from '@config/buildings';
+import type { BuildingKind } from '@game/rts/content/buildings';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
 import { MAP } from '@config/gameplay';
 import { makeBuildingMesh } from '@render/meshes';
 import { FACTION_COLORS, type FactionId } from '@config/palette';

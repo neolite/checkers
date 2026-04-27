@@ -1,6 +1,6 @@
 import type { FactionId } from '@config/palette';
-import type { UnitKind } from '@config/units';
-import type { BuildingKind } from '@config/buildings';
+import type { UnitKind } from '@game/rts/content/units';
+import type { BuildingKind } from '@game/rts/content/buildings';
 
 export interface BlueprintPortraitSpec {
   faction: FactionId;

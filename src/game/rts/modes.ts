@@ -1,10 +1,10 @@
-import { FACTIONS } from '@config/factions';
+import { FACTIONS } from '@game/rts/content/factions';
 import { ECONOMY, MAP, WORLD } from '@config/gameplay';
 import { FACTION_IDS, type FactionId } from '@config/palette';
 import type { GameModeDefinition, GameObjective, GameSetupContext, SystemFactory } from '@engine/core/gameModule';
 import { nearestOpenWorldPoint, type SpawnService } from '@engine/core/spawnService';
 import type { World } from '@engine/world';
-import { applyFactionMods } from '@entities/create';
+import { applyRtsFactionMods } from '@game/rts/spawnContent';
 
 export type RtsModeId = 'ffa' | 'allVsYou' | 'playground';
 
@@ -56,7 +56,7 @@ export function syncBattleLabLiveUnitStats(world: World): void {
     if (u.hp <= 0) return;
     const oldMax = Math.max(1, u.stats.maxHp);
     const hpRatio = Math.max(0, Math.min(1, u.hp / oldMax));
-    const nextStats = applyFactionMods(u.kind, FACTIONS[u.faction].mods);
+    const nextStats = applyRtsFactionMods(u.kind, u.faction);
     u.stats = nextStats;
     if (nextStats.maxHp !== oldMax) {
       u.hp = Math.max(1, Math.min(nextStats.maxHp, Math.round(nextStats.maxHp * hpRatio)));

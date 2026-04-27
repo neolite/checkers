@@ -1,7 +1,7 @@
 import type { FactionId } from '@config/palette';
 import { FACTION_IDS, FACTION_COLORS } from '@config/palette';
-import { FACTIONS } from '@config/factions';
-import { UNIT_STATS, type UnitKind } from '@config/units';
+import { FACTIONS } from '@game/rts/content/factions';
+import { UNIT_STATS, type UnitKind } from '@game/rts/content/units';
 
 export interface PlaygroundPanelHandle {
   destroy(): void;

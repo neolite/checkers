@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import type { UnitKind } from '@config/units';
+import type { UnitKind } from '@game/rts/content/units';
 import type { WeaponBehavior } from '@config/gameplay';
-import type { BuildingKind } from '@config/buildings';
+import type { BuildingKind } from '@game/rts/content/buildings';
 import type { FactionId } from '@config/palette';
 
 // Shared tint material cache (by color key).

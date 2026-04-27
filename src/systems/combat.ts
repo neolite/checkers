@@ -1,11 +1,11 @@
 import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Unit, Building, Projectile } from '@entities/types';
-import type { Weapon } from '@config/units';
+import type { Weapon } from '@game/rts/content/units';
 import type { FactionId } from '@config/palette';
 import type { WeaponBehavior, WeaponClass } from '@config/gameplay';
 import { dist, dist2 } from '@utils/math';
-import { damageMultiplier } from '@config/matrix';
+import { damageMultiplier } from '@game/rts/content/matrix';
 
 interface TargetInfo {
   id: number;

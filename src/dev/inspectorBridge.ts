@@ -1,8 +1,8 @@
 import * as Gameplay from '@config/gameplay';
-import { BUILDING_STATS } from '@config/buildings';
-import { UNIT_STATS } from '@config/units';
-import { DAMAGE_MATRIX } from '@config/matrix';
-import { FACTIONS } from '@config/factions';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
+import { UNIT_STATS } from '@game/rts/content/units';
+import { DAMAGE_MATRIX } from '@game/rts/content/matrix';
+import { FACTIONS } from '@game/rts/content/factions';
 import * as Palette from '@config/palette';
 import { FX_TUNING } from '@config/fx';
 import { UI_LAYOUT } from '@config/uiLayout';

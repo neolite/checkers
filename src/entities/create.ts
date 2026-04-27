@@ -1,26 +1,9 @@
 import type { Unit, Building, Projectile, ResourceNode } from '@entities/types';
-import type { UnitKind, UnitStats } from '@config/units';
-import type { BuildingKind, BuildingStats } from '@config/buildings';
+import type { UnitKind, UnitStats } from '@game/rts/content/units';
+import type { BuildingKind, BuildingStats } from '@game/rts/content/buildings';
 import type { FactionId } from '@config/palette';
-import { UNIT_STATS } from '@config/units';
-import { BUILDING_STATS } from '@config/buildings';
-import type { FactionMeta } from '@config/factions';
-
-function scaledUnitStats(base: UnitStats, mods: FactionMeta['mods']): UnitStats {
-  // Unit prices/build times are already faction-authored in UNIT_STATS. Faction
-  // mods stay on combat feel only, otherwise Swarm gets double-discounted and
-  // Titan gets double-taxed.
-  return {
-    ...base,
-    maxHp: Math.round(base.maxHp * mods.hpMul),
-    speed: base.speed * mods.speedMul,
-  };
-}
-
-export function applyFactionMods(kind: UnitKind, mods: FactionMeta['mods']): UnitStats {
-  const base = UNIT_STATS[kind];
-  return scaledUnitStats(base, mods);
-}
+import { UNIT_STATS } from '@game/rts/content/units';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
 
 // Pool reset functions. These set every field; acquire() then marks alive.
 export function resetUnit(u: Unit): void {

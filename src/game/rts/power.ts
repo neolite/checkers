@@ -1,6 +1,6 @@
 import type { World } from '@engine/world';
-import { BUILDING_STATS, type BuildingKind } from '@config/buildings';
-import { UNIT_STATS, type UnitKind } from '@config/units';
+import { BUILDING_STATS, type BuildingKind } from '@game/rts/content/buildings';
+import { UNIT_STATS, type UnitKind } from '@game/rts/content/units';
 import type { FactionId } from '@config/palette';
 
 export interface PowerSnapshot {

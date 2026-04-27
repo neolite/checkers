@@ -2,15 +2,16 @@ import type { ISystem } from '@systems/iface';
 import type { World } from '@engine/world';
 import type { Building, Unit } from '@entities/types';
 import type { FactionId } from '@config/palette';
-import type { BuildingKind } from '@config/buildings';
+import type { BuildingKind } from '@game/rts/content/buildings';
 import type { Role } from '@config/gameplay';
-import { BUILDING_STATS } from '@config/buildings';
-import { FACTIONS } from '@config/factions';
-import { UNIT_STATS } from '@config/units';
+import { BUILDING_STATS } from '@game/rts/content/buildings';
+import { FACTIONS } from '@game/rts/content/factions';
+import { UNIT_STATS } from '@game/rts/content/units';
 import { MAP, AI_TUNING } from '@config/gameplay';
 import { SpawnService } from '@engine/core/spawnService';
 import { dist } from '@utils/math';
-import { canPowerBuilding, canPowerUnit } from '@utils/power';
+import { canPowerBuilding, canPowerUnit } from '@game/rts/power';
+import { RTS_SPAWN_CONTENT } from '@game/rts/spawnContent';
 
 // Skeleton bot. Every 2.5s it inspects its own state and:
 //   - queues up economy (refinery + power) until it has 2 harvesters + 2 power
@@ -134,7 +135,7 @@ export class AIPlayerSystem implements ISystem {
         }
         if (!ok) continue;
         fs.credits -= cost;
-        const b = new SpawnService(w).building({ faction: id, kind, tileX: tx, tileY: ty, preBuilt: false });
+        const b = new SpawnService(w, RTS_SPAWN_CONTENT).building({ faction: id, kind, tileX: tx, tileY: ty, preBuilt: false });
         if (!b) return false;
         if (meta.buildMode === 'morph') {
           worker.hp = 0; // consume drone
@@ -164,7 +165,7 @@ export class AIPlayerSystem implements ISystem {
     return out;
   }
 
-  private pickBarracksKind(id: FactionId, ownUnits: Unit[], infantryCount: number): import('@config/units').UnitKind {
+  private pickBarracksKind(id: FactionId, ownUnits: Unit[], infantryCount: number): import('@game/rts/content/units').UnitKind {
     const meta = FACTIONS[id];
     const extra = meta.extraBarracksUnit;
     if (!extra) return meta.infantryKind;
@@ -195,7 +196,7 @@ export class AIPlayerSystem implements ISystem {
     this.tryTrainKind(w, b, kind);
   }
 
-  private tryTrainKind(w: World, b: Building, kind: import('@config/units').UnitKind): void {
+  private tryTrainKind(w: World, b: Building, kind: import('@game/rts/content/units').UnitKind): void {
     if (!b.completed) return;
     if (b.productionQueue.length >= 3) return;
     const stats = UNIT_STATS[kind];

@@ -1,6 +1,6 @@
 import type { FactionId } from '@config/palette';
-import type { UnitKind } from '@config/units';
-import type { BuildingKind } from '@config/buildings';
+import type { UnitKind } from '@game/rts/content/units';
+import type { BuildingKind } from '@game/rts/content/buildings';
 import type { AbilityName, Role, WeaponClass, WeaponBehavior } from '@config/gameplay';
 
 // All events — past-tense facts (no verbs like "set"). input:* = present-tense commands.
