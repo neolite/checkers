@@ -2,14 +2,41 @@ import type { Unit, Building, Projectile, ResourceNode } from '@entities/types';
 import type { UnitKind, UnitStats } from '@game/rts/content/units';
 import type { BuildingKind, BuildingStats } from '@game/rts/content/buildings';
 import type { FactionId } from '@config/palette';
-import { UNIT_STATS } from '@game/rts/content/units';
-import { BUILDING_STATS } from '@game/rts/content/buildings';
+
+const EMPTY_UNIT_STATS: UnitStats = {
+  kind: 'ranger',
+  role: 'infantry',
+  displayName: 'Unit',
+  maxHp: 1,
+  armor: 'light',
+  radius: 0.5,
+  speed: 0,
+  altitude: 0,
+  cost: 0,
+  power: 0,
+  buildMs: 0,
+  builtBy: 'barracks',
+};
+
+const EMPTY_BUILDING_STATS: BuildingStats = {
+  kind: 'power',
+  displayName: 'Building',
+  maxHp: 1,
+  tileW: 1,
+  tileH: 1,
+  radius: 1,
+  cost: 0,
+  buildMs: 0,
+  power: 0,
+  armor: 'structure',
+  sightRange: 0,
+};
 
 // Pool reset functions. These set every field; acquire() then marks alive.
 export function resetUnit(u: Unit): void {
   u.kind = 'ranger';
   u.faction = 'vanguard';
-  u.stats = UNIT_STATS.ranger;
+  u.stats = EMPTY_UNIT_STATS;
   u.x = 0; u.y = 0; u.rotation = 0;
   u.vx = 0; u.vy = 0;
   u.hp = 1;
@@ -36,7 +63,7 @@ export function resetUnit(u: Unit): void {
 export function makeUnitSeed(id: number): Unit {
   const u: Unit = {
     id, alive: false,
-    kind: 'ranger', faction: 'vanguard', stats: UNIT_STATS.ranger,
+    kind: 'ranger', faction: 'vanguard', stats: EMPTY_UNIT_STATS,
     x: 0, y: 0, rotation: 0, vx: 0, vy: 0,
     hp: 1, cooldownMs: 0, pounceCooldownMs: 0, burrowed: false, ambushReady: false,
     targetLocked: false, targetId: null, targetIsBuilding: false,
@@ -80,7 +107,7 @@ export function initUnit(u: Unit, kind: UnitKind, faction: FactionId, stats: Uni
 export function resetBuilding(b: Building): void {
   b.kind = 'power';
   b.faction = 'vanguard';
-  b.stats = BUILDING_STATS.power;
+  b.stats = EMPTY_BUILDING_STATS;
   b.tileX = 0; b.tileY = 0;
   b.x = 0; b.y = 0;
   b.hp = 1;
@@ -98,7 +125,7 @@ export function resetBuilding(b: Building): void {
 export function makeBuildingSeed(id: number): Building {
   return {
     id, alive: false,
-    kind: 'power', faction: 'vanguard', stats: BUILDING_STATS.power,
+    kind: 'power', faction: 'vanguard', stats: EMPTY_BUILDING_STATS,
     tileX: 0, tileY: 0, x: 0, y: 0,
     hp: 1, completed: false, buildMsLeft: 0,
     productionQueue: [], productionMsLeft: 0,
