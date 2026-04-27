@@ -1,8 +1,9 @@
 import type { FactionId } from '@config/palette';
 import { FACTION_IDS, FACTION_COLORS } from '@config/palette';
-import { FACTIONS } from '@config/factions';
-import { ECONOMY, FOG, MAP, WORLD } from '@config/gameplay';
+import { FOG, WORLD } from '@config/gameplay';
 import type { UnitKind } from '@config/units';
+import { findMode } from '@engine/core/gameModule';
+import { SpawnService, nearestOpenWorldPoint } from '@engine/core/spawnService';
 import { World } from '@engine/world';
 import { createRenderContext } from '@render/scene';
 import { createFogOverlay } from '@render/fogOverlay';
@@ -16,7 +17,7 @@ import { UnitAISystem } from '@systems/unitAI';
 import { MovementSystem } from '@systems/movement';
 import { CombatSystem } from '@systems/combat';
 import { ProjectileSystem } from '@systems/projectile';
-import { ProductionSystem, spawnBuilding } from '@systems/production';
+import { ProductionSystem } from '@systems/production';
 import { EconomySystem } from '@systems/economy';
 import { AIPlayerSystem } from '@systems/aiPlayer';
 import { FogSystem } from '@systems/fog';
@@ -29,13 +30,19 @@ import { showGameOver } from '@ui/gameOver';
 import { mountPlaygroundPanel, type PlaygroundPanelHandle } from '@ui/playgroundPanel';
 import { mountAudio, type AudioKernelHandle } from '@render/audio';
 import { mountWeaponFx, type WeaponFxHandle } from '@render/weaponFx';
-import { initUnit, applyFactionMods } from '@entities/create';
 import { FACTION_COLORS as _ } from '@config/palette';
+import {
+  RTS_MODES,
+  type RtsModeId,
+  getRtsCameraTarget,
+  isBattleLab,
+  syncBattleLabLiveUnitStats,
+} from '@game/rts/modes';
 import { makeTerrainFeatureLayer } from '@render/terrainFeatures';
 import { stampTerrainFeatures } from '@utils/terrain';
 void _;
 
-export type GameMode = 'ffa' | 'allVsYou' | 'playground';
+export type GameMode = RtsModeId;
 
 export interface GameSceneHandle {
   destroy(): void;
@@ -43,22 +50,11 @@ export interface GameSceneHandle {
 
 export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode: GameMode, onExit: () => void): GameSceneHandle {
   const world = new World();
+  const spawn = new SpawnService(world);
+  const modeDef = findMode(RTS_MODES, mode);
+  const battleLab = isBattleLab(mode);
   world.playerFaction = playerFaction;
   world.factions[playerFaction].isHuman = true;
-  // Starting credits for everyone so the AI actually plays.
-  for (const id of FACTION_IDS) {
-    world.factions[id].credits = mode === 'playground' ? 0 : ECONOMY.startingCredits;
-    if (mode === 'playground') world.factions[id].isHuman = true;
-  }
-
-  // Team setup. World defaults each faction to its own team id (FFA). For
-  // "allVsYou" we merge the two AI factions into a shared team opposite the player.
-  if (mode === 'allVsYou') {
-    world.factions[playerFaction].team = 1;
-    for (const id of FACTION_IDS) {
-      if (id !== playerFaction) world.factions[id].team = 2;
-    }
-  }
 
   // three.js render context.
   const rc = createRenderContext(host);
@@ -77,62 +73,12 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   // Render bridge (mesh lifecycle).
   const bridge = new RenderBridge(rc.scene);
 
-  // Starting positions: each faction occupies one of the map corners.
-  const corners: Record<FactionId, { x: number; y: number }> = {
-    vanguard: { x: 10, y: 10 },
-    swarm: { x: WORLD.width - 14, y: 10 },
-    titan: { x: WORLD.width / 2, y: WORLD.depth - 14 },
-  };
-
-  if (mode !== 'playground') {
-    // HQ + starter workers for each alive faction.
-    for (const id of FACTION_IDS) {
-      const corner = corners[id];
-      const tx = Math.floor(corner.x / MAP.tileSize);
-      const ty = Math.floor(corner.y / MAP.tileSize);
-      const hq = spawnBuilding(world, id, 'hq', tx, ty, true);
-      if (!hq) continue;
-      // Give 2 starter workers.
-      for (let i = 0; i < 2; i++) {
-        const u = world.units.acquire();
-        if (!u) continue;
-        const meta = FACTIONS[id];
-        const stats = applyFactionMods(meta.workerKind, meta.mods);
-        const x = hq.x + (i - 0.5) * MAP.tileSize * 1.2;
-        const y = hq.y + (MAP.tileSize * 3.0);
-        initUnit(u, meta.workerKind, id, stats, x, y);
-        world.bus.emit('unit:spawned', { id: u.id, kind: meta.workerKind, faction: id, x, y });
-      }
-    }
-  }
-
-  if (mode !== 'playground') {
-    // Scatter resource nodes around the map (a few near each base, some central).
-    const resourceSpots: Array<[number, number]> = [
-      [corners.vanguard.x + 14, corners.vanguard.y + 4],
-      [corners.vanguard.x + 4, corners.vanguard.y + 14],
-      [corners.swarm.x - 14, corners.swarm.y + 4],
-      [corners.swarm.x - 4, corners.swarm.y + 14],
-      [corners.titan.x - 10, corners.titan.y - 4],
-      [corners.titan.x + 10, corners.titan.y - 4],
-      [WORLD.width / 2, WORLD.depth / 2 - 6],
-      [WORLD.width / 2 - 12, WORLD.depth / 2],
-      [WORLD.width / 2 + 12, WORLD.depth / 2],
-      [WORLD.width / 2, WORLD.depth / 2 + 12],
-    ];
-    for (const [x, y] of resourceSpots) {
-      const spot = nearestOpenWorldPoint(world, x, y);
-      const r = world.resources.acquire();
-      if (!r) continue;
-      r.x = spot.x; r.y = spot.y;
-      r.amount = 1800;
-    }
-  }
+  modeDef.setup({ world, spawn });
 
   // Systems — fixed order per spec.
   const cameraSystem = new CameraSystem();
   const fogSystem = new FogSystem(fog);
-  if (mode === 'playground') {
+  if (battleLab) {
     const playerFog = world.factions[world.playerFaction].fog;
     playerFog.fill(FOG.visible);
     fog.paint(playerFog);
@@ -148,16 +94,13 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     new CombatSystem(),
     new ProjectileSystem(),
     new EconomySystem(),
-    ...(mode === 'playground' ? [] : [new ProductionSystem(), new AIPlayerSystem(), fogSystem, new VictorySystem()]),
+    ...(battleLab ? [] : [new ProductionSystem(), new AIPlayerSystem(), fogSystem, new VictorySystem()]),
     new CleanupSystem(bridge),
   ];
   for (const s of systems) s.init(world);
 
-  if (mode === 'playground') cameraSystem.centerOn(WORLD.width / 2, WORLD.depth / 2);
-  else {
-    const myHqCorner = corners[playerFaction];
-    cameraSystem.centerOn(myHqCorner.x, myHqCorner.y + 10);
-  }
+  const cameraTarget = getRtsCameraTarget(playerFaction, mode);
+  cameraSystem.centerOn(cameraTarget.x, cameraTarget.y);
 
   // HUD + UI.
   const hud: HudHandle = createHud(host, world, cameraSystem);
@@ -166,11 +109,11 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   const audio: AudioKernelHandle = mountAudio(world);
   const weaponFx: WeaponFxHandle = mountWeaponFx(world, rc.scene);
   let playgroundSpawnIndex = 0;
-  const playgroundPanel: PlaygroundPanelHandle | null = mode === 'playground'
+  const playgroundPanel: PlaygroundPanelHandle | null = battleLab
     ? mountPlaygroundPanel(
       host,
       (faction, kind, count) => {
-        playgroundSpawnIndex = spawnPlaygroundUnits(world, faction, kind, count, playgroundSpawnIndex);
+        playgroundSpawnIndex = spawnPlaygroundUnits(world, spawn, faction, kind, count, playgroundSpawnIndex);
       },
       () => clearPlaygroundUnits(world),
     )
@@ -212,7 +155,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     world.tNow += dtMs;
 
     if (!finished) {
-      if (mode === 'playground') syncPlaygroundLiveUnitStats(world);
+      if (battleLab) syncBattleLabLiveUnitStats(world);
       for (const s of systems) s.update(world, dtMs);
     }
 
@@ -278,16 +221,7 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   };
 }
 
-function spawnUnitAt(world: World, id: FactionId, kind: UnitKind, x: number, y: number): void {
-  const u = world.units.acquire();
-  if (!u) return;
-  const meta = FACTIONS[id];
-  const stats = applyFactionMods(kind, meta.mods);
-  initUnit(u, kind, id, stats, x, y);
-  world.bus.emit('unit:spawned', { id: u.id, kind, faction: id, x, y });
-}
-
-function spawnPlaygroundUnits(world: World, faction: FactionId, kind: UnitKind, count: number, startIndex: number): number {
+function spawnPlaygroundUnits(world: World, spawn: SpawnService, faction: FactionId, kind: UnitKind, count: number, startIndex: number): number {
   let next = startIndex;
   for (let i = 0; i < count; i++) {
     const anchor = playgroundAnchor(faction);
@@ -295,7 +229,7 @@ function spawnPlaygroundUnits(world: World, faction: FactionId, kind: UnitKind, 
     const ring = 1.4 + Math.floor((slot % 36) / 9) * 1.35;
     const angle = ((slot % 9) / 9) * Math.PI * 2 + Math.floor(slot / 36) * 0.45;
     const point = nearestOpenWorldPoint(world, anchor.x + Math.cos(angle) * ring, anchor.y + Math.sin(angle) * ring);
-    spawnUnitAt(world, faction, kind, point.x, point.y);
+    spawn.unit({ faction, kind, x: point.x, y: point.y });
   }
   return next;
 }
@@ -318,36 +252,4 @@ function clearPlaygroundUnits(world: World): void {
   world.projectiles.forEachAlive((p) => { world.projectiles.release(p); });
   world.selectedUnits.clear();
   world.selectedBuildings.clear();
-}
-
-function syncPlaygroundLiveUnitStats(world: World): void {
-  world.units.forEachAlive((u) => {
-    if (u.hp <= 0) return;
-    const oldMax = Math.max(1, u.stats.maxHp);
-    const hpRatio = Math.max(0, Math.min(1, u.hp / oldMax));
-    const nextStats = applyFactionMods(u.kind, FACTIONS[u.faction].mods);
-    u.stats = nextStats;
-    if (nextStats.maxHp !== oldMax) {
-      u.hp = Math.max(1, Math.min(nextStats.maxHp, Math.round(nextStats.maxHp * hpRatio)));
-    }
-  });
-}
-
-function nearestOpenWorldPoint(world: World, x: number, y: number): { x: number; y: number } {
-  const [tx, ty] = world.navGrid.worldToTile(x, y);
-  if (!world.navGrid.isBlocked(tx, ty)) return { x, y };
-  for (let r = 1; r <= 8; r++) {
-    for (let dy = -r; dy <= r; dy++) {
-      for (let dx = -r; dx <= r; dx++) {
-        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue;
-        const nx = tx + dx;
-        const ny = ty + dy;
-        if (!world.navGrid.inBounds(nx, ny)) continue;
-        if (world.navGrid.isBlocked(nx, ny)) continue;
-        const [wx, wy] = world.navGrid.tileToWorld(nx, ny);
-        return { x: wx, y: wy };
-      }
-    }
-  }
-  return { x, y };
 }
