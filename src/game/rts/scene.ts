@@ -8,6 +8,7 @@ import { RTS_SPAWN_CONTENT } from '@game/rts/spawnContent';
 import { World } from '@engine/world';
 import { createRenderContext } from '@render/scene';
 import { createFogOverlay } from '@render/fogOverlay';
+import { screenToGround } from '@render/picking';
 import { RenderBridge } from '@render/sync';
 import { RTS_RENDER_CONTENT } from '@game/rts/render/content';
 import type { ISystem } from '@systems/iface';
@@ -43,6 +44,7 @@ import {
 } from '@game/rts/modes';
 import { makeTerrainFeatureLayer } from '@render/terrainFeatures';
 import { stampTerrainFeatures } from '@utils/terrain';
+import { InputScope } from '@engine/input/inputScope';
 void _;
 
 export type GameMode = RtsModeId;
@@ -50,6 +52,10 @@ export type GameMode = RtsModeId;
 export interface GameSceneHandle {
   destroy(): void;
 }
+
+const PLAYGROUND_NUKE_RADIUS = 8.5;
+const PLAYGROUND_NUKE_DAMAGE = 260;
+const PLAYGROUND_NUKE_DELAY_MS = 650;
 
 export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode: GameMode, onExit: () => void): GameSceneHandle {
   const world = new World();
@@ -113,6 +119,9 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   const floaters: FloatingTextHandle = mountFloatingText(world);
   const audio: AudioKernelHandle = mountAudio(world);
   const weaponFx: WeaponFxHandle = mountWeaponFx(world, rc.scene);
+  const playgroundInput = new InputScope();
+  const playgroundTimers: number[] = [];
+  let nukeArmed = false;
   let playgroundSpawnIndex = 0;
   const playgroundPanel: PlaygroundPanelHandle | null = battleLab
     ? mountPlaygroundPanel(
@@ -121,8 +130,24 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
         playgroundSpawnIndex = spawnPlaygroundUnits(world, spawn, faction, kind, count, playgroundSpawnIndex);
       },
       () => clearPlaygroundUnits(world),
+      () => {
+        nukeArmed = true;
+        world.bus.emit('ui:notice', { text: 'Nuke armed. Click ground target.', tone: 'warn' });
+      },
     )
     : null;
+  if (battleLab) {
+    const canvas = rc.renderer.domElement;
+    playgroundInput.on(canvas, 'mousedown', (ev) => {
+      if (!nukeArmed) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      const ground = screenToGround(rc.camera, ev.clientX, ev.clientY, window.innerWidth, window.innerHeight);
+      if (!ground) return;
+      nukeArmed = false;
+      requestPlaygroundNuke(world, ground.x, ground.z, playgroundTimers);
+    }, { capture: true });
+  }
 
   // Re-render command card on selection changes. We subscribe to events that imply selection change.
   const offSelChange = world.bus.on('unit:died', () => card.tick());
@@ -210,6 +235,9 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
     offBldChange();
     offVictory();
     offDefeat();
+    playgroundInput.destroy();
+    for (const timer of playgroundTimers) window.clearTimeout(timer);
+    playgroundTimers.length = 0;
     for (const s of systems) s.destroy?.();
     hud.destroy();
     card.destroy();
@@ -225,6 +253,52 @@ export function startGameScene(host: HTMLElement, playerFaction: FactionId, mode
   return {
     destroy: cleanupAndExit,
   };
+}
+
+function requestPlaygroundNuke(world: World, x: number, y: number, timers: number[]): void {
+  world.bus.emit('superweapon:nukeTargeted', {
+    faction: world.playerFaction,
+    x,
+    y,
+    radius: PLAYGROUND_NUKE_RADIUS,
+    delayMs: PLAYGROUND_NUKE_DELAY_MS,
+  });
+  world.bus.emit('ui:notice', { text: 'Tactical nuke inbound.', tone: 'warn' });
+  const timer = window.setTimeout(() => {
+    world.bus.emit('superweapon:nukeDetonated', {
+      faction: world.playerFaction,
+      x,
+      y,
+      radius: PLAYGROUND_NUKE_RADIUS,
+      damage: PLAYGROUND_NUKE_DAMAGE,
+    });
+    applyPlaygroundNukeDamage(world, x, y, PLAYGROUND_NUKE_RADIUS, PLAYGROUND_NUKE_DAMAGE);
+  }, PLAYGROUND_NUKE_DELAY_MS);
+  timers.push(timer);
+}
+
+function applyPlaygroundNukeDamage(world: World, x: number, y: number, radius: number, damage: number): void {
+  const r2 = radius * radius;
+  world.units.forEachAlive((u) => {
+    const dx = u.x - x;
+    const dy = u.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > r2) return;
+    const dist = Math.sqrt(d2);
+    const amount = Math.round(damage * (0.45 + 0.55 * (1 - dist / radius)));
+    u.hp -= amount;
+    world.bus.emit('unit:damaged', { id: u.id, amount, x: u.x, y: u.y });
+  });
+  world.buildings.forEachAlive((b) => {
+    const dx = b.x - x;
+    const dy = b.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > r2) return;
+    const dist = Math.sqrt(d2);
+    const amount = Math.round(damage * 1.35 * (0.45 + 0.55 * (1 - dist / radius)));
+    b.hp -= amount;
+    world.bus.emit('building:damaged', { id: b.id, amount, x: b.x, y: b.y });
+  });
 }
 
 function spawnPlaygroundUnits(world: World, spawn: SpawnService, faction: FactionId, kind: UnitKind, count: number, startIndex: number): number {

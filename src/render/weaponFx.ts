@@ -78,6 +78,14 @@ export function mountWeaponFx(world: World, scene: THREE.Scene): WeaponFxHandle 
       if (!canSeePoint(world, x, y)) return;
       vfx.play('building_death_large', { x, y, color: FACTION_COLORS[faction].accent, radius: 3.4 });
     }),
+    world.bus.on('superweapon:nukeTargeted', (ev) => {
+      if (!canSeePoint(world, ev.x, ev.y)) return;
+      vfx.play('tactical_nuke_marker', { x: ev.x, y: ev.y, color: 0xffd68a, radius: ev.radius });
+    }),
+    world.bus.on('superweapon:nukeDetonated', (ev) => {
+      if (!canSeePoint(world, ev.x, ev.y)) return;
+      vfx.play('tactical_nuke_strike', { x: ev.x, y: ev.y, color: 0xff9b4a, radius: ev.radius });
+    }),
   ];
 
   return {

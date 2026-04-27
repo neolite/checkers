@@ -98,6 +98,29 @@ export const VFX_PRESETS: readonly VfxPreset[] = [
     ],
   },
   {
+    id: 'tactical_nuke_marker',
+    durationMs: 700,
+    budgetClass: 'normal',
+    layers: [
+      { type: 'shockwave', color: 0xffe18a, radius: 8.5, lifeMs: 650, y: 0.12 },
+      { type: 'decal', texture: 'scorch', color: 0xffb35e, radius: 4.2, opacity: 0.20, lifeMs: 1200, randomRotation: true },
+    ],
+  },
+  {
+    id: 'tactical_nuke_strike',
+    durationMs: 2600,
+    budgetClass: 'expensive',
+    layers: [
+      { type: 'sprite', texture: 'spark', color: 0xffffff, size: 6.8, lifeMs: 110, opacity: 1.0, grow: 0.45, randomRotation: true, y: 4.4 },
+      { type: 'sprite', texture: 'flame', color: 0xffa24a, size: 8.2, lifeMs: 420, opacity: 0.95, grow: 1.1, randomRotation: true, y: 3.0 },
+      { type: 'sprite', texture: 'smoke', color: 0x6e6860, size: 6.6, lifeMs: 2100, opacity: 0.62, grow: 1.85, randomRotation: true, y: 4.6 },
+      { type: 'shockwave', color: 0xffc07a, radius: 8.5, lifeMs: 520, y: 0.16 },
+      { type: 'shockwave', color: 0xff6e35, radius: 5.2, lifeMs: 360, y: 0.2 },
+      { type: 'decal', texture: 'crater', color: 0x2b211d, radius: 5.2, opacity: 0.72, lifeMs: 90000, randomRotation: true },
+      { type: 'decal', texture: 'scorch', color: 0xff7a30, radius: 8.5, opacity: 0.26, lifeMs: 45000, randomRotation: true },
+    ],
+  },
+  {
     id: 'damage_smoke_loop',
     durationMs: 1200,
     budgetClass: 'cheap',

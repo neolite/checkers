@@ -45,6 +45,8 @@ export interface GameEvents {
     points?: Array<{ x: number; y: number }>;
   };
   'projectile:impact':   { x: number; y: number; targetId: number; damage: number; klass: WeaponClass; behavior: WeaponBehavior };
+  'superweapon:nukeTargeted':  { faction: FactionId; x: number; y: number; radius: number; delayMs: number };
+  'superweapon:nukeDetonated': { faction: FactionId; x: number; y: number; radius: number; damage: number };
   'credits:deposited':   { faction: FactionId; amount: number; x: number; y: number };
   'cargo:gathered':      { unitId: number; amount: number };
   'production:started':  { buildingId: number; role: Role };

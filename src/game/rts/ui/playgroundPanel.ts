@@ -11,6 +11,7 @@ export function mountPlaygroundPanel(
   host: HTMLElement,
   spawn: (faction: FactionId, kind: UnitKind, count: number) => void,
   clear: () => void,
+  nukeStrike: () => void,
 ): PlaygroundPanelHandle {
   const panel = document.createElement('div');
   panel.className = 'playground-panel';
@@ -21,6 +22,7 @@ export function mountPlaygroundPanel(
         <div class="pg-sub">Spawn units · tune live</div>
       </div>
       <div class="pg-actions">
+        <button class="pg-btn nuke" id="pg-nuke">Nuke Strike</button>
         <button class="pg-btn" id="pg-dev">Dev Panel</button>
         <button class="pg-btn danger" id="pg-clear">Clear</button>
       </div>
@@ -40,6 +42,7 @@ export function mountPlaygroundPanel(
   });
 
   panel.querySelector<HTMLButtonElement>('#pg-clear')!.addEventListener('click', clear);
+  panel.querySelector<HTMLButtonElement>('#pg-nuke')!.addEventListener('click', nukeStrike);
 
   let drawer: HTMLDivElement | null = null;
   const devButton = panel.querySelector<HTMLButtonElement>('#pg-dev')!;
