@@ -1,7 +1,7 @@
 import type { World } from '@engine/world';
 import { FACTION_COLORS } from '@config/palette';
 import { FACTIONS } from '@game/rts/content/factions';
-import type { CameraSystem } from '@systems/camera';
+import type { CameraSystem } from '@engine/systems/camera';
 import { WORLD } from '@config/gameplay';
 import { MAP } from '@config/gameplay';
 import { TERRAIN_MINIMAP_COLORS } from '@config/terrain';

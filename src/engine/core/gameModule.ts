@@ -1,5 +1,5 @@
 import type { World } from '@engine/world';
-import type { ISystem } from '@systems/iface';
+import type { ISystem } from '@engine/systems/iface';
 
 export type SystemFactory<TSpawn = unknown> = (ctx: GameSetupContext<TSpawn>) => ISystem;
 

@@ -1,4 +1,4 @@
-import type { ISystem } from '@systems/iface';
+import type { ISystem } from '@engine/systems/iface';
 import type { World } from '@engine/world';
 import type { Role } from '@config/gameplay';
 import type { UnitKind } from '@game/rts/content/units';

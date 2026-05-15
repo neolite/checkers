@@ -1,4 +1,4 @@
-import type { ISystem } from '@systems/iface';
+import type { ISystem } from '@engine/systems/iface';
 import type { World } from '@engine/world';
 import { FOG, MAP, SIM } from '@config/gameplay';
 import type { FogOverlay } from '@render/fogOverlay';

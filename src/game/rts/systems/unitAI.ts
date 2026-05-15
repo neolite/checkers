@@ -1,4 +1,4 @@
-import type { ISystem } from '@systems/iface';
+import type { ISystem } from '@engine/systems/iface';
 import type { World } from '@engine/world';
 import type { Unit, Building, ResourceNode } from '@entities/types';
 import { ECONOMY, MAP } from '@config/gameplay';

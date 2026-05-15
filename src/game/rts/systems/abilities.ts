@@ -1,7 +1,7 @@
 import type { World } from '@engine/world';
 import type { Building, Unit } from '@entities/types';
 import { WORLD } from '@config/gameplay';
-import { applyDamage } from '@systems/combat';
+import { applyDamage } from '@engine/systems/combat';
 import { RTS_COMBAT_RULES } from '@game/rts/combatRules';
 import { clamp, dist2, normalize } from '@utils/math';
 

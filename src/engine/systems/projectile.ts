@@ -1,7 +1,7 @@
-import type { ISystem } from '@systems/iface';
+import type { ISystem } from '@engine/systems/iface';
 import type { World } from '@engine/world';
 import type { Projectile } from '@entities/types';
-import { applyDamage, applySplashDamage, findBounceTarget, getTargetInfo, retargetProjectile, type CombatRules } from '@systems/combat';
+import { applyDamage, applySplashDamage, findBounceTarget, getTargetInfo, retargetProjectile, type CombatRules } from '@engine/systems/combat';
 
 export class ProjectileSystem implements ISystem {
   readonly name = 'projectile';

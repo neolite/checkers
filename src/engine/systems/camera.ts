@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { ISystem } from '@systems/iface';
+import type { ISystem } from '@engine/systems/iface';
 import type { World } from '@engine/world';
 import { CAMERA, WORLD } from '@config/gameplay';
 import { clamp } from '@utils/math';
