@@ -13,20 +13,20 @@ export interface GameRoute<TOptions = Record<string, never>> {
   start(ctx: GameLaunchContext, options: TOptions): GameSceneHandle;
 }
 
-export type MenuRenderer = (ctx: { start<TOptions>(route: GameRoute<TOptions>, options: TOptions): void }) => void;
+export type HubRenderer = (ctx: { start<TOptions>(route: GameRoute<TOptions>, options: TOptions): void }) => void;
 
 export class GameRouter {
   private active: GameSceneHandle | null = null;
 
   constructor(
     private readonly host: HTMLElement,
-    private readonly renderMenu: MenuRenderer,
+    private readonly renderHub: HubRenderer,
   ) {}
 
   showMenu(): void {
     this.destroyActive();
     this.host.innerHTML = '';
-    this.renderMenu({
+    this.renderHub({
       start: <TOptions>(route: GameRoute<TOptions>, options: TOptions): void => {
         this.start(route, options);
       },

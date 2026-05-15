@@ -1,15 +1,14 @@
+import type { GameRoute } from '@engine/core/runtime';
+import { GAME_ROUTES } from '@game/catalog';
 import { FACTIONS } from '@game/rts/content/factions';
 import { FACTION_COLORS, type FactionId } from '@config/palette';
 
 export type GameMode = 'ffa' | 'allVsYou' | 'playground';
+type StartGame = <TOptions>(route: GameRoute<TOptions>, options: TOptions) => void;
 
-export function renderMenu(
+export function renderGameHub(
   host: HTMLElement,
-  onStart: (faction: FactionId, mode: GameMode) => void,
-  onStartTowerDefense?: () => void,
-  onStartRoguelike?: () => void,
-  onStartCheckers?: () => void,
-  onStartCardBattler?: () => void,
+  startGame: StartGame,
 ): void {
   host.innerHTML = '';
   const wrap = document.createElement('div');
@@ -119,23 +118,23 @@ export function renderMenu(
   }
 
   btn.addEventListener('click', () => {
-    if (chosen) onStart(chosen, mode);
+    if (chosen) startGame(GAME_ROUTES.rts, { faction: chosen, mode });
   });
   tdBtn.addEventListener('click', () => {
-    onStartTowerDefense?.();
+    startGame(GAME_ROUTES.towerDefense, {});
   });
   rogueBtn.addEventListener('click', () => {
-    onStartRoguelike?.();
+    startGame(GAME_ROUTES.roguelike, {});
   });
   checkersBtn.addEventListener('click', () => {
-    onStartCheckers?.();
+    startGame(GAME_ROUTES.checkers, {});
   });
   cardBattlerBtn.addEventListener('click', () => {
-    onStartCardBattler?.();
+    startGame(GAME_ROUTES.cardBattler, {});
   });
 }
 
-export function destroyMenu(host: HTMLElement): void {
+export function destroyGameHub(host: HTMLElement): void {
   const m = host.querySelector('.menu');
   if (m && m.parentElement) m.parentElement.removeChild(m);
 }

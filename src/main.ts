@@ -1,11 +1,5 @@
-import { renderMenu } from '@game/rts/ui/menu';
+import { renderGameHub } from '@game/hub/menu';
 import { GameRouter } from '@engine/core/runtime';
-import { RTS_GAME_ROUTE } from '@game/rts/module';
-import { ROGUELIKE_ROUTE } from '@game/roguelike/module';
-import { TOWER_DEFENSE_ROUTE } from '@game/tower-defense/module';
-import { CHECKERS_ROUTE } from '@game/checkers/module';
-import { CARD_BATTLER_ROUTE } from '@game/card-battler/module';
-import type { FactionId } from '@config/palette';
 
 const host = document.getElementById('app');
 if (!host) {
@@ -17,24 +11,7 @@ if (import.meta.env.DEV) {
 }
 
 const router = new GameRouter(host, ({ start }) => {
-  renderMenu(
-    host,
-    (faction: FactionId, mode) => {
-      start(RTS_GAME_ROUTE, { faction, mode });
-    },
-    () => {
-      start(TOWER_DEFENSE_ROUTE, {});
-    },
-    () => {
-      start(ROGUELIKE_ROUTE, {});
-    },
-    () => {
-      start(CHECKERS_ROUTE, {});
-    },
-    () => {
-      start(CARD_BATTLER_ROUTE, {});
-    },
-  );
+  renderGameHub(host, start);
 });
 
 router.showMenu();
