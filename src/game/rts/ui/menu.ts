@@ -8,19 +8,37 @@ export function renderMenu(
   onStart: (faction: FactionId, mode: GameMode) => void,
   onStartTowerDefense?: () => void,
   onStartRoguelike?: () => void,
+  onStartCheckers?: () => void,
 ): void {
   host.innerHTML = '';
   const wrap = document.createElement('div');
   wrap.className = 'menu';
   wrap.innerHTML = `
     <div class="menu-panel">
-      <h1><span class="accent">Three Factions</span> — RTS Prototype</h1>
+      <h1><span class="accent">Tactical Arcade</span> — Game Lab</h1>
       <p>
-        Pick a faction and a game mode. Controls: LMB drag = box select · LMB click = pick ·
+        Pick a game. RTS controls: LMB drag = box select · LMB click = pick ·
         RMB = move/attack/harvest · Ctrl+RMB = attack-move · RMB on ground while HQ/Barracks
         selected = rally point · X = stop · H = hold · M = mute · WASD/Edge = pan · Wheel = zoom.
       </p>
 
+      <div class="section-label">Featured Games</div>
+      <div class="mode-row">
+        <div class="mode-card game-card" id="checkers-btn">
+          <h3>Premium Checkers</h3>
+          <div class="desc">Luxury Russian 8x8 checkers with flying kings, AI and cinematic board.</div>
+        </div>
+        <div class="mode-card game-card" id="td-btn">
+          <h3>Tripod Defense</h3>
+          <div class="desc">Tower defense with heat-ray tripods and waves.</div>
+        </div>
+        <div class="mode-card game-card" id="rogue-btn">
+          <h3>Roguelike</h3>
+          <div class="desc">Compact dungeon combat prototype.</div>
+        </div>
+      </div>
+
+      <div class="section-label">RTS Mode</div>
       <div class="mode-row" id="menu-modes">
         <div class="mode-card" data-mode="ffa">
           <h3>Free-for-all</h3>
@@ -40,9 +58,7 @@ export function renderMenu(
       <div class="faction-row" id="menu-factions"></div>
 
       <div class="menu-actions">
-        <div class="hint">Single-player · procedural terrain · textured faction materials.</div>
-        <button class="btn secondary purple" id="rogue-btn">Roguelike</button>
-        <button class="btn secondary" id="td-btn">Tripod Defense</button>
+        <div class="hint">Game modules share one TypeScript + Three.js runtime.</div>
         <button class="btn" id="start-btn" disabled>Start</button>
       </div>
     </div>
@@ -53,6 +69,7 @@ export function renderMenu(
   const btn = wrap.querySelector('#start-btn') as HTMLButtonElement;
   const tdBtn = wrap.querySelector('#td-btn') as HTMLButtonElement;
   const rogueBtn = wrap.querySelector('#rogue-btn') as HTMLButtonElement;
+  const checkersBtn = wrap.querySelector('#checkers-btn') as HTMLButtonElement;
   let chosen: FactionId | null = null;
   let mode: GameMode = 'ffa';
 
@@ -103,6 +120,9 @@ export function renderMenu(
   });
   rogueBtn.addEventListener('click', () => {
     onStartRoguelike?.();
+  });
+  checkersBtn.addEventListener('click', () => {
+    onStartCheckers?.();
   });
 }
 
