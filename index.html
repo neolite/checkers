@@ -190,6 +190,80 @@
       .checkers-help { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 9px 13px; border: 1px solid rgba(244,197,132,0.24); border-radius: 8px; background: rgba(9,5,4,0.72); color: #f8e7ce; font-size: 12px; box-shadow: 0 16px 42px rgba(0,0,0,0.38); }
       .game-card { min-height: 98px; }
 
+      /* Arcane Duel card battler */
+      .cb-root { position: absolute; inset: 0; overflow: hidden; color: #f5e7cf; background: #100805; font-family: "Inter", system-ui, sans-serif; }
+      .cb-backdrop { position: absolute; inset: 0; background:
+        radial-gradient(circle at 50% 45%, rgba(206,132,58,0.32), transparent 34%),
+        radial-gradient(circle at 50% 105%, rgba(48,20,12,0.95), transparent 44%),
+        linear-gradient(130deg, #090604, #1c0d07 46%, #080504);
+      }
+      .cb-backdrop::before { content: ""; position: absolute; inset: 0; background-image:
+        linear-gradient(rgba(255,210,130,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,210,130,0.035) 1px, transparent 1px);
+        background-size: 48px 48px; opacity: 0.35;
+      }
+      .cb-topbar { position: absolute; top: 14px; left: 16px; right: 16px; z-index: 4; min-height: 58px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(255,190,104,0.24); border-radius: 9px; background: rgba(18,10,7,0.82); box-shadow: 0 20px 54px rgba(0,0,0,0.38); }
+      .cb-title { font-size: 15px; font-weight: 950; letter-spacing: 0.13em; text-transform: uppercase; color: #ffd08a; }
+      .cb-sub { margin-top: 2px; font-size: 11px; opacity: 0.62; letter-spacing: 0.04em; }
+      .cb-pill { padding: 7px 10px; border: 1px solid rgba(255,190,104,0.18); border-radius: 999px; background: rgba(255,255,255,0.045); color: #f5e7cf; font-size: 12px; font-weight: 850; }
+      .cb-pill.active { border-color: rgba(91,210,255,0.5); color: #bcecff; box-shadow: 0 0 18px rgba(91,210,255,0.16); }
+      .cb-btn { border: 1px solid rgba(255,190,104,0.24); border-radius: 6px; background: rgba(255,255,255,0.055); color: #f5e7cf; padding: 8px 10px; font-size: 11px; font-weight: 850; cursor: pointer; }
+      .cb-btn:hover { border-color: #ffd08a; background: rgba(255,208,138,0.12); }
+      .cb-arena { position: absolute; inset: 88px 300px 150px 24px; display: grid; grid-template-rows: 88px 1fr 88px; gap: 12px; z-index: 2; min-width: 0; }
+      .cb-board { position: relative; border: 1px solid rgba(255,190,104,0.2); border-radius: 18px; background:
+        radial-gradient(ellipse at center, rgba(255,188,92,0.16), transparent 58%),
+        linear-gradient(180deg, rgba(68,31,14,0.9), rgba(28,14,9,0.9));
+        box-shadow: inset 0 0 80px rgba(255,175,86,0.08), 0 26px 70px rgba(0,0,0,0.34);
+        display: grid; grid-template-rows: 1fr 72px 1fr; padding: 18px;
+      }
+      .cb-board::before { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(255,223,160,0.08); border-radius: 14px; pointer-events: none; }
+      .cb-lane { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 118px; }
+      .cb-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; z-index: 1; }
+      .cb-orb { width: 58px; height: 18px; border-radius: 999px; background: radial-gradient(ellipse at center, rgba(89,214,255,0.75), rgba(106,53,255,0.08) 68%, transparent); filter: blur(0.3px); box-shadow: 0 0 26px rgba(89,214,255,0.2); }
+      .cb-notice { min-height: 20px; font-size: 12px; color: rgba(245,231,207,0.78); text-align: center; }
+      .cb-empty-slot { padding: 12px 18px; border: 1px dashed rgba(255,190,104,0.14); border-radius: 10px; color: rgba(245,231,207,0.32); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+      .cb-hero { display: grid; grid-template-columns: 54px 1fr 52px; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid rgba(255,190,104,0.2); border-radius: 12px; background: rgba(18,10,7,0.78); box-shadow: 0 16px 42px rgba(0,0,0,0.28); }
+      .cb-hero.targetable { cursor: crosshair; border-color: rgba(255,101,79,0.58); box-shadow: 0 0 26px rgba(255,101,79,0.12), 0 16px 42px rgba(0,0,0,0.28); }
+      .cb-portrait { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 950; color: #130704; background: linear-gradient(135deg, #ffe5ac, #b6692d); box-shadow: inset 0 0 16px rgba(255,255,255,0.34); }
+      .cb-hero.opponent .cb-portrait { background: linear-gradient(135deg, #d8b0ff, #4d2478); color: #fff2ff; }
+      .cb-hero-name { font-size: 14px; font-weight: 950; letter-spacing: 0.06em; text-transform: uppercase; }
+      .cb-hero-sub { margin-top: 3px; font-size: 11px; opacity: 0.58; }
+      .cb-health { justify-self: end; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #ff5b56, #5a1111); border: 1px solid rgba(255,214,170,0.24); font-size: 18px; font-weight: 950; box-shadow: 0 0 24px rgba(255,73,60,0.18); }
+      .cb-minion { position: relative; width: 116px; height: 126px; border: 1px solid rgba(255,190,104,0.22); border-radius: 12px; background: linear-gradient(180deg, rgba(63,35,23,0.95), rgba(23,12,8,0.95)); color: #f5e7cf; cursor: default; box-shadow: 0 18px 36px rgba(0,0,0,0.3); }
+      .cb-minion.ready { cursor: pointer; border-color: rgba(91,210,255,0.48); box-shadow: 0 0 22px rgba(91,210,255,0.12), 0 18px 36px rgba(0,0,0,0.3); }
+      .cb-minion.selected { transform: translateY(-8px); border-color: #ffd08a; box-shadow: 0 0 30px rgba(255,208,138,0.2), 0 22px 42px rgba(0,0,0,0.34); }
+      .cb-minion.targetable { cursor: crosshair; border-color: rgba(255,101,79,0.58); }
+      .cb-minion-art { height: 54px; margin: 9px 10px 5px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(91,210,255,0.44), rgba(71,35,122,0.18) 58%, rgba(0,0,0,0.24)); font-size: 24px; font-weight: 950; color: #c8f3ff; }
+      .cb-minion.opponent .cb-minion-art { background: radial-gradient(circle, rgba(215,131,255,0.45), rgba(57,22,79,0.34) 62%, rgba(0,0,0,0.24)); color: #f0d2ff; }
+      .cb-minion-name { padding: 0 8px; min-height: 28px; font-size: 11px; line-height: 1.18; font-weight: 850; text-align: center; }
+      .cb-stat { position: absolute; bottom: 7px; width: 29px; height: 29px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 950; border: 1px solid rgba(255,255,255,0.18); }
+      .cb-stat.atk { left: 8px; background: #0d3c58; color: #bdefff; }
+      .cb-stat.hp { right: 8px; background: #661919; color: #ffd1c7; }
+      .cb-hand { position: absolute; left: 22px; right: 300px; bottom: 14px; z-index: 5; height: 124px; display: flex; align-items: end; justify-content: center; gap: 9px; padding: 8px; border: 1px solid rgba(255,190,104,0.14); border-radius: 14px; background: rgba(10,6,5,0.58); }
+      .cb-card { position: relative; width: 96px; height: 112px; border: 1px solid rgba(255,190,104,0.24); border-radius: 10px; background: linear-gradient(180deg, #4a2412, #170b07); color: #f5e7cf; padding: 9px 8px; cursor: pointer; box-shadow: 0 14px 34px rgba(0,0,0,0.32); transition: transform 120ms, border-color 120ms; }
+      .cb-card:hover, .cb-card.playable:hover { transform: translateY(-10px); border-color: #ffd08a; }
+      .cb-card:not(.playable) { opacity: 0.55; cursor: not-allowed; }
+      .cb-card.selected { transform: translateY(-14px); border-color: #70ddff; box-shadow: 0 0 24px rgba(112,221,255,0.17), 0 18px 38px rgba(0,0,0,0.34); }
+      .cb-cost { position: absolute; top: -7px; left: -7px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle, #73dfff, #174f7a); font-weight: 950; color: white; border: 1px solid rgba(255,255,255,0.38); }
+      .cb-card-art { height: 28px; margin-bottom: 6px; display: flex; align-items: center; justify-content: center; color: #ffd08a; font-size: 20px; font-weight: 950; }
+      .cb-card-name { min-height: 27px; font-size: 11px; font-weight: 950; line-height: 1.15; text-align: center; }
+      .cb-card-text { margin-top: 5px; font-size: 9px; line-height: 1.24; opacity: 0.72; text-align: center; }
+      .cb-card-stats { position: absolute; left: 8px; right: 8px; bottom: 6px; font-size: 12px; font-weight: 950; color: #ffe0a8; text-align: center; }
+      .cb-side { position: absolute; top: 88px; right: 16px; bottom: 14px; z-index: 4; width: 262px; display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid rgba(255,190,104,0.2); border-radius: 12px; background: rgba(13,8,6,0.82); box-shadow: 0 20px 54px rgba(0,0,0,0.34); }
+      .cb-side-title { font-size: 12px; font-weight: 950; letter-spacing: 0.09em; text-transform: uppercase; color: #ffd08a; }
+      .cb-log { flex: 1; overflow: auto; padding: 8px; border: 1px solid rgba(255,190,104,0.13); border-radius: 8px; background: rgba(0,0,0,0.18); font-size: 11px; line-height: 1.5; color: rgba(245,231,207,0.76); }
+      .cb-end { height: 46px; border: 1px solid rgba(91,210,255,0.34); border-radius: 8px; background: linear-gradient(180deg, rgba(45,157,218,0.28), rgba(25,82,122,0.28)); color: #d6f7ff; font-size: 12px; font-weight: 950; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+      .cb-end:hover { border-color: #70ddff; }
+      .cb-end:disabled { opacity: 0.42; cursor: not-allowed; }
+      @media (max-width: 900px) {
+        .cb-topbar { flex-wrap: wrap; }
+        .cb-arena { inset: 118px 12px 176px 12px; grid-template-rows: 78px 1fr 78px; }
+        .cb-side { display: none; }
+        .cb-hand { left: 10px; right: 10px; height: 154px; overflow-x: auto; justify-content: flex-start; }
+        .cb-card { flex: 0 0 96px; }
+        .cb-minion { width: 92px; height: 112px; }
+      }
+
       /* Tower Defense module */
       .td-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
       .td-overlay > * { pointer-events: auto; }

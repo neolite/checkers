@@ -4,6 +4,7 @@ import { RTS_GAME_ROUTE } from '@game/rts/module';
 import { ROGUELIKE_ROUTE } from '@game/roguelike/module';
 import { TOWER_DEFENSE_ROUTE } from '@game/tower-defense/module';
 import { CHECKERS_ROUTE } from '@game/checkers/module';
+import { CARD_BATTLER_ROUTE } from '@game/card-battler/module';
 import type { FactionId } from '@config/palette';
 
 const host = document.getElementById('app');
@@ -29,6 +30,9 @@ const router = new GameRouter(host, ({ start }) => {
     },
     () => {
       start(CHECKERS_ROUTE, {});
+    },
+    () => {
+      start(CARD_BATTLER_ROUTE, {});
     },
   );
 });

@@ -9,6 +9,7 @@ export function renderMenu(
   onStartTowerDefense?: () => void,
   onStartRoguelike?: () => void,
   onStartCheckers?: () => void,
+  onStartCardBattler?: () => void,
 ): void {
   host.innerHTML = '';
   const wrap = document.createElement('div');
@@ -27,6 +28,10 @@ export function renderMenu(
         <div class="mode-card game-card" id="checkers-btn">
           <h3>Premium Checkers</h3>
           <div class="desc">Luxury Russian 8x8 checkers with flying kings, AI and cinematic board.</div>
+        </div>
+        <div class="mode-card game-card" id="card-battler-btn">
+          <h3>Arcane Duel</h3>
+          <div class="desc">Hearthstone-like tactical card battler with mana, minions, spells and local AI.</div>
         </div>
         <div class="mode-card game-card" id="td-btn">
           <h3>Tripod Defense</h3>
@@ -70,6 +75,7 @@ export function renderMenu(
   const tdBtn = wrap.querySelector('#td-btn') as HTMLButtonElement;
   const rogueBtn = wrap.querySelector('#rogue-btn') as HTMLButtonElement;
   const checkersBtn = wrap.querySelector('#checkers-btn') as HTMLButtonElement;
+  const cardBattlerBtn = wrap.querySelector('#card-battler-btn') as HTMLButtonElement;
   let chosen: FactionId | null = null;
   let mode: GameMode = 'ffa';
 
@@ -123,6 +129,9 @@ export function renderMenu(
   });
   checkersBtn.addEventListener('click', () => {
     onStartCheckers?.();
+  });
+  cardBattlerBtn.addEventListener('click', () => {
+    onStartCardBattler?.();
   });
 }
 
