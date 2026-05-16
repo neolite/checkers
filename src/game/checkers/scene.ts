@@ -219,7 +219,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     const drop = drag.active ? squareAtPointer(ev) : null;
     const move = drop ? moveForDestination(drop.x, drop.y) : null;
     if (move) {
-      playMove(move);
+      playMove(move, pieceMeshes.get(drag.pieceId)?.position.clone() ?? drag.origin.clone());
       return;
     }
     const mesh = pieceMeshes.get(drag.pieceId);
@@ -314,9 +314,9 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     renderer.domElement.style.cursor = 'default';
   }
 
-  function playMove(move: CheckersMove): void {
+  function playMove(move: CheckersMove, animationFrom?: THREE.Vector3): void {
     const piece = state.pieces.find((p) => p.id === move.pieceId);
-    const from = piece ? pieceWorld(piece.x, piece.y, PIECE_Y) : null;
+    const from = animationFrom ?? (piece ? pieceWorld(piece.x, piece.y, PIECE_Y) : null);
     const toSq = move.path[move.path.length - 1]!;
     state = applyMove(state, move);
     cancelDrag();
