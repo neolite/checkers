@@ -75,6 +75,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let recordedWinner: CheckersSide | null = null;
   let panelCollapsed = window.innerWidth < 920;
   let dragState: { pieceId: number; pointerId: number; startX: number; startY: number; origin: THREE.Vector3; active: boolean } | null = null;
+  let dragHoverSquare: { x: number; y: number } | null = null;
+  let dragHoverMarker: THREE.Object3D | null = null;
 
   const hud = createHud(root);
   root.classList.toggle('panel-collapsed', panelCollapsed);
@@ -219,11 +221,13 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     const drop = drag.active ? squareAtPointer(ev) : null;
     const move = drop ? moveForDestination(drop.x, drop.y) : null;
     if (move) {
+      clearDragHover();
       playMove(move, pieceMeshes.get(drag.pieceId)?.position.clone() ?? drag.origin.clone());
       return;
     }
     const mesh = pieceMeshes.get(drag.pieceId);
     if (mesh) mesh.position.copy(drag.origin);
+    clearDragHover();
     resetCanvasCursor();
   }
 
@@ -238,6 +242,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       origin: mesh.position.clone(),
       active: false,
     };
+    clearDragHover();
     renderer.domElement.setPointerCapture?.(ev.pointerId);
     renderer.domElement.style.cursor = 'grab';
   }
@@ -256,10 +261,12 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     if (point && mesh) {
       mesh.position.set(point.x, DRAG_LIFT_Y, point.z);
     }
+    setDragHoverSquare(point ? squareAtWorldPoint(point) : null);
     renderer.domElement.style.cursor = 'grabbing';
   }
 
   function cancelDrag(ev?: PointerEvent): void {
+    clearDragHover();
     if (!dragState) {
       resetCanvasCursor();
       return;
@@ -274,11 +281,38 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
 
   function squareAtPointer(ev: PointerEvent): { x: number; y: number } | null {
     const point = pointerWorldOnDragPlane(ev);
+    return point ? squareAtWorldPoint(point) : null;
+  }
+
+  function squareAtWorldPoint(point: THREE.Vector3): { x: number; y: number } | null {
     if (!point) return null;
     const x = Math.round(point.x / TILE + 3.5);
     const y = Math.round(point.z / TILE + 3.5);
     if (x < 0 || x >= BOARD || y < 0 || y >= BOARD) return null;
     return { x, y };
+  }
+
+  function setDragHoverSquare(square: { x: number; y: number } | null): void {
+    const move = square ? moveForDestination(square.x, square.y) : null;
+    const next = move && square ? square : null;
+    if (sameSquare(dragHoverSquare, next)) return;
+    clearDragHover();
+    dragHoverSquare = next;
+    if (!next || !move) return;
+    dragHoverMarker = makeDragHoverMarker(next.x, next.y, move.captures.length > 0);
+    board.add(dragHoverMarker);
+  }
+
+  function clearDragHover(): void {
+    dragHoverSquare = null;
+    if (!dragHoverMarker) return;
+    board.remove(dragHoverMarker);
+    dispose(dragHoverMarker);
+    dragHoverMarker = null;
+  }
+
+  function sameSquare(a: { x: number; y: number } | null, b: { x: number; y: number } | null): boolean {
+    return a?.x === b?.x && a?.y === b?.y;
   }
 
   function pointerWorldOnDragPlane(ev: PointerEvent): THREE.Vector3 | null {
@@ -500,6 +534,25 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     mesh.position.copy(pieceWorld(x, y, 0.11));
     highlightMeshes.push(mesh);
     board.add(mesh);
+  }
+
+  function makeDragHoverMarker(x: number, y: number, capture: boolean): THREE.Group {
+    const group = new THREE.Group();
+    const color = capture ? 0xff7a45 : 0x9fe7ff;
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(TILE * 0.42, 48),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: capture ? 0.46 : 0.34, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    disc.rotation.x = -Math.PI / 2;
+    group.add(disc);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(TILE * 0.36, 0.03, 8, 60),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.82, depthWrite: false }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    group.add(ring);
+    group.position.copy(pieceWorld(x, y, 0.13));
+    return group;
   }
 
   function updateAnimations(now: number): void {
