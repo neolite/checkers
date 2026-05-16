@@ -187,11 +187,13 @@
       .checkers-overlay { position: fixed; inset: 0; z-index: 28; pointer-events: none; }
       .checkers-overlay > * { pointer-events: auto; }
       .checkers-top { position: absolute; top: 14px; left: 16px; right: 16px; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(244,197,132,0.28); border-radius: 10px; background: linear-gradient(180deg, rgba(31,17,10,0.9), rgba(9,5,4,0.78)); box-shadow: 0 18px 50px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08); backdrop-filter: blur(14px); transition: opacity 360ms ease, transform 360ms ease; }
+      .checkers-top > div:first-child { flex: 1; min-width: 150px; }
       .checkers-title { font-size: 14px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: #ffd79d; }
       .checkers-sub { margin-top: 2px; font-size: 11px; opacity: 0.64; letter-spacing: 0.04em; }
       .checkers-pill { padding: 7px 10px; border: 1px solid rgba(244,197,132,0.22); border-radius: 999px; background: rgba(255,255,255,0.045); color: #f8e7ce; font-size: 12px; font-weight: 800; }
       .checkers-pill.warn { color: #ffb47d; border-color: rgba(255,138,85,0.34); }
       .checkers-side { position: absolute; right: 16px; top: 86px; width: 270px; display: flex; flex-direction: column; gap: 9px; padding: 12px; border: 1px solid rgba(244,197,132,0.24); border-radius: 12px; background: rgba(9,5,4,0.76); box-shadow: 0 20px 54px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06); backdrop-filter: blur(16px); transition: opacity 360ms ease, transform 360ms ease; }
+      .checkers-root.panel-collapsed .checkers-side { opacity: 0; transform: translateX(24px); pointer-events: none; }
       .ck-row, .ck-actions { display: flex; gap: 7px; }
       .ck-btn { border: 1px solid rgba(244,197,132,0.28); border-radius: 7px; background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.035)); color: #f5dec0; padding: 8px 10px; font-size: 11px; font-weight: 850; cursor: pointer; transition: transform 120ms ease, border-color 120ms ease, background 120ms ease; }
       .ck-btn:hover, .ck-btn.active { border-color: #ffd79d; background: rgba(255,215,157,0.14); color: #fff3df; transform: translateY(-1px); }
@@ -203,6 +205,11 @@
       .ck-stat b { color: #ffd79d; font-variant-numeric: tabular-nums; }
       .ck-log { height: 220px; overflow: auto; padding: 8px; border: 1px solid rgba(244,197,132,0.16); border-radius: 6px; background: rgba(0,0,0,0.16); font-size: 11px; line-height: 1.55; color: rgba(248,231,206,0.82); }
       .ck-log b { color: #ffd79d; }
+      .checkers-gameover { position: absolute; left: 50%; top: 50%; width: min(420px, calc(100vw - 28px)); padding: 22px; border: 1px solid rgba(255,215,157,0.34); border-radius: 16px; background: linear-gradient(180deg, rgba(36,15,8,0.9), rgba(7,4,3,0.86)); box-shadow: 0 34px 100px rgba(0,0,0,0.6), 0 0 60px rgba(255,130,70,0.12), inset 0 1px 0 rgba(255,255,255,0.08); backdrop-filter: blur(18px); transform: translate(-50%, -48%) scale(0.97); opacity: 0; pointer-events: none; text-align: center; transition: opacity 220ms ease, transform 220ms ease; }
+      .checkers-gameover.show { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+      .ck-gameover-kicker { color: #ffb47d; font-size: 11px; font-weight: 950; letter-spacing: 0.14em; text-transform: uppercase; }
+      .ck-gameover-title { margin-top: 8px; color: #ffe2af; font-size: 34px; font-weight: 950; line-height: 1; }
+      .ck-gameover-sub { margin: 10px auto 16px; max-width: 320px; color: rgba(248,231,206,0.72); font-size: 13px; line-height: 1.45; }
       .checkers-help { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 9px 13px; border: 1px solid rgba(244,197,132,0.24); border-radius: 8px; background: rgba(9,5,4,0.72); color: #f8e7ce; font-size: 12px; box-shadow: 0 16px 42px rgba(0,0,0,0.38); transition: opacity 360ms ease, transform 360ms ease; }
       .checkers-root:not(.playing) .checkers-top,
       .checkers-root:not(.playing) .checkers-side,
@@ -231,10 +238,13 @@
       @keyframes ckAmbient { from { transform: translate3d(-1%, -1%, 0) rotate(0deg); opacity: 0.75; } to { transform: translate3d(1%, 1%, 0) rotate(3deg); opacity: 1; } }
       @keyframes ckPanelIn { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
       @media (max-width: 920px) {
+        .checkers-top { flex-wrap: wrap; gap: 8px; }
+        .checkers-pill { font-size: 11px; padding: 6px 8px; }
         .checkers-start { grid-template-columns: 1fr; align-content: center; overflow: auto; }
         .ck-hero-card { min-height: auto; padding: 24px; }
         .ck-results-card { min-height: auto; }
         .checkers-side { left: 12px; right: 12px; top: auto; bottom: 58px; width: auto; max-height: 230px; overflow: auto; }
+        .checkers-root.panel-collapsed .checkers-side { transform: translateY(16px); }
       }
       .game-card { min-height: 98px; }
 

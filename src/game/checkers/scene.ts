@@ -5,6 +5,7 @@ import {
   createInitialCheckersState,
   generateLegalMoves,
   getGameResult,
+  type CheckersResult,
   type CheckersMove,
   type CheckersPiece,
   type CheckersSide,
@@ -68,8 +69,10 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let aiThinking = false;
   let gameStarted = false;
   let recordedWinner: CheckersSide | null = null;
+  let panelCollapsed = window.innerWidth < 920;
 
   const hud = createHud(root);
+  root.classList.toggle('panel-collapsed', panelCollapsed);
   buildLights(scene);
   buildBoard(board, squareMeshes);
   setCamera(camera, cameraMode);
@@ -82,8 +85,14 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   hud.restart.addEventListener('click', () => {
     startMatch();
   });
+  hud.gameOverRestart.addEventListener('click', startMatch);
   hud.start.addEventListener('click', startMatch);
   hud.undo.addEventListener('click', undo);
+  hud.togglePanel.addEventListener('click', () => {
+    panelCollapsed = !panelCollapsed;
+    root.classList.toggle('panel-collapsed', panelCollapsed);
+    refreshUi();
+  });
   hud.camera.addEventListener('click', () => {
     cameraMode = cameraMode === 'cinematic' ? 'top' : 'cinematic';
     setCamera(camera, cameraMode);
@@ -141,6 +150,11 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    if (window.innerWidth < 920 && !panelCollapsed) {
+      panelCollapsed = true;
+      root.classList.add('panel-collapsed');
+      refreshUi();
+    }
   }
 
   function onPointerDown(ev: PointerEvent): void {
@@ -265,11 +279,17 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
 
   function refreshUi(): void {
     const result = getGameResult(state);
+    const winner = state.winner ?? result?.winner ?? null;
     const captures = legalMoves.filter((m) => m.captures.length > 0);
-    hud.turn.textContent = state.winner ? `${labelSide(state.winner)} wins` : aiThinking ? 'Black thinking...' : `${labelSide(state.turn)} to move`;
+    hud.turn.textContent = winner ? `${labelSide(winner)} wins` : aiThinking ? 'Black thinking...' : `${labelSide(state.turn)} to move`;
     hud.mode.textContent = mode === 'ai' ? 'Mode: Player vs AI' : 'Mode: Local Hotseat';
     hud.camera.textContent = cameraMode === 'cinematic' ? 'Camera: Cinematic' : 'Camera: Top';
-    hud.forced.textContent = captures.length > 0 ? 'Forced capture' : result ? result.reason : 'Free move';
+    hud.forced.textContent = captures.length > 0 ? 'Forced capture' : resultLabel(result) ?? 'Free move';
+    hud.togglePanel.textContent = panelCollapsed ? 'Show Panel' : 'Hide Panel';
+    hud.gameOver.classList.toggle('show', Boolean(winner));
+    hud.gameOverCopy.innerHTML = winner
+      ? `<div class="ck-gameover-kicker">${resultLabel(result) ?? 'Match complete'}</div><div class="ck-gameover-title">${labelSide(winner)} wins</div><div class="ck-gameover-sub">${result?.reason === 'pat' ? `${labelSide(opponent(winner))} has no legal moves. Pat counts as a loss.` : `Finished in ${state.history.length} moves.`}</div>`
+      : '';
     hud.captured.textContent = `${12 - state.pieces.filter((p) => p.side === 'white').length} / ${12 - state.pieces.filter((p) => p.side === 'black').length}`;
     hud.undo.disabled = state.history.length === 0;
     for (const button of hud.depths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
@@ -288,17 +308,20 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   }
 
   function recordResultIfNeeded(): void {
-    if (!gameStarted || !state.winner || recordedWinner === state.winner) return;
+    const result = getGameResult(state);
+    const winner = state.winner ?? result?.winner ?? null;
+    if (!gameStarted || !winner || recordedWinner === winner) return;
     const results = loadResults();
     if (mode === 'ai') {
-      if (state.winner === 'white') results.aiWins += 1;
+      if (winner === 'white') results.aiWins += 1;
       else results.aiLosses += 1;
     } else {
       results.hotseatGames += 1;
     }
-    results.lastResult = `${labelSide(state.winner)} won in ${state.history.length} moves`;
+    const suffix = result?.reason === 'pat' ? ' by pat' : '';
+    results.lastResult = `${labelSide(winner)} won${suffix} in ${state.history.length} moves`;
     saveResults(results);
-    recordedWinner = state.winner;
+    recordedWinner = winner;
   }
 
   function refreshHighlights(): void {
@@ -454,6 +477,9 @@ function createHud(root: HTMLElement): {
   depths: HTMLButtonElement[];
   exit: HTMLButtonElement;
   forced: HTMLElement;
+  gameOver: HTMLElement;
+  gameOverCopy: HTMLElement;
+  gameOverRestart: HTMLButtonElement;
   mode: HTMLButtonElement;
   moves: HTMLElement;
   restart: HTMLButtonElement;
@@ -463,6 +489,7 @@ function createHud(root: HTMLElement): {
   startDifficultyLabel: HTMLElement;
   startModeLabel: HTMLElement;
   startModes: HTMLButtonElement[];
+  togglePanel: HTMLButtonElement;
   turn: HTMLElement;
   undo: HTMLButtonElement;
 } {
@@ -476,6 +503,7 @@ function createHud(root: HTMLElement): {
       </div>
       <div class="checkers-pill" id="ck-turn"></div>
       <div class="checkers-pill warn" id="ck-forced"></div>
+      <button class="ck-btn" id="ck-toggle-panel">Hide Panel</button>
       <button class="ck-btn" id="ck-exit">Menu</button>
     </div>
     <div class="checkers-side">
@@ -492,6 +520,10 @@ function createHud(root: HTMLElement): {
         <button class="ck-btn" id="ck-restart">Restart</button>
       </div>
       <div class="ck-log" id="ck-moves"></div>
+    </div>
+    <div class="checkers-gameover" id="ck-gameover">
+      <div id="ck-gameover-copy"></div>
+      <button class="ck-btn" id="ck-gameover-restart">New Match</button>
     </div>
     <div class="checkers-help">Click a piece, then a highlighted square. Orange means capture is forced.</div>
     <div class="checkers-start">
@@ -537,6 +569,9 @@ function createHud(root: HTMLElement): {
     depths: [...overlay.querySelectorAll('.depth')] as HTMLButtonElement[],
     exit: overlay.querySelector('#ck-exit') as HTMLButtonElement,
     forced: overlay.querySelector('#ck-forced') as HTMLElement,
+    gameOver: overlay.querySelector('#ck-gameover') as HTMLElement,
+    gameOverCopy: overlay.querySelector('#ck-gameover-copy') as HTMLElement,
+    gameOverRestart: overlay.querySelector('#ck-gameover-restart') as HTMLButtonElement,
     mode: overlay.querySelector('#ck-mode') as HTMLButtonElement,
     moves: overlay.querySelector('#ck-moves') as HTMLElement,
     restart: overlay.querySelector('#ck-restart') as HTMLButtonElement,
@@ -546,9 +581,20 @@ function createHud(root: HTMLElement): {
     startDifficultyLabel: overlay.querySelector('#ck-start-difficulty-label') as HTMLElement,
     startModeLabel: overlay.querySelector('#ck-start-mode-label') as HTMLElement,
     startModes: [...overlay.querySelectorAll('.start-mode')] as HTMLButtonElement[],
+    togglePanel: overlay.querySelector('#ck-toggle-panel') as HTMLButtonElement,
     turn: overlay.querySelector('#ck-turn') as HTMLElement,
     undo: overlay.querySelector('#ck-undo') as HTMLButtonElement,
   };
+}
+
+function resultLabel(result: CheckersResult | null): string | null {
+  if (!result) return null;
+  if (result.reason === 'pat') return 'Pat: no legal moves';
+  return 'No pieces left';
+}
+
+function opponent(side: CheckersSide): CheckersSide {
+  return side === 'white' ? 'black' : 'white';
 }
 
 function difficultyLabel(difficulty: Difficulty): string {

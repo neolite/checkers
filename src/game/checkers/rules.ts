@@ -34,7 +34,7 @@ export interface CheckersState {
 
 export interface CheckersResult {
   winner: CheckersSide;
-  reason: 'no-moves' | 'no-pieces';
+  reason: 'no-pieces' | 'pat';
 }
 
 const BOARD_SIZE = 8;
@@ -98,7 +98,7 @@ export function getGameResult(state: CheckersState): CheckersResult | null {
     return { winner: opponent(state.turn), reason: 'no-pieces' };
   }
   if (generateLegalMoves(state).length === 0) {
-    return { winner: opponent(state.turn), reason: 'no-moves' };
+    return { winner: opponent(state.turn), reason: 'pat' };
   }
   return null;
 }

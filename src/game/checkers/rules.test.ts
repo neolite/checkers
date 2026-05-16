@@ -100,7 +100,7 @@ describe('Russian checkers rules', () => {
     expect(next.history).toHaveLength(1);
   });
 
-  it('detects wins when the side to move has no pieces or legal moves', () => {
+  it('detects wins when the side to move has no pieces or is in pat', () => {
     expect(getGameResult(state('black', [
       { id: 1, side: 'white', x: 0, y: 1, king: false },
     ]))).toEqual({ winner: 'white', reason: 'no-pieces' });
@@ -108,6 +108,16 @@ describe('Russian checkers rules', () => {
     expect(getGameResult(state('black', [
       { id: 1, side: 'white', x: 0, y: 1, king: false },
       { id: 2, side: 'black', x: 7, y: 7, king: false },
-    ]))).toEqual({ winner: 'white', reason: 'no-moves' });
+    ]))).toEqual({ winner: 'white', reason: 'pat' });
+  });
+
+  it('treats pat as a loss for the blocked side', () => {
+    const result = getGameResult(state('white', [
+      { id: 1, side: 'white', x: 0, y: 1, king: false },
+      { id: 2, side: 'black', x: 1, y: 0, king: true },
+      { id: 3, side: 'black', x: 7, y: 0, king: true },
+    ]));
+
+    expect(result).toEqual({ winner: 'black', reason: 'pat' });
   });
 });
