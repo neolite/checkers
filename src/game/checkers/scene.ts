@@ -80,6 +80,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   refreshUi();
 
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  renderer.domElement.addEventListener('pointermove', onPointerMove);
+  renderer.domElement.addEventListener('pointerleave', resetCanvasCursor);
   window.addEventListener('resize', onResize);
   hud.exit.addEventListener('click', exitToMenu);
   hud.restart.addEventListener('click', () => {
@@ -141,6 +143,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       for (const t of timers) window.clearTimeout(t);
       window.removeEventListener('resize', onResize);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerleave', resetCanvasCursor);
       renderer.dispose();
       root.remove();
     },
@@ -159,12 +163,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
 
   function onPointerDown(ev: PointerEvent): void {
     if (!gameStarted || aiThinking || state.winner || !isHumanTurn()) return;
-    const rect = renderer.domElement.getBoundingClientRect();
-    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObjects(board.children, true);
-    const hit = hits.find((h) => h.object.userData['kind']);
+    const hit = hitAtPointer(ev);
     if (!hit) {
       selectedPieceId = null;
       refreshUi();
@@ -183,6 +182,35 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     }
   }
 
+  function onPointerMove(ev: PointerEvent): void {
+    if (!gameStarted || aiThinking || state.winner || !isHumanTurn()) {
+      resetCanvasCursor();
+      return;
+    }
+    const hit = hitAtPointer(ev);
+    const data = hit?.object.userData as { kind?: string; id?: number; x?: number; y?: number } | undefined;
+    const overMovablePiece = data?.kind === 'piece' && data.id !== undefined && canSelectPiece(data.id);
+    const overMoveTarget = data?.kind === 'square' && data.x !== undefined && data.y !== undefined && moveForDestination(data.x, data.y) !== null;
+    renderer.domElement.style.cursor = overMovablePiece || overMoveTarget ? 'pointer' : 'default';
+  }
+
+  function hitAtPointer(ev: PointerEvent): THREE.Intersection<THREE.Object3D> | undefined {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    return raycaster.intersectObjects(board.children, true).find((h) => h.object.userData['kind']);
+  }
+
+  function canSelectPiece(pieceId: number): boolean {
+    const piece = state.pieces.find((p) => p.id === pieceId);
+    return Boolean(piece?.side === state.turn && legalMoves.some((m) => m.pieceId === pieceId));
+  }
+
+  function resetCanvasCursor(): void {
+    renderer.domElement.style.cursor = 'default';
+  }
+
   function playMove(move: CheckersMove): void {
     const piece = state.pieces.find((p) => p.id === move.pieceId);
     const from = piece ? pieceWorld(piece.x, piece.y, PIECE_Y) : null;
@@ -190,6 +218,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     state = applyMove(state, move);
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
+    resetCanvasCursor();
     syncPieces();
     if (from) {
       const mesh = pieceMeshes.get(move.pieceId);
@@ -236,6 +265,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     aiThinking = false;
     gameStarted = true;
     recordedWinner = null;
+    resetCanvasCursor();
     root.classList.add('playing');
     syncPieces();
     refreshUi();
