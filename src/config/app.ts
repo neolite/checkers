@@ -19,7 +19,8 @@ export type AppBootConfig =
     };
 
 export const APP_BOOT_CONFIG: AppBootConfig = {
-  mode: 'hub',
+  mode: 'single',
+  game: 'checkers',
   // For focused dev/demo runs, switch to one of:
   // { mode: 'single', game: 'rts', options: { faction: 'vanguard', mode: 'playground' } }
   // { mode: 'single', game: 'cardBattler' }

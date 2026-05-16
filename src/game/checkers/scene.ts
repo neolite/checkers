@@ -18,11 +18,18 @@ interface SceneHandle {
 type CheckersMode = 'ai' | 'hotseat';
 type Difficulty = 2 | 4 | 6;
 type CameraMode = 'cinematic' | 'top';
+interface CheckersResults {
+  aiWins: number;
+  aiLosses: number;
+  hotseatGames: number;
+  lastResult: string;
+}
 
 const TILE = 1.32;
 const BOARD = 8;
 const PIECE_Y = 0.24;
 const AI_SIDE: CheckersSide = 'black';
+const RESULTS_KEY = 'sc-gens:premium-checkers-results:v1';
 
 export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): SceneHandle {
   const root = document.createElement('div');
@@ -59,6 +66,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let difficulty: Difficulty = 4;
   let cameraMode: CameraMode = 'cinematic';
   let aiThinking = false;
+  let gameStarted = false;
+  let recordedWinner: CheckersSide | null = null;
 
   const hud = createHud(root);
   buildLights(scene);
@@ -71,12 +80,9 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   window.addEventListener('resize', onResize);
   hud.exit.addEventListener('click', exitToMenu);
   hud.restart.addEventListener('click', () => {
-    state = createInitialCheckersState();
-    selectedPieceId = null;
-    legalMoves = generateLegalMoves(state);
-    syncPieces();
-    refreshUi();
+    startMatch();
   });
+  hud.start.addEventListener('click', startMatch);
   hud.undo.addEventListener('click', undo);
   hud.camera.addEventListener('click', () => {
     cameraMode = cameraMode === 'cinematic' ? 'top' : 'cinematic';
@@ -92,6 +98,19 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   for (const button of hud.depths) {
     button.addEventListener('click', () => {
       difficulty = Number(button.dataset['depth']) as Difficulty;
+      refreshUi();
+    });
+  }
+  for (const button of hud.startDepths) {
+    button.addEventListener('click', () => {
+      difficulty = Number(button.dataset['depth']) as Difficulty;
+      refreshUi();
+    });
+  }
+  for (const button of hud.startModes) {
+    button.addEventListener('click', () => {
+      mode = button.dataset['mode'] === 'hotseat' ? 'hotseat' : 'ai';
+      selectedPieceId = null;
       refreshUi();
     });
   }
@@ -125,7 +144,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   }
 
   function onPointerDown(ev: PointerEvent): void {
-    if (aiThinking || state.winner || !isHumanTurn()) return;
+    if (!gameStarted || aiThinking || state.winner || !isHumanTurn()) return;
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
@@ -170,7 +189,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   }
 
   function maybeAiMove(): void {
-    if (mode !== 'ai' || state.turn !== AI_SIDE || state.winner) return;
+    if (!gameStarted || mode !== 'ai' || state.turn !== AI_SIDE || state.winner) return;
     aiThinking = true;
     refreshUi();
     timers.push(window.setTimeout(() => {
@@ -192,6 +211,18 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     };
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
+    syncPieces();
+    refreshUi();
+  }
+
+  function startMatch(): void {
+    state = createInitialCheckersState();
+    selectedPieceId = null;
+    legalMoves = generateLegalMoves(state);
+    aiThinking = false;
+    gameStarted = true;
+    recordedWinner = null;
+    root.classList.add('playing');
     syncPieces();
     refreshUi();
   }
@@ -242,12 +273,32 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     hud.captured.textContent = `${12 - state.pieces.filter((p) => p.side === 'white').length} / ${12 - state.pieces.filter((p) => p.side === 'black').length}`;
     hud.undo.disabled = state.history.length === 0;
     for (const button of hud.depths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
+    for (const button of hud.startDepths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
+    for (const button of hud.startModes) button.classList.toggle('active', button.dataset['mode'] === mode);
+    hud.startModeLabel.textContent = mode === 'ai' ? 'Player vs AI' : 'Local Hotseat';
+    hud.startDifficultyLabel.textContent = difficultyLabel(difficulty);
     hud.moves.innerHTML = state.history.slice(-12).map((h, i) => {
       const n = state.history.length - state.history.slice(-12).length + i + 1;
       const move = h.move;
       return `<div><b>${n}.</b> ${labelSide(h.turn)} ${coord(move.from)}-${move.path.map(coord).join('-')}${move.captures.length ? ' ×' + move.captures.length : ''}</div>`;
     }).join('');
+    recordResultIfNeeded();
+    hud.results.innerHTML = renderResults(loadResults());
     refreshHighlights();
+  }
+
+  function recordResultIfNeeded(): void {
+    if (!gameStarted || !state.winner || recordedWinner === state.winner) return;
+    const results = loadResults();
+    if (mode === 'ai') {
+      if (state.winner === 'white') results.aiWins += 1;
+      else results.aiLosses += 1;
+    } else {
+      results.hotseatGames += 1;
+    }
+    results.lastResult = `${labelSide(state.winner)} won in ${state.history.length} moves`;
+    saveResults(results);
+    recordedWinner = state.winner;
   }
 
   function refreshHighlights(): void {
@@ -406,6 +457,12 @@ function createHud(root: HTMLElement): {
   mode: HTMLButtonElement;
   moves: HTMLElement;
   restart: HTMLButtonElement;
+  results: HTMLElement;
+  start: HTMLButtonElement;
+  startDepths: HTMLButtonElement[];
+  startDifficultyLabel: HTMLElement;
+  startModeLabel: HTMLElement;
+  startModes: HTMLButtonElement[];
   turn: HTMLElement;
   undo: HTMLButtonElement;
 } {
@@ -437,6 +494,41 @@ function createHud(root: HTMLElement): {
       <div class="ck-log" id="ck-moves"></div>
     </div>
     <div class="checkers-help">Click a piece, then a highlighted square. Orange means capture is forced.</div>
+    <div class="checkers-start">
+      <div class="ck-hero-card">
+        <div class="ck-eyebrow">Luxury board experience</div>
+        <h1>Premium Checkers</h1>
+        <p>Russian 8x8 rules with mandatory captures, flying kings, cinematic camera and local AI.</p>
+        <div class="ck-start-grid">
+          <div class="ck-choice">
+            <div class="ck-choice-head">
+              <span>Game Type</span>
+              <b id="ck-start-mode-label">Player vs AI</b>
+            </div>
+            <div class="ck-row">
+              <button class="ck-btn start-mode active" data-mode="ai">Player vs AI</button>
+              <button class="ck-btn start-mode" data-mode="hotseat">Hotseat</button>
+            </div>
+          </div>
+          <div class="ck-choice">
+            <div class="ck-choice-head">
+              <span>Difficulty</span>
+              <b id="ck-start-difficulty-label">Classic</b>
+            </div>
+            <div class="ck-row">
+              <button class="ck-btn start-depth" data-depth="2">Casual</button>
+              <button class="ck-btn start-depth active" data-depth="4">Classic</button>
+              <button class="ck-btn start-depth" data-depth="6">Hard</button>
+            </div>
+          </div>
+        </div>
+        <button class="ck-start-btn" id="ck-start">Start Match</button>
+      </div>
+      <div class="ck-results-card">
+        <div class="ck-results-title">Results Table</div>
+        <div id="ck-results"></div>
+      </div>
+    </div>
   `;
   root.appendChild(overlay);
   return {
@@ -448,18 +540,64 @@ function createHud(root: HTMLElement): {
     mode: overlay.querySelector('#ck-mode') as HTMLButtonElement,
     moves: overlay.querySelector('#ck-moves') as HTMLElement,
     restart: overlay.querySelector('#ck-restart') as HTMLButtonElement,
+    results: overlay.querySelector('#ck-results') as HTMLElement,
+    start: overlay.querySelector('#ck-start') as HTMLButtonElement,
+    startDepths: [...overlay.querySelectorAll('.start-depth')] as HTMLButtonElement[],
+    startDifficultyLabel: overlay.querySelector('#ck-start-difficulty-label') as HTMLElement,
+    startModeLabel: overlay.querySelector('#ck-start-mode-label') as HTMLElement,
+    startModes: [...overlay.querySelectorAll('.start-mode')] as HTMLButtonElement[],
     turn: overlay.querySelector('#ck-turn') as HTMLElement,
     undo: overlay.querySelector('#ck-undo') as HTMLButtonElement,
   };
 }
 
+function difficultyLabel(difficulty: Difficulty): string {
+  if (difficulty === 2) return 'Casual';
+  if (difficulty === 6) return 'Hard';
+  return 'Classic';
+}
+
+function loadResults(): CheckersResults {
+  try {
+    const raw = window.localStorage.getItem(RESULTS_KEY);
+    if (!raw) return emptyResults();
+    const parsed = JSON.parse(raw) as Partial<CheckersResults>;
+    return {
+      aiWins: Number(parsed.aiWins) || 0,
+      aiLosses: Number(parsed.aiLosses) || 0,
+      hotseatGames: Number(parsed.hotseatGames) || 0,
+      lastResult: typeof parsed.lastResult === 'string' ? parsed.lastResult : 'No matches yet',
+    };
+  } catch {
+    return emptyResults();
+  }
+}
+
+function saveResults(results: CheckersResults): void {
+  window.localStorage.setItem(RESULTS_KEY, JSON.stringify(results));
+}
+
+function emptyResults(): CheckersResults {
+  return { aiWins: 0, aiLosses: 0, hotseatGames: 0, lastResult: 'No matches yet' };
+}
+
+function renderResults(results: CheckersResults): string {
+  return `
+    <div class="ck-result-row"><span>AI wins</span><b>${results.aiWins}</b></div>
+    <div class="ck-result-row"><span>AI losses</span><b>${results.aiLosses}</b></div>
+    <div class="ck-result-row"><span>Hotseat games</span><b>${results.hotseatGames}</b></div>
+    <div class="ck-last-result">${results.lastResult}</div>
+  `;
+}
+
 function setCamera(camera: THREE.PerspectiveCamera, mode: CameraMode): void {
+  const focusX = -1.05;
   if (mode === 'top') {
-    camera.position.set(0, 13.5, 0.02);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(focusX, 13.5, 0.02);
+    camera.lookAt(focusX, 0, 0);
   } else {
-    camera.position.set(0, 8.8, 9.4);
-    camera.lookAt(0, 0, -0.4);
+    camera.position.set(focusX, 8.8, 9.4);
+    camera.lookAt(focusX, 0, -0.4);
   }
 }
 
