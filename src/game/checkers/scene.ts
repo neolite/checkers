@@ -29,6 +29,8 @@ interface CheckersResults {
 const TILE = 1.32;
 const BOARD = 8;
 const PIECE_Y = 0.24;
+const DRAG_LIFT_Y = PIECE_Y + 0.42;
+const DRAG_THRESHOLD_PX = 6;
 const AI_SIDE: CheckersSide = 'black';
 const RESULTS_KEY = 'sc-gens:premium-checkers-results:v1';
 
@@ -53,6 +55,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   scene.add(board);
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
+  const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -DRAG_LIFT_Y);
+  const dragPoint = new THREE.Vector3();
 
   const squareMeshes = new Map<string, THREE.Mesh>();
   const pieceMeshes = new Map<number, THREE.Group>();
@@ -70,6 +74,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let gameStarted = false;
   let recordedWinner: CheckersSide | null = null;
   let panelCollapsed = window.innerWidth < 920;
+  let dragState: { pieceId: number; pointerId: number; startX: number; startY: number; origin: THREE.Vector3; active: boolean } | null = null;
 
   const hud = createHud(root);
   root.classList.toggle('panel-collapsed', panelCollapsed);
@@ -81,6 +86,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
 
   renderer.domElement.addEventListener('pointerdown', onPointerDown);
   renderer.domElement.addEventListener('pointermove', onPointerMove);
+  renderer.domElement.addEventListener('pointerup', onPointerUp);
+  renderer.domElement.addEventListener('pointercancel', cancelDrag);
   renderer.domElement.addEventListener('pointerleave', resetCanvasCursor);
   window.addEventListener('resize', onResize);
   hud.exit.addEventListener('click', exitToMenu);
@@ -144,6 +151,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       window.removeEventListener('resize', onResize);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', cancelDrag);
       renderer.domElement.removeEventListener('pointerleave', resetCanvasCursor);
       renderer.dispose();
       root.remove();
@@ -171,8 +180,12 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     }
     const data = hit.object.userData as { kind?: string; id?: number; x?: number; y?: number };
     if (data.kind === 'piece' && data.id !== undefined) {
-      const piece = state.pieces.find((p) => p.id === data.id);
-      if (piece?.side === state.turn) selectedPieceId = piece.id;
+      if (canSelectPiece(data.id)) {
+        selectedPieceId = data.id;
+        beginDrag(ev, data.id);
+      } else {
+        selectedPieceId = null;
+      }
       refreshUi();
       return;
     }
@@ -183,6 +196,10 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   }
 
   function onPointerMove(ev: PointerEvent): void {
+    if (dragState) {
+      updateDrag(ev);
+      return;
+    }
     if (!gameStarted || aiThinking || state.winner || !isHumanTurn()) {
       resetCanvasCursor();
       return;
@@ -194,12 +211,98 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     renderer.domElement.style.cursor = overMovablePiece || overMoveTarget ? 'pointer' : 'default';
   }
 
+  function onPointerUp(ev: PointerEvent): void {
+    if (!dragState || dragState.pointerId !== ev.pointerId) return;
+    const drag = dragState;
+    dragState = null;
+    releasePointer(ev.pointerId);
+    const drop = drag.active ? squareAtPointer(ev) : null;
+    const move = drop ? moveForDestination(drop.x, drop.y) : null;
+    if (move) {
+      playMove(move);
+      return;
+    }
+    const mesh = pieceMeshes.get(drag.pieceId);
+    if (mesh) mesh.position.copy(drag.origin);
+    resetCanvasCursor();
+  }
+
+  function beginDrag(ev: PointerEvent, pieceId: number): void {
+    const mesh = pieceMeshes.get(pieceId);
+    if (!mesh) return;
+    dragState = {
+      pieceId,
+      pointerId: ev.pointerId,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      origin: mesh.position.clone(),
+      active: false,
+    };
+    renderer.domElement.setPointerCapture?.(ev.pointerId);
+    renderer.domElement.style.cursor = 'grab';
+  }
+
+  function updateDrag(ev: PointerEvent): void {
+    const drag = dragState;
+    if (!drag || drag.pointerId !== ev.pointerId) return;
+    const distance = Math.hypot(ev.clientX - drag.startX, ev.clientY - drag.startY);
+    if (!drag.active && distance < DRAG_THRESHOLD_PX) {
+      renderer.domElement.style.cursor = 'grab';
+      return;
+    }
+    drag.active = true;
+    const point = pointerWorldOnDragPlane(ev);
+    const mesh = pieceMeshes.get(drag.pieceId);
+    if (point && mesh) {
+      mesh.position.set(point.x, DRAG_LIFT_Y, point.z);
+    }
+    renderer.domElement.style.cursor = 'grabbing';
+  }
+
+  function cancelDrag(ev?: PointerEvent): void {
+    if (!dragState) {
+      resetCanvasCursor();
+      return;
+    }
+    const drag = dragState;
+    dragState = null;
+    if (ev) releasePointer(ev.pointerId);
+    const mesh = pieceMeshes.get(drag.pieceId);
+    if (mesh) mesh.position.copy(drag.origin);
+    resetCanvasCursor();
+  }
+
+  function squareAtPointer(ev: PointerEvent): { x: number; y: number } | null {
+    const point = pointerWorldOnDragPlane(ev);
+    if (!point) return null;
+    const x = Math.round(point.x / TILE + 3.5);
+    const y = Math.round(point.z / TILE + 3.5);
+    if (x < 0 || x >= BOARD || y < 0 || y >= BOARD) return null;
+    return { x, y };
+  }
+
+  function pointerWorldOnDragPlane(ev: PointerEvent): THREE.Vector3 | null {
+    updatePointerFromEvent(ev);
+    raycaster.setFromCamera(pointer, camera);
+    return raycaster.ray.intersectPlane(dragPlane, dragPoint);
+  }
+
   function hitAtPointer(ev: PointerEvent): THREE.Intersection<THREE.Object3D> | undefined {
+    updatePointerFromEvent(ev);
+    raycaster.setFromCamera(pointer, camera);
+    return raycaster.intersectObjects(board.children, true).find((h) => h.object.userData['kind']);
+  }
+
+  function updatePointerFromEvent(ev: PointerEvent): void {
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, camera);
-    return raycaster.intersectObjects(board.children, true).find((h) => h.object.userData['kind']);
+  }
+
+  function releasePointer(pointerId: number): void {
+    if (renderer.domElement.hasPointerCapture?.(pointerId)) {
+      renderer.domElement.releasePointerCapture(pointerId);
+    }
   }
 
   function canSelectPiece(pieceId: number): boolean {
@@ -216,6 +319,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     const from = piece ? pieceWorld(piece.x, piece.y, PIECE_Y) : null;
     const toSq = move.path[move.path.length - 1]!;
     state = applyMove(state, move);
+    cancelDrag();
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
     resetCanvasCursor();
@@ -260,6 +364,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
 
   function startMatch(): void {
     state = createInitialCheckersState();
+    cancelDrag();
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
     aiThinking = false;
