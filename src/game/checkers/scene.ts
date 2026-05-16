@@ -77,6 +77,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let dragState: { pieceId: number; pointerId: number; startX: number; startY: number; origin: THREE.Vector3; active: boolean } | null = null;
   let dragHoverSquare: { x: number; y: number } | null = null;
   let dragHoverMarker: THREE.Object3D | null = null;
+  let guideTimer: number | null = null;
 
   const hud = createHud(root);
   root.classList.toggle('panel-collapsed', panelCollapsed);
@@ -150,6 +151,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       destroyed = true;
       cancelAnimationFrame(frame);
       for (const t of timers) window.clearTimeout(t);
+      if (guideTimer !== null) window.clearTimeout(guideTimer);
       window.removeEventListener('resize', onResize);
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
@@ -187,6 +189,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
         beginDrag(ev, data.id);
       } else {
         selectedPieceId = null;
+        const piece = state.pieces.find((p) => p.id === data.id);
+        if (piece?.side === state.turn) showGuideText(reasonPieceCannotMove(data.id));
       }
       refreshUi();
       return;
@@ -225,6 +229,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       playMove(move, pieceMeshes.get(drag.pieceId)?.position.clone() ?? drag.origin.clone());
       return;
     }
+    if (drag.active) showGuideText('Drop on a highlighted square to move.');
     const mesh = pieceMeshes.get(drag.pieceId);
     if (mesh) mesh.position.copy(drag.origin);
     clearDragHover();
@@ -299,7 +304,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     clearDragHover();
     dragHoverSquare = next;
     if (!next || !move) return;
-    dragHoverMarker = makeDragHoverMarker(next.x, next.y, move.captures.length > 0);
+    const piece = state.pieces.find((p) => p.id === selectedPieceId);
+    dragHoverMarker = makeDragHoverMarker(next.x, next.y, move.captures.length > 0, piece ?? null, move);
     board.add(dragHoverMarker);
   }
 
@@ -342,6 +348,24 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   function canSelectPiece(pieceId: number): boolean {
     const piece = state.pieces.find((p) => p.id === pieceId);
     return Boolean(piece?.side === state.turn && legalMoves.some((m) => m.pieceId === pieceId));
+  }
+
+  function reasonPieceCannotMove(pieceId: number): string {
+    const forced = legalMoves.filter((m) => m.captures.length > 0);
+    if (forced.length > 0 && !forced.some((m) => m.pieceId === pieceId)) {
+      return 'Forced capture: another piece must jump.';
+    }
+    return 'This piece has no legal move.';
+  }
+
+  function showGuideText(message: string): void {
+    hud.guide.textContent = message;
+    hud.guide.classList.add('show');
+    if (guideTimer !== null) window.clearTimeout(guideTimer);
+    guideTimer = window.setTimeout(() => {
+      hud.guide.classList.remove('show');
+      guideTimer = null;
+    }, 1700);
   }
 
   function resetCanvasCursor(): void {
@@ -536,7 +560,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     board.add(mesh);
   }
 
-  function makeDragHoverMarker(x: number, y: number, capture: boolean): THREE.Group {
+  function makeDragHoverMarker(x: number, y: number, capture: boolean, piece: CheckersPiece | null, move: CheckersMove): THREE.Group {
     const group = new THREE.Group();
     const color = capture ? 0xff7a45 : 0x9fe7ff;
     const disc = new THREE.Mesh(
@@ -551,6 +575,27 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     );
     ring.rotation.x = Math.PI / 2;
     group.add(ring);
+    if (piece) {
+      const ghostPiece = {
+        ...piece,
+        x,
+        y,
+        king: piece.king || move.promotes,
+      };
+      const ghost = makePieceMesh(ghostPiece);
+      ghost.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        const material = mesh.material as THREE.MeshStandardMaterial | undefined;
+        if (material) {
+          material.transparent = true;
+          material.opacity = 0.42;
+          material.depthWrite = false;
+        }
+      });
+      ghost.position.y = PIECE_Y + 0.08;
+      ghost.scale.setScalar(0.94);
+      group.add(ghost);
+    }
     group.position.copy(pieceWorld(x, y, 0.13));
     return group;
   }
@@ -668,6 +713,7 @@ function createHud(root: HTMLElement): {
   gameOver: HTMLElement;
   gameOverCopy: HTMLElement;
   gameOverRestart: HTMLButtonElement;
+  guide: HTMLElement;
   mode: HTMLButtonElement;
   moves: HTMLElement;
   restart: HTMLButtonElement;
@@ -713,6 +759,7 @@ function createHud(root: HTMLElement): {
       <div id="ck-gameover-copy"></div>
       <button class="ck-btn" id="ck-gameover-restart">New Match</button>
     </div>
+    <div class="checkers-guide" id="ck-guide"></div>
     <div class="checkers-help">Click a piece, then a highlighted square. Orange means capture is forced.</div>
     <div class="checkers-start">
       <div class="ck-hero-card">
@@ -760,6 +807,7 @@ function createHud(root: HTMLElement): {
     gameOver: overlay.querySelector('#ck-gameover') as HTMLElement,
     gameOverCopy: overlay.querySelector('#ck-gameover-copy') as HTMLElement,
     gameOverRestart: overlay.querySelector('#ck-gameover-restart') as HTMLButtonElement,
+    guide: overlay.querySelector('#ck-guide') as HTMLElement,
     mode: overlay.querySelector('#ck-mode') as HTMLButtonElement,
     moves: overlay.querySelector('#ck-moves') as HTMLElement,
     restart: overlay.querySelector('#ck-restart') as HTMLButtonElement,

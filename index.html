@@ -211,6 +211,8 @@
       .ck-gameover-kicker { color: #ffb47d; font-size: 11px; font-weight: 950; letter-spacing: 0.14em; text-transform: uppercase; }
       .ck-gameover-title { margin-top: 8px; color: #ffe2af; font-size: 34px; font-weight: 950; line-height: 1; }
       .ck-gameover-sub { margin: 10px auto 16px; max-width: 320px; color: rgba(248,231,206,0.72); font-size: 13px; line-height: 1.45; }
+      .checkers-guide { position: absolute; left: 50%; top: 84px; transform: translate(-50%, -8px); max-width: min(420px, calc(100vw - 28px)); padding: 9px 13px; border: 1px solid rgba(255,138,85,0.38); border-radius: 8px; background: rgba(38,14,8,0.84); color: #ffd4ac; font-size: 12px; font-weight: 850; box-shadow: 0 18px 44px rgba(0,0,0,0.42); opacity: 0; pointer-events: none; transition: opacity 160ms ease, transform 160ms ease; }
+      .checkers-guide.show { opacity: 1; transform: translate(-50%, 0); }
       .checkers-help { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); padding: 9px 13px; border: 1px solid rgba(244,197,132,0.24); border-radius: 8px; background: rgba(9,5,4,0.72); color: #f8e7ce; font-size: 12px; box-shadow: 0 16px 42px rgba(0,0,0,0.38); transition: opacity 360ms ease, transform 360ms ease; }
       .checkers-root:not(.playing) .checkers-top,
       .checkers-root:not(.playing) .checkers-side,
