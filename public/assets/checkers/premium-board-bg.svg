@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1100" viewBox="0 0 1800 1100" role="img" aria-label="Premium checkers table background">
+  <defs>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b1209"/>
+      <stop offset="0.42" stop-color="#5a260f"/>
+      <stop offset="0.72" stop-color="#1a0905"/>
+      <stop offset="1" stop-color="#090403"/>
+    </linearGradient>
+    <radialGradient id="lamp" cx="50%" cy="42%" r="58%">
+      <stop offset="0" stop-color="#ffd38d" stop-opacity=".36"/>
+      <stop offset=".38" stop-color="#b86127" stop-opacity=".16"/>
+      <stop offset=".76" stop-color="#180705" stop-opacity=".62"/>
+      <stop offset="1" stop-color="#050202"/>
+    </radialGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency=".8 .055" numOctaves="4" seed="21"/>
+      <feColorMatrix type="saturate" values=".15"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 .18"/>
+      </feComponentTransfer>
+    </filter>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="34" stdDeviation="28" flood-color="#000000" flood-opacity=".52"/>
+    </filter>
+    <pattern id="fineLines" width="42" height="42" patternUnits="userSpaceOnUse">
+      <path d="M0 20 H42 M21 0 V42" stroke="#ffd59b" stroke-opacity=".035" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1800" height="1100" fill="url(#wood)"/>
+  <rect width="1800" height="1100" filter="url(#grain)" opacity=".75"/>
+  <rect width="1800" height="1100" fill="url(#fineLines)" opacity=".7"/>
+  <g filter="url(#softShadow)" opacity=".88" transform="translate(525 150) rotate(-8 390 390)">
+    <rect x="0" y="0" width="780" height="780" rx="26" fill="#130704" stroke="#d08a45" stroke-opacity=".22" stroke-width="8"/>
+    <g opacity=".92">
+      <rect x="45" y="45" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="131" y="45" width="86" height="86" fill="#231008"/>
+      <rect x="217" y="45" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="303" y="45" width="86" height="86" fill="#231008"/>
+      <rect x="389" y="45" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="475" y="45" width="86" height="86" fill="#231008"/>
+      <rect x="561" y="45" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="647" y="45" width="86" height="86" fill="#231008"/>
+      <rect x="45" y="131" width="86" height="86" fill="#231008"/>
+      <rect x="131" y="131" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="217" y="131" width="86" height="86" fill="#231008"/>
+      <rect x="303" y="131" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="389" y="131" width="86" height="86" fill="#231008"/>
+      <rect x="475" y="131" width="86" height="86" fill="#6f2d0d"/>
+      <rect x="561" y="131" width="86" height="86" fill="#231008"/>
+      <rect x="647" y="131" width="86" height="86" fill="#6f2d0d"/>
+    </g>
+    <path d="M45 303 H733 M45 389 H733 M45 475 H733 M45 561 H733 M45 647 H733 M131 45 V733 M217 45 V733 M303 45 V733 M389 45 V733 M475 45 V733 M561 45 V733 M647 45 V733" stroke="#050201" stroke-opacity=".38" stroke-width="3"/>
+  </g>
+  <g opacity=".68">
+    <ellipse cx="250" cy="215" rx="170" ry="42" fill="#ffb35e" opacity=".09"/>
+    <ellipse cx="1540" cy="835" rx="230" ry="72" fill="#8b3514" opacity=".17"/>
+    <circle cx="1430" cy="230" r="120" fill="#ffd48f" opacity=".055"/>
+  </g>
+  <rect width="1800" height="1100" fill="url(#lamp)"/>
+</svg>
