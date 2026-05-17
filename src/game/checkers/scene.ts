@@ -887,7 +887,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     const sub = overlay.querySelector('.checkers-sub') as HTMLElement | null;
     if (title) title.textContent = t(locale, 'header.title');
     if (sub) sub.textContent = t(locale, 'header.subtitle');
-    hud.exit.textContent = t(locale, 'header.menu');
+    hud.exit.innerHTML = `<span class="ck-btn-icon">☰</span><span>${escapeHtml(t(locale, 'header.menu'))}</span>`;
 
     const histTitle = overlay.querySelector('.ck-history-title') as HTMLElement | null;
     if (histTitle) histTitle.textContent = t(locale, 'history.title');
@@ -911,9 +911,9 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       }
     }
 
-    hud.undo.textContent = t(locale, 'settings.undo');
-    hud.restart.textContent = t(locale, 'settings.restart');
-    hud.surrender.textContent = t(locale, 'settings.surrender');
+    hud.undo.innerHTML = `<span class="ck-btn-icon">↶</span><span>${escapeHtml(t(locale, 'settings.undo'))}</span>`;
+    hud.restart.innerHTML = `<span class="ck-btn-icon">↻</span><span>${escapeHtml(t(locale, 'settings.restart'))}</span>`;
+    hud.surrender.innerHTML = `<span class="ck-btn-icon">🏳</span><span>${escapeHtml(t(locale, 'settings.surrender'))}</span>`;
 
     const confirmCard = hud.confirmSurrender.querySelector('.ck-confirm-card');
     if (confirmCard) {
@@ -1419,6 +1419,12 @@ function createHud(root: HTMLElement): CheckersHud {
         <div class="checkers-title">Premium Checkers</div>
         <div class="checkers-sub">AI Coach · forced captures · flying kings</div>
       </div>
+      <div class="ck-actions">
+        <button class="ck-btn" id="ck-exit"><span class="ck-btn-icon">☰</span></button>
+        <button class="ck-btn" id="ck-undo"><span class="ck-btn-icon">↶</span></button>
+        <button class="ck-btn" id="ck-restart"><span class="ck-btn-icon">↻</span></button>
+        <button class="ck-btn danger" id="ck-surrender"><span class="ck-btn-icon">🏳</span></button>
+      </div>
     </div>
 
     <div class="ck-coach-rail">
@@ -1485,13 +1491,6 @@ function createHud(root: HTMLElement): CheckersHud {
       <button class="ck-btn wide" id="ck-skin">Skin: Classic</button>
       <button class="ck-btn wide" id="ck-language">Language: Русский</button>
       <button class="ck-btn wide" id="ck-pro">Upgrade to Pro</button>
-      <div class="ck-popover-divider"></div>
-      <div class="ck-actions">
-        <button class="ck-btn" id="ck-exit">Меню</button>
-        <button class="ck-btn" id="ck-undo">Undo</button>
-        <button class="ck-btn" id="ck-restart">Restart</button>
-      </div>
-      <button class="ck-btn wide danger" id="ck-surrender">Surrender</button>
     </div>
 
     <div class="ck-confirm" id="ck-confirm-surrender">
