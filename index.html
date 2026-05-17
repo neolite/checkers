@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Three Factions — RTS Prototype</title>
+    <title>Premium Checkers — AI Coach Arena</title>
     <style>
       :root {
         color-scheme: dark;
@@ -185,6 +185,18 @@
         radial-gradient(circle at 50% 70%, rgba(255,129,74,0.08), transparent 18%);
         animation: ckAmbient 12s ease-in-out infinite alternate; pointer-events: none; z-index: 0;
       }
+      .checkers-root.theme-light { background: #f1dfc4; }
+      .checkers-root.theme-light::before { background:
+        linear-gradient(180deg, rgba(255,245,225,0.18), rgba(222,175,112,0.3)),
+        radial-gradient(circle at 48% 34%, rgba(255,246,215,0.34), transparent 34%),
+        radial-gradient(circle at 14% 14%, rgba(204,126,57,0.18), transparent 30%),
+        radial-gradient(circle at 86% 80%, rgba(121,73,40,0.22), transparent 34%),
+        repeating-linear-gradient(92deg, rgba(91,54,23,0.035) 0 1px, transparent 1px 22px),
+        url('/assets/checkers/premium-board-bg.svg') center / cover no-repeat,
+        linear-gradient(135deg, #fff0d2, #f1dfc4 58%, #d8b684);
+        filter: saturate(0.95) brightness(1.05);
+      }
+      .checkers-root.theme-light::after { opacity: 0.42; filter: sepia(0.2); }
       .checkers-overlay { position: fixed; inset: 0; z-index: 28; pointer-events: none; }
       .checkers-overlay > * { pointer-events: auto; }
       .checkers-top { position: absolute; top: 14px; left: 16px; right: 16px; min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba(244,197,132,0.28); border-radius: 10px; background: linear-gradient(180deg, rgba(31,17,10,0.9), rgba(9,5,4,0.78)); box-shadow: 0 18px 50px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08); backdrop-filter: blur(14px); transition: opacity 360ms ease, transform 360ms ease; }
@@ -193,7 +205,7 @@
       .checkers-sub { margin-top: 2px; font-size: 11px; opacity: 0.64; letter-spacing: 0.04em; }
       .checkers-pill { padding: 7px 10px; border: 1px solid rgba(244,197,132,0.22); border-radius: 999px; background: rgba(255,255,255,0.045); color: #f8e7ce; font-size: 12px; font-weight: 800; }
       .checkers-pill.warn { color: #ffb47d; border-color: rgba(255,138,85,0.34); }
-      .checkers-side { position: absolute; right: 16px; top: 86px; width: 270px; display: flex; flex-direction: column; gap: 9px; padding: 12px; border: 1px solid rgba(244,197,132,0.24); border-radius: 12px; background: rgba(9,5,4,0.76); box-shadow: 0 20px 54px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06); backdrop-filter: blur(16px); transition: opacity 360ms ease, transform 360ms ease; }
+      .checkers-side { position: absolute; right: 16px; top: 86px; width: 270px; max-height: calc(100vh - 110px); overflow: auto; display: flex; flex-direction: column; gap: 9px; padding: 12px; border: 1px solid rgba(244,197,132,0.24); border-radius: 12px; background: rgba(9,5,4,0.76); box-shadow: 0 20px 54px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.06); backdrop-filter: blur(16px); transition: opacity 360ms ease, transform 360ms ease; }
       .checkers-root.panel-collapsed .checkers-side { opacity: 0; transform: translateX(24px); pointer-events: none; }
       .ck-row, .ck-actions { display: flex; gap: 7px; }
       .ck-btn { border: 1px solid rgba(244,197,132,0.28); border-radius: 7px; background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.035)); color: #f5dec0; padding: 8px 10px; font-size: 11px; font-weight: 850; cursor: pointer; transition: transform 120ms ease, border-color 120ms ease, background 120ms ease; }
@@ -201,9 +213,23 @@
       .ck-btn:disabled { opacity: 0.4; cursor: not-allowed; }
       .ck-btn.wide { width: 100%; text-align: left; }
       .ck-row .ck-btn { flex: 1; }
+      .ck-btn.pro { color: #1b0b05; border-color: rgba(255,221,161,0.56); background: linear-gradient(180deg, #ffe0a8, #c9823c); }
+      .ck-btn.pro:disabled { opacity: 0.78; cursor: default; color: #251107; }
       .ck-stat { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid rgba(244,197,132,0.16); border-radius: 6px; background: rgba(255,255,255,0.035); }
       .ck-stat span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; opacity: 0.58; }
       .ck-stat b { color: #ffd79d; font-variant-numeric: tabular-nums; }
+      .ck-coach { display: grid; gap: 7px; padding: 10px; border: 1px solid rgba(120,205,255,0.22); border-radius: 8px; background: linear-gradient(180deg, rgba(74,42,18,0.24), rgba(0,0,0,0.16)); color: rgba(248,231,206,0.82); }
+      .ck-coach-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #bfeeff; }
+      .ck-coach-head span { font-size: 10px; font-weight: 950; letter-spacing: 0.13em; text-transform: uppercase; }
+      .ck-coach-head b { font-size: 12px; color: #ffe2af; }
+      .ck-coach-title { color: #ffe2af; font-size: 13px; font-weight: 950; }
+      .ck-coach-copy { font-size: 11px; line-height: 1.45; }
+      .ck-insight { display: grid; gap: 2px; padding: 8px; border-radius: 7px; background: rgba(255,255,255,0.045); }
+      .ck-insight b { font-size: 11px; color: #ffe2af; }
+      .ck-insight span { font-size: 10px; line-height: 1.35; opacity: 0.72; }
+      .ck-insight.warning { border-left: 2px solid #ff8a55; }
+      .ck-insight.good { border-left: 2px solid #7ef5b3; }
+      .ck-insight.idea { border-left: 2px solid #8fd0ff; }
       .ck-log { height: 220px; overflow: auto; padding: 8px; border: 1px solid rgba(244,197,132,0.16); border-radius: 6px; background: rgba(0,0,0,0.16); font-size: 11px; line-height: 1.55; color: rgba(248,231,206,0.82); }
       .ck-log b { color: #ffd79d; }
       .checkers-gameover { position: absolute; left: 50%; top: 50%; width: min(420px, calc(100vw - 28px)); padding: 22px; border: 1px solid rgba(255,215,157,0.34); border-radius: 16px; background: linear-gradient(180deg, rgba(36,15,8,0.9), rgba(7,4,3,0.86)); box-shadow: 0 34px 100px rgba(0,0,0,0.6), 0 0 60px rgba(255,130,70,0.12), inset 0 1px 0 rgba(255,255,255,0.08); backdrop-filter: blur(18px); transform: translate(-50%, -48%) scale(0.97); opacity: 0; pointer-events: none; text-align: center; transition: opacity 220ms ease, transform 220ms ease; }
@@ -226,6 +252,13 @@
       .ck-eyebrow { position: relative; z-index: 1; color: #ffbb7a; font-size: 11px; font-weight: 900; letter-spacing: 0.18em; text-transform: uppercase; }
       .ck-hero-card h1 { position: relative; z-index: 1; margin: 10px 0 8px; font-size: clamp(42px, 6vw, 76px); line-height: 0.9; letter-spacing: 0; color: #ffe2af; text-shadow: 0 0 28px rgba(255,180,90,0.18); }
       .ck-hero-card p { position: relative; z-index: 1; max-width: 460px; margin: 0 0 24px; color: rgba(248,231,206,0.76); font-size: 14px; line-height: 1.55; }
+      .ck-profile { position: relative; z-index: 1; margin-bottom: 16px; padding: 12px; border: 1px solid rgba(244,197,132,0.15); border-radius: 12px; background: rgba(255,255,255,0.035); }
+      .ck-profile-label { margin-bottom: 9px; color: #ffd79d; font-size: 12px; font-weight: 850; }
+      .ck-profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .ck-profile label { display: grid; gap: 5px; min-width: 0; }
+      .ck-profile label span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.54; }
+      .ck-profile input { min-width: 0; height: 36px; border: 1px solid rgba(244,197,132,0.22); border-radius: 8px; background: rgba(0,0,0,0.18); color: #ffe2af; padding: 0 10px; font: 800 12px "Inter", system-ui, sans-serif; outline: none; }
+      .ck-profile input:focus { border-color: #ffd79d; box-shadow: 0 0 0 3px rgba(255,215,157,0.09); }
       .ck-start-grid { position: relative; z-index: 1; display: grid; gap: 12px; margin-bottom: 18px; }
       .ck-choice { padding: 12px; border: 1px solid rgba(244,197,132,0.15); border-radius: 12px; background: rgba(255,255,255,0.035); }
       .ck-choice-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
@@ -237,19 +270,58 @@
       .ck-results-card::before { content: ""; position: absolute; right: -82px; bottom: -118px; width: 300px; height: 370px; background: url('/assets/checkers/results-medallion.svg') center / contain no-repeat; opacity: 0.24; pointer-events: none; }
       .ck-results-card > * { position: relative; z-index: 1; }
       .ck-results-title { margin-bottom: 14px; color: #ffd79d; font-size: 12px; font-weight: 950; letter-spacing: 0.12em; text-transform: uppercase; }
+      .ck-results-title.city { margin-top: 20px; margin-bottom: 8px; }
       .ck-result-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(244,197,132,0.13); }
       .ck-result-row span { font-size: 12px; opacity: 0.64; }
       .ck-result-row b { font-size: 20px; color: #ffe2af; font-variant-numeric: tabular-nums; }
       .ck-last-result { margin-top: 14px; padding: 12px; border-radius: 10px; background: rgba(255,255,255,0.045); color: rgba(248,231,206,0.76); font-size: 12px; line-height: 1.45; }
+      .ck-leader-row { display: grid; grid-template-columns: 22px 1fr 46px 52px; gap: 8px; align-items: center; min-height: 28px; border-bottom: 1px solid rgba(244,197,132,0.1); color: rgba(248,231,206,0.72); font-size: 11px; }
+      .ck-leader-row.me { color: #ffe2af; }
+      .ck-leader-row span { color: #ffb47d; font-weight: 950; }
+      .ck-leader-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ck-leader-row em { color: #ffd79d; font-style: normal; font-weight: 900; text-align: right; }
+      .ck-leader-row small { opacity: 0.62; text-align: right; }
+      .checkers-root.theme-light .checkers-top,
+      .checkers-root.theme-light .checkers-side,
+      .checkers-root.theme-light .ck-hero-card,
+      .checkers-root.theme-light .ck-results-card,
+      .checkers-root.theme-light .checkers-help { background: rgba(255,247,232,0.78); border-color: rgba(102,62,25,0.2); color: #3a2414; box-shadow: 0 24px 70px rgba(86,45,12,0.18), inset 0 1px 0 rgba(255,255,255,0.42); }
+      .checkers-root.theme-light .checkers-title,
+      .checkers-root.theme-light .ck-hero-card h1,
+      .checkers-root.theme-light .ck-results-title,
+      .checkers-root.theme-light .ck-result-row b,
+      .checkers-root.theme-light .ck-profile-label,
+      .checkers-root.theme-light .ck-choice-head b,
+      .checkers-root.theme-light .ck-stat b,
+      .checkers-root.theme-light .ck-coach-title,
+      .checkers-root.theme-light .ck-insight b { color: #6d3b16; text-shadow: none; }
+      .checkers-root.theme-light .checkers-sub,
+      .checkers-root.theme-light .ck-hero-card p,
+      .checkers-root.theme-light .ck-result-row span,
+      .checkers-root.theme-light .ck-last-result,
+      .checkers-root.theme-light .ck-coach-copy,
+      .checkers-root.theme-light .ck-log { color: rgba(58,36,20,0.72); }
+      .checkers-root.theme-light .ck-btn,
+      .checkers-root.theme-light .checkers-pill,
+      .checkers-root.theme-light .ck-choice,
+      .checkers-root.theme-light .ck-profile,
+      .checkers-root.theme-light .ck-stat,
+      .checkers-root.theme-light .ck-coach,
+      .checkers-root.theme-light .ck-log,
+      .checkers-root.theme-light .ck-last-result { border-color: rgba(102,62,25,0.18); background: rgba(255,255,255,0.42); color: #3a2414; }
+      .checkers-root.theme-light .ck-profile input { background: rgba(255,255,255,0.58); color: #3a2414; border-color: rgba(102,62,25,0.2); }
+      .checkers-root.theme-light .ck-btn.pro { border-color: rgba(161,91,30,0.42); background: linear-gradient(180deg, #f4bc62, #bd722c); color: #241105; }
       @keyframes ckAmbient { from { transform: translate3d(-1%, -1%, 0) rotate(0deg); opacity: 0.75; } to { transform: translate3d(1%, 1%, 0) rotate(3deg); opacity: 1; } }
       @keyframes ckPanelIn { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
       @media (max-width: 920px) {
         .checkers-top { flex-wrap: wrap; gap: 8px; }
         .checkers-pill { font-size: 11px; padding: 6px 8px; }
-        .checkers-start { grid-template-columns: 1fr; align-content: center; overflow: auto; }
+        .checkers-start { display: block; overflow: auto; padding: 14px 24px 24px; }
+        .ck-hero-card h1 { font-size: 42px; }
         .ck-hero-card { min-height: auto; padding: 24px; }
-        .ck-results-card { min-height: auto; }
-        .checkers-side { left: 12px; right: 12px; top: auto; bottom: 58px; width: auto; max-height: 230px; overflow: auto; }
+        .ck-results-card { min-height: auto; margin-top: 14px; }
+        .ck-profile-grid { grid-template-columns: 1fr; }
+        .checkers-side { left: 12px; right: 12px; top: auto; bottom: 58px; width: auto; max-height: min(360px, 52vh); overflow: auto; }
         .checkers-root.panel-collapsed .checkers-side { transform: translateY(16px); }
       }
       .game-card { min-height: 98px; }

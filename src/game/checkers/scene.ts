@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { chooseAiMove } from './ai';
+import { buildCoachReport, getLiveCoachTip } from './coach';
 import {
   applyMove,
   createInitialCheckersState,
@@ -21,12 +22,27 @@ interface SceneHandle {
 type CheckersMode = 'ai' | 'hotseat';
 type Difficulty = 2 | 4 | 6;
 type CameraMode = 'cinematic' | 'top';
+type ThemeMode = 'midnight' | 'light';
+type PieceSkin = 'classic' | 'obsidian' | 'aurora';
 interface CheckersResults {
   aiWins: number;
   aiLosses: number;
   draws: number;
   hotseatGames: number;
   lastResult: string;
+}
+interface CheckersProfile {
+  handle: string;
+  city: string;
+  theme: ThemeMode;
+  pro: boolean;
+  skin: PieceSkin;
+}
+interface LeaderboardRow {
+  handle: string;
+  city: string;
+  rating: number;
+  streak: string;
 }
 
 const TILE = 1.32;
@@ -36,6 +52,7 @@ const DRAG_LIFT_Y = PIECE_Y + 0.42;
 const DRAG_THRESHOLD_PX = 6;
 const AI_SIDE: CheckersSide = 'black';
 const RESULTS_KEY = 'sc-gens:premium-checkers-results:v1';
+const PROFILE_KEY = 'sc-gens:premium-checkers-profile:v1';
 
 export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): SceneHandle {
   const root = document.createElement('div');
@@ -73,6 +90,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let mode: CheckersMode = 'ai';
   let difficulty: Difficulty = 4;
   let cameraMode: CameraMode = 'cinematic';
+  let profile = loadProfile();
   let aiThinking = false;
   let gameStarted = false;
   let recordedResultKey: string | null = null;
@@ -87,6 +105,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   buildLights(scene);
   buildBoard(board, squareMeshes);
   setCamera(camera, cameraMode);
+  applyTheme();
   syncPieces();
   refreshUi();
 
@@ -139,6 +158,45 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       refreshUi();
     });
   }
+  hud.profileHandle.addEventListener('change', () => {
+    profile = {
+      ...profile,
+      handle: sanitizeProfileValue(hud.profileHandle.value, 'Guest Strategist'),
+    };
+    saveProfile(profile);
+    refreshUi();
+  });
+  hud.profileCity.addEventListener('change', () => {
+    profile = {
+      ...profile,
+      city: sanitizeProfileValue(hud.profileCity.value, 'Almaty'),
+    };
+    saveProfile(profile);
+    refreshUi();
+  });
+  hud.theme.addEventListener('click', () => {
+    profile = { ...profile, theme: profile.theme === 'midnight' ? 'light' : 'midnight' };
+    saveProfile(profile);
+    applyTheme();
+    refreshUi();
+  });
+  hud.skin.addEventListener('click', () => {
+    profile = { ...profile, skin: nextSkin(profile.skin, profile.pro) };
+    saveProfile(profile);
+    syncPieces();
+    refreshUi();
+  });
+  hud.pro.addEventListener('click', () => {
+    profile = { ...profile, pro: true, skin: profile.skin === 'classic' ? 'aurora' : profile.skin };
+    saveProfile(profile);
+    syncPieces();
+    showGuideText('Pro board skin unlocked in this prototype.');
+    refreshUi();
+  });
+  hud.share.addEventListener('click', () => {
+    void shareChallenge();
+  });
+  applyChallengeHash();
 
   let frame = 0;
   let destroyed = false;
@@ -166,6 +224,35 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       root.remove();
     },
   };
+
+  function applyTheme(): void {
+    const light = profile.theme === 'light';
+    root.classList.toggle('theme-light', light);
+    renderer.setClearColor(light ? 0xf1dfc4 : 0x060403);
+    scene.fog = new THREE.Fog(light ? 0xf1dfc4 : 0x060403, light ? 20 : 18, light ? 46 : 42);
+  }
+
+  async function shareChallenge(): Promise<void> {
+    const url = new URL(window.location.href);
+    const citySlug = encodeURIComponent(profile.city.toLowerCase().replace(/\s+/g, '-'));
+    url.hash = `checkers-${mode}-${difficulty}-${citySlug}`;
+    try {
+      await navigator.clipboard?.writeText(url.toString());
+      showGuideText('Challenge link copied.');
+    } catch {
+      window.location.hash = url.hash;
+      showGuideText('Challenge link is ready in the address bar.');
+    }
+  }
+
+  function applyChallengeHash(): void {
+    const match = /^#checkers-(ai|hotseat)-(2|4|6)-/.exec(window.location.hash);
+    if (!match) return;
+    mode = match[1] === 'hotseat' ? 'hotseat' : 'ai';
+    difficulty = Number(match[2]) as Difficulty;
+    startMatch();
+    showGuideText('Challenge link loaded.');
+  }
 
   function onResize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -474,7 +561,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     for (const piece of state.pieces) {
       let mesh = pieceMeshes.get(piece.id);
       if (!mesh) {
-        mesh = makePieceMesh(piece);
+        mesh = makePieceMesh(piece, profile.skin);
         pieceMeshes.set(piece.id, mesh);
         board.add(mesh);
       }
@@ -484,7 +571,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
         child.userData['kind'] = 'piece';
         child.userData['id'] = piece.id;
       });
-      setPieceVisual(mesh, piece);
+      setPieceVisual(mesh, piece, profile.skin);
     }
     refreshHighlights();
   }
@@ -505,6 +592,13 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     hud.captured.textContent = `${12 - state.pieces.filter((p) => p.side === 'white').length} / ${12 - state.pieces.filter((p) => p.side === 'black').length}`;
     hud.undo.disabled = state.history.length === 0;
     hud.surrender.disabled = !gameStarted || aiThinking || Boolean(winner || isDraw) || !isHumanTurn();
+    if (document.activeElement !== hud.profileHandle) hud.profileHandle.value = profile.handle;
+    if (document.activeElement !== hud.profileCity) hud.profileCity.value = profile.city;
+    hud.profileLabel.textContent = `${profile.handle} · ${profile.city}`;
+    hud.theme.textContent = profile.theme === 'light' ? 'Theme: Light' : 'Theme: Midnight';
+    hud.skin.textContent = `Skin: ${skinLabel(profile.skin)}`;
+    hud.pro.textContent = profile.pro ? 'Pro Active' : 'Upgrade to Pro';
+    hud.pro.disabled = profile.pro;
     for (const button of hud.depths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
     for (const button of hud.startDepths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
     for (const button of hud.startModes) button.classList.toggle('active', button.dataset['mode'] === mode);
@@ -516,7 +610,11 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       return `<div><b>${n}.</b> ${labelSide(h.turn)} ${coord(move.from)}-${move.path.map(coord).join('-')}${move.captures.length ? ' ×' + move.captures.length : ''}</div>`;
     }).join('');
     recordResultIfNeeded();
-    hud.results.innerHTML = renderResults(loadResults());
+    const results = loadResults();
+    hud.results.innerHTML = renderResults(results);
+    hud.leaderboardTitle.textContent = `Top ${profile.city}`;
+    hud.leaderboard.innerHTML = renderLeaderboard(profile, results);
+    hud.coach.innerHTML = renderCoach(gameStarted, Boolean(winner || isDraw), state);
     refreshHighlights();
   }
 
@@ -607,7 +705,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
         y,
         king: piece.king || move.promotes,
       };
-      const ghost = makePieceMesh(ghostPiece);
+      const ghost = makePieceMesh(ghostPiece, profile.skin);
       ghost.traverse((child) => {
         const mesh = child as THREE.Mesh;
         const material = mesh.material as THREE.MeshStandardMaterial | undefined;
@@ -687,7 +785,7 @@ function buildBoard(board: THREE.Group, squares: Map<string, THREE.Mesh>): void 
   }
 }
 
-function makePieceMesh(piece: CheckersPiece): THREE.Group {
+function makePieceMesh(piece: CheckersPiece, skin: PieceSkin): THREE.Group {
   const group = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.CylinderGeometry(0.44, 0.48, 0.28, 48, 2),
@@ -711,27 +809,44 @@ function makePieceMesh(piece: CheckersPiece): THREE.Group {
   crown.position.y = 0.205;
   crown.rotation.x = Math.PI / 2;
   group.add(crown);
-  setPieceVisual(group, piece);
+  setPieceVisual(group, piece, skin);
   return group;
 }
 
-function setPieceVisual(group: THREE.Group, piece: CheckersPiece): void {
-  const bodyColor = piece.side === 'white' ? 0xf2dec1 : 0x19100d;
-  const rimColor = piece.side === 'white' ? 0xc78d52 : 0x9f3428;
+function setPieceVisual(group: THREE.Group, piece: CheckersPiece, skin: PieceSkin): void {
+  const palette = piecePalette(piece, skin);
   for (const child of group.children) {
     const mesh = child as THREE.Mesh;
     const material = mesh.material as THREE.MeshStandardMaterial;
     if (child.name === 'crown') {
       child.visible = piece.king;
+      material.color.set(palette.crown);
       continue;
     }
-    material.color.set(child === group.children[0] ? bodyColor : rimColor);
+    material.color.set(child === group.children[0] ? palette.body : palette.rim);
   }
+}
+
+function piecePalette(piece: CheckersPiece, skin: PieceSkin): { body: number; rim: number; crown: number } {
+  if (skin === 'obsidian') {
+    return piece.side === 'white'
+      ? { body: 0xf6f0e7, rim: 0x65c7da, crown: 0xa9f2ff }
+      : { body: 0x090b12, rim: 0x2ed0b3, crown: 0x7fffe8 };
+  }
+  if (skin === 'aurora') {
+    return piece.side === 'white'
+      ? { body: 0xe9fff5, rim: 0xd39a3a, crown: 0xffd77a }
+      : { body: 0x17142b, rim: 0x9a63ff, crown: 0xd9c2ff };
+  }
+  return piece.side === 'white'
+    ? { body: 0xf2dec1, rim: 0xc78d52, crown: 0xffd989 }
+    : { body: 0x19100d, rim: 0x9f3428, crown: 0xffd989 };
 }
 
 function createHud(root: HTMLElement): {
   camera: HTMLButtonElement;
   captured: HTMLElement;
+  coach: HTMLElement;
   depths: HTMLButtonElement[];
   exit: HTMLButtonElement;
   forced: HTMLElement;
@@ -741,14 +856,23 @@ function createHud(root: HTMLElement): {
   guide: HTMLElement;
   mode: HTMLButtonElement;
   moves: HTMLElement;
+  leaderboard: HTMLElement;
+  leaderboardTitle: HTMLElement;
+  pro: HTMLButtonElement;
+  profileCity: HTMLInputElement;
+  profileHandle: HTMLInputElement;
+  profileLabel: HTMLElement;
   restart: HTMLButtonElement;
   results: HTMLElement;
+  share: HTMLButtonElement;
+  skin: HTMLButtonElement;
   start: HTMLButtonElement;
   startDepths: HTMLButtonElement[];
   startDifficultyLabel: HTMLElement;
   startModeLabel: HTMLElement;
   startModes: HTMLButtonElement[];
   surrender: HTMLButtonElement;
+  theme: HTMLButtonElement;
   togglePanel: HTMLButtonElement;
   turn: HTMLElement;
   undo: HTMLButtonElement;
@@ -774,7 +898,16 @@ function createHud(root: HTMLElement): {
         <button class="ck-btn depth" data-depth="6">Hard</button>
       </div>
       <button class="ck-btn wide" id="ck-camera"></button>
+      <div class="ck-row">
+        <button class="ck-btn" id="ck-theme">Theme: Midnight</button>
+        <button class="ck-btn" id="ck-skin">Skin: Classic</button>
+      </div>
+      <div class="ck-row">
+        <button class="ck-btn pro" id="ck-pro">Upgrade to Pro</button>
+        <button class="ck-btn" id="ck-share">Invite Link</button>
+      </div>
       <div class="ck-stat"><span>Captured W/B</span><b id="ck-captured">0 / 0</b></div>
+      <div class="ck-coach" id="ck-coach"></div>
       <div class="ck-actions">
         <button class="ck-btn" id="ck-undo">Undo</button>
         <button class="ck-btn" id="ck-surrender">Surrender</button>
@@ -790,9 +923,21 @@ function createHud(root: HTMLElement): {
     <div class="checkers-help">Click a piece, then a highlighted square. Orange means capture is forced.</div>
     <div class="checkers-start">
       <div class="ck-hero-card">
-        <div class="ck-eyebrow">Luxury board experience</div>
         <h1>Premium Checkers</h1>
         <p>Russian 8x8 rules with mandatory captures, flying kings, cinematic camera and local AI.</p>
+        <div class="ck-profile">
+          <div class="ck-profile-label" id="ck-profile-label">Guest Strategist · Almaty</div>
+          <div class="ck-profile-grid">
+            <label>
+              <span>Handle</span>
+              <input id="ck-profile-handle" maxlength="24" autocomplete="off" />
+            </label>
+            <label>
+              <span>City</span>
+              <input id="ck-profile-city" maxlength="24" autocomplete="off" />
+            </label>
+          </div>
+        </div>
         <div class="ck-start-grid">
           <div class="ck-choice">
             <div class="ck-choice-head">
@@ -821,6 +966,8 @@ function createHud(root: HTMLElement): {
       <div class="ck-results-card">
         <div class="ck-results-title">Results Table</div>
         <div id="ck-results"></div>
+        <div class="ck-results-title city" id="ck-leaderboard-title">Top Almaty</div>
+        <div id="ck-leaderboard"></div>
       </div>
     </div>
   `;
@@ -828,6 +975,7 @@ function createHud(root: HTMLElement): {
   return {
     camera: overlay.querySelector('#ck-camera') as HTMLButtonElement,
     captured: overlay.querySelector('#ck-captured') as HTMLElement,
+    coach: overlay.querySelector('#ck-coach') as HTMLElement,
     depths: [...overlay.querySelectorAll('.depth')] as HTMLButtonElement[],
     exit: overlay.querySelector('#ck-exit') as HTMLButtonElement,
     forced: overlay.querySelector('#ck-forced') as HTMLElement,
@@ -837,14 +985,23 @@ function createHud(root: HTMLElement): {
     guide: overlay.querySelector('#ck-guide') as HTMLElement,
     mode: overlay.querySelector('#ck-mode') as HTMLButtonElement,
     moves: overlay.querySelector('#ck-moves') as HTMLElement,
+    leaderboard: overlay.querySelector('#ck-leaderboard') as HTMLElement,
+    leaderboardTitle: overlay.querySelector('#ck-leaderboard-title') as HTMLElement,
+    pro: overlay.querySelector('#ck-pro') as HTMLButtonElement,
+    profileCity: overlay.querySelector('#ck-profile-city') as HTMLInputElement,
+    profileHandle: overlay.querySelector('#ck-profile-handle') as HTMLInputElement,
+    profileLabel: overlay.querySelector('#ck-profile-label') as HTMLElement,
     restart: overlay.querySelector('#ck-restart') as HTMLButtonElement,
     results: overlay.querySelector('#ck-results') as HTMLElement,
+    share: overlay.querySelector('#ck-share') as HTMLButtonElement,
+    skin: overlay.querySelector('#ck-skin') as HTMLButtonElement,
     start: overlay.querySelector('#ck-start') as HTMLButtonElement,
     startDepths: [...overlay.querySelectorAll('.start-depth')] as HTMLButtonElement[],
     startDifficultyLabel: overlay.querySelector('#ck-start-difficulty-label') as HTMLElement,
     startModeLabel: overlay.querySelector('#ck-start-mode-label') as HTMLElement,
     startModes: [...overlay.querySelectorAll('.start-mode')] as HTMLButtonElement[],
     surrender: overlay.querySelector('#ck-surrender') as HTMLButtonElement,
+    theme: overlay.querySelector('#ck-theme') as HTMLButtonElement,
     togglePanel: overlay.querySelector('#ck-toggle-panel') as HTMLButtonElement,
     turn: overlay.querySelector('#ck-turn') as HTMLElement,
     undo: overlay.querySelector('#ck-undo') as HTMLButtonElement,
@@ -934,6 +1091,110 @@ function renderResults(results: CheckersResults): string {
     <div class="ck-result-row"><span>Hotseat games</span><b>${results.hotseatGames}</b></div>
     <div class="ck-last-result">${results.lastResult}</div>
   `;
+}
+
+function renderCoach(gameStarted: boolean, gameOver: boolean, state: CheckersState): string {
+  if (!gameStarted) {
+    return `
+      <div class="ck-coach-head"><span>AI Coach</span><b>Ready</b></div>
+      <div class="ck-coach-copy">Start a match to get tactical suggestions and a post-game review.</div>
+    `;
+  }
+  if (gameOver) {
+    const report = buildCoachReport(state.history, state);
+    return `
+      <div class="ck-coach-head"><span>AI Coach</span><b>${report.score}/100</b></div>
+      <div class="ck-coach-title">${escapeHtml(report.headline)}</div>
+      <div class="ck-coach-copy">${escapeHtml(report.summary)}</div>
+      ${report.insights.map((insight) => `
+        <div class="ck-insight ${insight.tone}">
+          <b>${escapeHtml(insight.title)}</b>
+          <span>${escapeHtml(insight.body)}</span>
+        </div>
+      `).join('')}
+    `;
+  }
+  return `
+    <div class="ck-coach-head"><span>AI Coach</span><b>Live</b></div>
+    <div class="ck-coach-copy">${escapeHtml(getLiveCoachTip(state, 2))}</div>
+  `;
+}
+
+function renderLeaderboard(profile: CheckersProfile, results: CheckersResults): string {
+  const playerRating = 1000 + results.aiWins * 28 + results.hotseatGames * 10 + results.draws * 4 - results.aiLosses * 12;
+  const rows: LeaderboardRow[] = [
+    { handle: profile.handle, city: profile.city, rating: playerRating, streak: results.aiWins > results.aiLosses ? '+form' : 'training' },
+    { handle: 'Aida.K', city: profile.city, rating: 1168, streak: '7W' },
+    { handle: 'Timur Blitz', city: profile.city, rating: 1116, streak: '3W' },
+    { handle: 'Dana Endgame', city: profile.city, rating: 1084, streak: 'coach' },
+  ].sort((a, b) => b.rating - a.rating);
+  return rows.map((row, index) => `
+    <div class="ck-leader-row ${row.handle === profile.handle ? 'me' : ''}">
+      <span>${index + 1}</span>
+      <b>${escapeHtml(row.handle)}</b>
+      <em>${row.rating}</em>
+      <small>${escapeHtml(row.streak)}</small>
+    </div>
+  `).join('');
+}
+
+function loadProfile(): CheckersProfile {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_KEY);
+    if (!raw) return emptyProfile();
+    const parsed = JSON.parse(raw) as Partial<CheckersProfile>;
+    return {
+      handle: sanitizeProfileValue(parsed.handle, 'Guest Strategist'),
+      city: sanitizeProfileValue(parsed.city, 'Almaty'),
+      theme: parsed.theme === 'light' ? 'light' : 'midnight',
+      pro: Boolean(parsed.pro),
+      skin: normalizeSkin(parsed.skin, Boolean(parsed.pro)),
+    };
+  } catch {
+    return emptyProfile();
+  }
+}
+
+function saveProfile(profile: CheckersProfile): void {
+  window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function emptyProfile(): CheckersProfile {
+  return { handle: 'Guest Strategist', city: 'Almaty', theme: 'midnight', pro: false, skin: 'classic' };
+}
+
+function sanitizeProfileValue(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  return trimmed.length > 0 ? trimmed.slice(0, 24) : fallback;
+}
+
+function normalizeSkin(value: unknown, pro: boolean): PieceSkin {
+  if (value === 'obsidian' && pro) return 'obsidian';
+  if (value === 'aurora' && pro) return 'aurora';
+  return 'classic';
+}
+
+function nextSkin(skin: PieceSkin, pro: boolean): PieceSkin {
+  if (!pro) return 'classic';
+  if (skin === 'classic') return 'obsidian';
+  if (skin === 'obsidian') return 'aurora';
+  return 'classic';
+}
+
+function skinLabel(skin: PieceSkin): string {
+  if (skin === 'obsidian') return 'Obsidian';
+  if (skin === 'aurora') return 'Aurora';
+  return 'Classic';
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 function setCamera(camera: THREE.PerspectiveCamera, mode: CameraMode): void {
