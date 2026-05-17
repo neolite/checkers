@@ -168,7 +168,7 @@
 
       /* Premium Checkers module */
       .checkers-root { position: absolute; inset: 0; overflow: hidden; background: #070403; }
-      .checkers-root canvas { position: absolute; inset: 0; z-index: 1; }
+      .checkers-root canvas { position: absolute; inset: 0; z-index: 1; touch-action: none; }
       .checkers-root::before { content: ""; position: absolute; inset: 0; background:
         linear-gradient(180deg, rgba(7,4,3,0.15), rgba(7,4,3,0.68)),
         radial-gradient(circle at 50% 38%, rgba(255,188,108,0.18), transparent 32%),
@@ -522,7 +522,7 @@
         .checkers-start.has-results[data-step="back"] .ck-results-card { display: none; }
         .ck-hero-card { min-height: auto; }
       }
-      @media (max-width: 920px) {
+      @media (max-width: 980px) {
         .checkers-top { flex-wrap: wrap; gap: 8px; border-radius: 14px; }
         .checkers-pill { font-size: 11px; padding: 6px 8px; }
         .checkers-start { display: block; overflow: auto; padding: 14px 24px 24px; }
@@ -537,18 +537,45 @@
         .start-depth { width: 100%; grid-template-columns: 58px 1fr; min-height: 66px; }
         .start-mode::before { width: 58px; height: 46px; }
         .start-depth::before { width: 46px; height: 46px; }
-        .ck-coach-rail { left: 12px; right: 12px; top: auto; bottom: 16px; width: auto; max-height: 38vh; flex-direction: row; gap: 8px; }
+        .ck-coach-rail { left: 12px; right: 12px; top: auto; bottom: 10px; width: auto; max-height: 128px; flex-direction: row; gap: 8px; }
         .ck-coach-rail .ck-coach-card { flex: 1; padding: 10px; }
         .ck-coach-rail .ck-history-card { display: none; }
+        .ck-coach-rail .ck-persona,
+        .ck-coach-rail .ck-coach-lookfor,
+        .ck-coach-rail .ck-eval,
+        .ck-coach-rail .ck-coach-hint { display: none; }
+        .ck-coach-tip { padding: 8px 10px; }
+        .ck-coach-tip-body { font-size: 11px; line-height: 1.3; }
         .ck-icon-rail { right: 12px; top: 76px; bottom: auto; width: 48px; flex-direction: row; flex-wrap: wrap; height: 48px; border-radius: 14px; }
         .ck-icon-rail::before, .ck-icon-rail::after { display: none; }
         .ck-icon-rail { width: auto; min-width: 200px; }
         .ck-icon-btn { width: 38px; height: 38px; flex: 0 0 38px; }
         .ck-popover { right: 12px; top: 130px; min-width: 0; width: calc(100vw - 24px); max-width: 320px; }
-        .ck-turn-board { bottom: 18vh; }
+        .ck-turn-board { bottom: 136px; max-width: calc(100vw - 24px); white-space: nowrap; }
         .ck-captured-stack.top { top: 130px; }
-        .ck-captured-stack.bottom { bottom: 38vh; }
-        .ck-camera-toggle { right: 12px; bottom: 38vh; }
+        .ck-captured-stack.bottom { display: none; }
+        .ck-camera-toggle { left: 12px; right: auto; bottom: 136px; }
+        .checkers-help { display: none; }
+      }
+      @media (max-width: 640px) {
+        .checkers-top { top: 8px; left: 8px; right: 8px; min-height: 42px; padding: 7px 10px; }
+        .checkers-title { font-size: 11px; letter-spacing: 0.14em; }
+        .checkers-sub,
+        .checkers-pill.warn { display: none; }
+        .ck-icon-rail { top: 58px; right: 8px; min-width: 174px; height: 42px; padding: 5px; gap: 5px; }
+        .ck-icon-btn { width: 32px; height: 32px; flex-basis: 32px; }
+        .ck-icon-btn svg { width: 17px; height: 17px; }
+        .ck-popover { right: 8px; top: 108px; width: calc(100vw - 16px); }
+        .ck-coach-rail { left: 8px; right: 8px; bottom: 8px; max-height: 104px; }
+        .ck-coach-status { padding: 5px 8px; font-size: 9px; letter-spacing: 0.1em; }
+        .ck-coach-tip-label { font-size: 8px; letter-spacing: 0.12em; }
+        .ck-coach-tip-body { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .ck-turn-board { bottom: 120px; padding: 7px 10px; font-size: 11px; }
+        .ck-camera-toggle { bottom: 120px; }
+        .ck-camera-toggle button { padding: 5px 9px; }
+        .ck-captured-stack.top { display: none; }
+        .checkers-guide { top: 112px; }
+        .checkers-help { bottom: 156px; width: calc(100vw - 22px); box-sizing: border-box; text-align: center; }
       }
       .game-card { min-height: 98px; }
 

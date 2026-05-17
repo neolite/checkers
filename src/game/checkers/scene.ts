@@ -410,6 +410,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   function onResize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
+    setCamera(camera, cameraMode);
     camera.updateProjectionMatrix();
   }
 
@@ -620,6 +621,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     cancelDrag();
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
+    syncForcedCaptureSelection();
     resetCanvasCursor();
     syncPieces();
     if (from) {
@@ -657,6 +659,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     };
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
+    syncForcedCaptureSelection();
     syncPieces();
     refreshUi();
   }
@@ -666,6 +669,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     cancelDrag();
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
+    syncForcedCaptureSelection();
     aiThinking = false;
     gameStarted = true;
     firstSelectionMade = false;
@@ -756,6 +760,14 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   function moveForDestination(x: number, y: number): CheckersMove | null {
     if (selectedPieceId === null) return null;
     return legalMoves.find((m) => m.pieceId === selectedPieceId && lastSquare(m).x === x && lastSquare(m).y === y) ?? null;
+  }
+
+  function syncForcedCaptureSelection(): void {
+    if (!gameStarted || aiThinking || isGameOver() || !isHumanTurn()) return;
+    if (selectedPieceId !== null && legalMoves.some((m) => m.pieceId === selectedPieceId)) return;
+    const forcedPieceIds = [...new Set(legalMoves.filter((m) => m.captures.length > 0).map((m) => m.pieceId))];
+    selectedPieceId = forcedPieceIds.length === 1 ? forcedPieceIds[0]! : null;
+    if (selectedPieceId !== null) firstSelectionMade = true;
   }
 
   function syncPieces(): void {
@@ -1203,12 +1215,6 @@ function buildBoard(board: THREE.Group, squares: Map<string, THREE.Mesh>): void 
       mesh.castShadow = true;
       squares.set(`${x}:${y}`, mesh);
       board.add(mesh);
-
-      const squareLabel = makeBoardLabel(coord({ x, y }), dark ? '#ffdca7' : '#5f2b17', TILE * 0.33, TILE * 0.17, 46);
-      squareLabel.position.copy(pieceWorld(x, y, 0.075));
-      squareLabel.position.x -= TILE * 0.285;
-      squareLabel.position.z += TILE * 0.315;
-      board.add(squareLabel);
     }
   }
 
@@ -1231,12 +1237,20 @@ function buildBoard(board: THREE.Group, squares: Map<string, THREE.Mesh>): void 
   }
 }
 
-function makeBoardLabel(text: string, color: string, width: number, height: number, fontSize: number): THREE.Mesh {
+function makeBoardLabel(text: string, color: string, width: number, height: number, fontSize: number, background?: string): THREE.Mesh {
   const canvas = document.createElement('canvas');
   canvas.width = 160;
   canvas.height = 96;
   const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (background) {
+    ctx.fillStyle = background;
+    roundRect(ctx, 12, 18, canvas.width - 24, canvas.height - 36, 18);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(34, 17, 9, 0.34)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
   ctx.font = `900 ${fontSize}px Inter, Arial, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -1263,6 +1277,17 @@ function makeBoardLabel(text: string, color: string, width: number, height: numb
   mesh.rotation.x = -Math.PI / 2;
   mesh.renderOrder = 2;
   return mesh;
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
 }
 
 function makePieceMesh(piece: CheckersPiece, skin: PieceSkin): THREE.Group {
@@ -1961,14 +1986,19 @@ function escapeHtml(value: string): string {
 }
 
 function setCamera(camera: THREE.PerspectiveCamera, mode: CameraMode): void {
-  const focusX = -1.05;
+  const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+  const mobile = window.innerWidth <= 860 || aspect < 0.82;
+  const compact = window.innerWidth <= 920 || aspect < 1;
+  const focusX = mobile ? 0 : compact ? -0.35 : -1.05;
+  camera.fov = mobile ? 48 : compact ? 52 : 48;
   if (mode === 'top') {
-    camera.position.set(focusX, 13.5, 0.02);
+    camera.position.set(focusX, mobile ? 24 : compact ? 15.4 : 13.5, 0.02);
     camera.lookAt(focusX, 0, 0);
   } else {
-    camera.position.set(focusX, 8.8, 9.4);
-    camera.lookAt(focusX, 0, -0.4);
+    camera.position.set(focusX, mobile ? 23 : compact ? 10.6 : 8.8, mobile ? 2.8 : compact ? 11.2 : 9.4);
+    camera.lookAt(focusX, 0, mobile ? -0.1 : compact ? -0.62 : -0.4);
   }
+  camera.updateProjectionMatrix();
 }
 
 function pieceWorld(x: number, y: number, z: number): THREE.Vector3 {
@@ -2017,7 +2047,12 @@ function dispose(obj: THREE.Object3D): void {
     const mesh = child as THREE.Mesh;
     if (mesh.geometry) mesh.geometry.dispose();
     const material = (mesh as { material?: THREE.Material | THREE.Material[] }).material;
-    if (Array.isArray(material)) material.forEach((m) => m.dispose());
-    else material?.dispose();
+    const disposeMaterial = (m: THREE.Material): void => {
+      const maybeMapped = m as THREE.Material & { map?: THREE.Texture | null };
+      maybeMapped.map?.dispose();
+      m.dispose();
+    };
+    if (Array.isArray(material)) material.forEach(disposeMaterial);
+    else if (material) disposeMaterial(material);
   });
 }
