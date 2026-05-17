@@ -30,10 +30,12 @@ export interface CheckersState {
   pieces: CheckersPiece[];
   history: CheckersHistoryEntry[];
   winner: CheckersSide | null;
+  resignedBy?: CheckersSide | null;
 }
 
 export type CheckersResult =
   | { winner: CheckersSide; reason: 'no-pieces' | 'pat' | 'king-majority' }
+  | { winner: CheckersSide; reason: 'resign'; loser: CheckersSide }
   | { winner: null; reason: 'draw-repetition' | 'draw-no-progress' };
 
 const BOARD_SIZE = 8;
@@ -58,7 +60,7 @@ export function createInitialCheckersState(): CheckersState {
       if (isDarkSquare(x, y)) pieces.push({ id: id++, side: 'white', x, y, king: false });
     }
   }
-  return { turn: 'white', pieces, history: [], winner: null };
+  return { turn: 'white', pieces, history: [], winner: null, resignedBy: null };
 }
 
 export function generateLegalMoves(state: CheckersState): CheckersMove[] {
@@ -88,12 +90,20 @@ export function applyMove(state: CheckersState, move: CheckersMove): CheckersSta
     pieces,
     history: [...state.history, { move, pieces: state.pieces.map((p) => ({ ...p })), turn: state.turn }],
     winner: null,
+    resignedBy: null,
   };
   const result = getGameResult(next);
   return result?.winner ? { ...next, winner: result.winner } : next;
 }
 
+export function resign(state: CheckersState, side: CheckersSide = state.turn): CheckersState {
+  return { ...state, resignedBy: side, winner: opponent(side) };
+}
+
 export function getGameResult(state: CheckersState): CheckersResult | null {
+  if (state.resignedBy) {
+    return { winner: opponent(state.resignedBy), reason: 'resign', loser: state.resignedBy };
+  }
   if (!state.pieces.some((p) => p.side === state.turn)) {
     return { winner: opponent(state.turn), reason: 'no-pieces' };
   }

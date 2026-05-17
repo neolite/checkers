@@ -4,6 +4,7 @@ import {
   createInitialCheckersState,
   generateLegalMoves,
   getGameResult,
+  resign,
   type CheckersHistoryEntry,
   type CheckersMove,
   type CheckersPiece,
@@ -184,5 +185,12 @@ describe('Russian checkers rules', () => {
     });
 
     expect(result).toEqual({ winner: null, reason: 'draw-no-progress' });
+  });
+
+  it('awards the game to the opponent when the side to move resigns', () => {
+    const resigned = resign(createInitialCheckersState());
+
+    expect(resigned.winner).toBe('black');
+    expect(getGameResult(resigned)).toEqual({ winner: 'black', reason: 'resign', loser: 'white' });
   });
 });

@@ -6,6 +6,7 @@ import {
   generateLegalMoves,
   getGameResult,
   getNoProgressPly,
+  resign,
   type CheckersResult,
   type CheckersMove,
   type CheckersPiece,
@@ -99,6 +100,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   hud.restart.addEventListener('click', () => {
     startMatch();
   });
+  hud.surrender.addEventListener('click', surrender);
   hud.gameOverRestart.addEventListener('click', startMatch);
   hud.start.addEventListener('click', startMatch);
   hud.undo.addEventListener('click', undo);
@@ -415,6 +417,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       pieces: previous.pieces.map((p) => ({ ...p })),
       history: state.history.slice(0, -1),
       winner: null,
+      resignedBy: null,
     };
     selectedPieceId = null;
     legalMoves = generateLegalMoves(state);
@@ -433,6 +436,16 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     resetCanvasCursor();
     root.classList.add('playing');
     syncPieces();
+    refreshUi();
+  }
+
+  function surrender(): void {
+    if (!gameStarted || aiThinking || isGameOver() || !isHumanTurn()) return;
+    cancelDrag();
+    selectedPieceId = null;
+    state = resign(state);
+    legalMoves = [];
+    resetCanvasCursor();
     refreshUi();
   }
 
@@ -491,6 +504,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     hud.gameOverCopy.innerHTML = gameOverCopy(result, winner);
     hud.captured.textContent = `${12 - state.pieces.filter((p) => p.side === 'white').length} / ${12 - state.pieces.filter((p) => p.side === 'black').length}`;
     hud.undo.disabled = state.history.length === 0;
+    hud.surrender.disabled = !gameStarted || aiThinking || Boolean(winner || isDraw) || !isHumanTurn();
     for (const button of hud.depths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
     for (const button of hud.startDepths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
     for (const button of hud.startModes) button.classList.toggle('active', button.dataset['mode'] === mode);
@@ -734,6 +748,7 @@ function createHud(root: HTMLElement): {
   startDifficultyLabel: HTMLElement;
   startModeLabel: HTMLElement;
   startModes: HTMLButtonElement[];
+  surrender: HTMLButtonElement;
   togglePanel: HTMLButtonElement;
   turn: HTMLElement;
   undo: HTMLButtonElement;
@@ -762,6 +777,7 @@ function createHud(root: HTMLElement): {
       <div class="ck-stat"><span>Captured W/B</span><b id="ck-captured">0 / 0</b></div>
       <div class="ck-actions">
         <button class="ck-btn" id="ck-undo">Undo</button>
+        <button class="ck-btn" id="ck-surrender">Surrender</button>
         <button class="ck-btn" id="ck-restart">Restart</button>
       </div>
       <div class="ck-log" id="ck-moves"></div>
@@ -828,6 +844,7 @@ function createHud(root: HTMLElement): {
     startDifficultyLabel: overlay.querySelector('#ck-start-difficulty-label') as HTMLElement,
     startModeLabel: overlay.querySelector('#ck-start-mode-label') as HTMLElement,
     startModes: [...overlay.querySelectorAll('.start-mode')] as HTMLButtonElement[],
+    surrender: overlay.querySelector('#ck-surrender') as HTMLButtonElement,
     togglePanel: overlay.querySelector('#ck-toggle-panel') as HTMLButtonElement,
     turn: overlay.querySelector('#ck-turn') as HTMLElement,
     undo: overlay.querySelector('#ck-undo') as HTMLButtonElement,
@@ -836,6 +853,7 @@ function createHud(root: HTMLElement): {
 
 function resultLabel(result: CheckersResult | null): string | null {
   if (!result) return null;
+  if (result.reason === 'resign') return 'Resignation';
   if (result.reason === 'pat') return 'Pat: no legal moves';
   if (result.reason === 'king-majority') return 'Endgame adjudication';
   if (result.reason === 'draw-repetition') return 'Draw: repeated position';
@@ -845,6 +863,7 @@ function resultLabel(result: CheckersResult | null): string | null {
 
 function resultSuffix(result: CheckersResult | null): string {
   if (!result) return '';
+  if (result.reason === 'resign') return ' by resignation';
   if (result.reason === 'pat') return ' by pat';
   if (result.reason === 'king-majority') return ' by king majority';
   if (result.reason === 'no-pieces') return ' by capture';
@@ -860,6 +879,7 @@ function gameOverCopy(result: CheckersResult | null, winner: CheckersSide | null
 }
 
 function winCopy(result: CheckersResult | null, winner: CheckersSide): string {
+  if (result?.reason === 'resign') return `${labelSide(result.loser)} resigned.`;
   if (result?.reason === 'pat') return `${labelSide(opponent(winner))} has no legal moves. Pat counts as a loss.`;
   if (result?.reason === 'king-majority') return `${labelSide(winner)} has a clean king majority in a no-capture endgame.`;
   return 'Opponent has no pieces left.';
