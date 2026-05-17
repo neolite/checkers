@@ -1203,8 +1203,66 @@ function buildBoard(board: THREE.Group, squares: Map<string, THREE.Mesh>): void 
       mesh.castShadow = true;
       squares.set(`${x}:${y}`, mesh);
       board.add(mesh);
+
+      const squareLabel = makeBoardLabel(coord({ x, y }), dark ? '#ffdca7' : '#5f2b17', TILE * 0.33, TILE * 0.17, 46);
+      squareLabel.position.copy(pieceWorld(x, y, 0.075));
+      squareLabel.position.x -= TILE * 0.285;
+      squareLabel.position.z += TILE * 0.315;
+      board.add(squareLabel);
     }
   }
+
+  for (let i = 0; i < BOARD; i++) {
+    const file = String.fromCharCode(97 + i);
+    const rank = String(8 - i);
+    const fileTop = makeBoardLabel(file, '#ffdca7', TILE * 0.34, TILE * 0.24, 58);
+    fileTop.position.copy(pieceWorld(i, -0.62, 0.09));
+    board.add(fileTop);
+    const fileBottom = makeBoardLabel(file, '#ffdca7', TILE * 0.34, TILE * 0.24, 58);
+    fileBottom.position.copy(pieceWorld(i, BOARD - 0.38, 0.09));
+    board.add(fileBottom);
+
+    const rankLeft = makeBoardLabel(rank, '#ffdca7', TILE * 0.28, TILE * 0.24, 58);
+    rankLeft.position.copy(pieceWorld(-0.58, i, 0.09));
+    board.add(rankLeft);
+    const rankRight = makeBoardLabel(rank, '#ffdca7', TILE * 0.28, TILE * 0.24, 58);
+    rankRight.position.copy(pieceWorld(BOARD - 0.42, i, 0.09));
+    board.add(rankRight);
+  }
+}
+
+function makeBoardLabel(text: string, color: string, width: number, height: number, fontSize: number): THREE.Mesh {
+  const canvas = document.createElement('canvas');
+  canvas.width = 160;
+  canvas.height = 96;
+  const ctx = canvas.getContext('2d')!;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = `900 ${fontSize}px Inter, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(5, Math.round(fontSize * 0.12));
+  ctx.strokeStyle = 'rgba(18, 7, 2, 0.82)';
+  ctx.strokeText(text, canvas.width / 2, canvas.height / 2 + 1);
+  ctx.fillStyle = color;
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, height),
+    new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = 2;
+  return mesh;
 }
 
 function makePieceMesh(piece: CheckersPiece, skin: PieceSkin): THREE.Group {
