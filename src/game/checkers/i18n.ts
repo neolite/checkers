@@ -200,7 +200,7 @@ const DICT: Dict = {
 
   'onboard.opponent.eyebrow': { ru: 'Соперник', en: 'Opponent' },
   'onboard.opponent.title': { ru: 'С кем сыграешь?', en: 'Who do you want to play?' },
-  'onboard.opponent.body': { ru: 'Соперника можно сменить в любой момент — иконка слева на правом баре. Хочешь сыграть с другом за одним экраном? Выбери Хотсит.', en: 'Switch opponents anytime via the right-side rail. Want to play a friend on the same screen? Pick Hotseat.' },
+  'onboard.opponent.body': { ru: 'Соперника можно сменить в любой момент — иконка на правом баре. Хочешь сыграть с другом за одним экраном? Выбери Хотсит.', en: 'Switch opponents anytime via the right-side rail. Want to play a friend on the same screen? Pick Hotseat.' },
   'onboard.opponent.cta': { ru: 'Начать первую партию', en: 'Play your first match' },
 
   'welcome-back.eyebrow': { ru: 'С возвращением', en: 'Welcome back' },

@@ -318,7 +318,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   hud.profileHandle.addEventListener('change', () => {
     profile = {
       ...profile,
-      handle: sanitizeProfileValue(hud.profileHandle.value, 'Guest Strategist'),
+      handle: sanitizeProfileValue(hud.profileHandle.value, t(profile.locale, 'start.guest')),
     };
     saveProfile(profile);
     refreshUi();
@@ -326,7 +326,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   hud.profileCity.addEventListener('change', () => {
     profile = {
       ...profile,
-      city: sanitizeProfileValue(hud.profileCity.value, 'Almaty'),
+      city: sanitizeProfileValue(hud.profileCity.value, t(profile.locale, 'start.default-city')),
     };
     saveProfile(profile);
     refreshUi();
@@ -1795,13 +1795,14 @@ function loadProfile(): CheckersProfile {
     const raw = window.localStorage.getItem(PROFILE_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<CheckersProfile>;
+    const locale = LOCALES.includes(parsed.locale as Locale) ? (parsed.locale as Locale) : DEFAULT_LOCALE;
     return {
-      handle: sanitizeProfileValue(parsed.handle, defaults.handle),
-      city: sanitizeProfileValue(parsed.city, defaults.city),
+      handle: sanitizeProfileValue(normalizeDefaultProfileText(parsed.handle, locale, 'handle'), t(locale, 'start.guest')),
+      city: sanitizeProfileValue(normalizeDefaultProfileText(parsed.city, locale, 'city'), t(locale, 'start.default-city')),
       theme: parsed.theme === 'light' ? 'light' : 'midnight',
       pro: Boolean(parsed.pro),
       skin: normalizeSkin(parsed.skin, Boolean(parsed.pro)),
-      locale: LOCALES.includes(parsed.locale as Locale) ? (parsed.locale as Locale) : DEFAULT_LOCALE,
+      locale,
       onboarded: parsed.onboarded === undefined ? true : Boolean(parsed.onboarded),
     };
   } catch {
@@ -1830,6 +1831,16 @@ function sanitizeProfileValue(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const trimmed = value.trim().replace(/\s+/g, ' ');
   return trimmed.length > 0 ? trimmed.slice(0, 24) : fallback;
+}
+
+function normalizeDefaultProfileText(value: unknown, locale: Locale, field: 'handle' | 'city'): unknown {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  const defaultValues = field === 'handle'
+    ? ['Guest Strategist', 'Гость-стратег']
+    : ['Almaty', 'Алматы'];
+  if (!defaultValues.includes(trimmed)) return value;
+  return t(locale, field === 'handle' ? 'start.guest' : 'start.default-city');
 }
 
 function normalizeSkin(value: unknown, pro: boolean): PieceSkin {
