@@ -1419,7 +1419,6 @@ function createHud(root: HTMLElement): CheckersHud {
         <div class="checkers-title">Premium Checkers</div>
         <div class="checkers-sub">AI Coach · forced captures · flying kings</div>
       </div>
-      <button class="ck-btn" id="ck-exit">Menu</button>
     </div>
 
     <div class="ck-coach-rail">
@@ -1488,6 +1487,7 @@ function createHud(root: HTMLElement): CheckersHud {
       <button class="ck-btn wide" id="ck-pro">Upgrade to Pro</button>
       <div class="ck-popover-divider"></div>
       <div class="ck-actions">
+        <button class="ck-btn" id="ck-exit">Меню</button>
         <button class="ck-btn" id="ck-undo">Undo</button>
         <button class="ck-btn" id="ck-restart">Restart</button>
       </div>
