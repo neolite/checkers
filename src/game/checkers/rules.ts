@@ -32,12 +32,12 @@ export interface CheckersState {
   winner: CheckersSide | null;
 }
 
-export interface CheckersResult {
-  winner: CheckersSide;
-  reason: 'no-pieces' | 'pat';
-}
+export type CheckersResult =
+  | { winner: CheckersSide; reason: 'no-pieces' | 'pat' | 'king-majority' }
+  | { winner: null; reason: 'draw-repetition' | 'draw-no-progress' };
 
 const BOARD_SIZE = 8;
+const NO_PROGRESS_PLY_LIMIT = 80;
 const DIAGONALS: readonly CheckersSquare[] = [
   { x: -1, y: -1 },
   { x: 1, y: -1 },
@@ -90,17 +90,31 @@ export function applyMove(state: CheckersState, move: CheckersMove): CheckersSta
     winner: null,
   };
   const result = getGameResult(next);
-  return result ? { ...next, winner: result.winner } : next;
+  return result?.winner ? { ...next, winner: result.winner } : next;
 }
 
 export function getGameResult(state: CheckersState): CheckersResult | null {
   if (!state.pieces.some((p) => p.side === state.turn)) {
     return { winner: opponent(state.turn), reason: 'no-pieces' };
   }
-  if (generateLegalMoves(state).length === 0) {
+  const legalMoves = generateLegalMoves(state);
+  if (legalMoves.length === 0) {
     return { winner: opponent(state.turn), reason: 'pat' };
   }
+  if (legalMoves.some((m) => m.captures.length > 0)) return null;
+  const materialResult = getKingMajorityResult(state);
+  if (materialResult) return materialResult;
+  if (quietPlySinceProgress(state) >= NO_PROGRESS_PLY_LIMIT) {
+    return { winner: null, reason: 'draw-no-progress' };
+  }
+  if (currentPositionRepetitions(state) >= 3) {
+    return { winner: null, reason: 'draw-repetition' };
+  }
   return null;
+}
+
+export function getNoProgressPly(state: CheckersState): number {
+  return quietPlySinceProgress(state);
 }
 
 function quietMovesForPiece(pieces: CheckersPiece[], piece: CheckersPiece): CheckersMove[] {
@@ -239,6 +253,47 @@ function isDarkSquare(x: number, y: number): boolean {
 
 function inBoard(x: number, y: number): boolean {
   return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE;
+}
+
+function getKingMajorityResult(state: CheckersState): CheckersResult | null {
+  if (!state.pieces.every((p) => p.king)) return null;
+  const whiteKings = state.pieces.filter((p) => p.side === 'white').length;
+  const blackKings = state.pieces.filter((p) => p.side === 'black').length;
+  const leader = whiteKings > blackKings ? 'white' : blackKings > whiteKings ? 'black' : null;
+  if (!leader) return null;
+  const leaderKings = leader === 'white' ? whiteKings : blackKings;
+  const trailingKings = leader === 'white' ? blackKings : whiteKings;
+  if (leaderKings >= 2 && trailingKings === 1) {
+    return { winner: leader, reason: 'king-majority' };
+  }
+  return null;
+}
+
+function quietPlySinceProgress(state: CheckersState): number {
+  let quiet = 0;
+  for (let i = state.history.length - 1; i >= 0; i--) {
+    const move = state.history[i]!.move;
+    if (move.captures.length > 0 || move.promotes) break;
+    quiet += 1;
+  }
+  return quiet;
+}
+
+function currentPositionRepetitions(state: CheckersState): number {
+  const key = positionKey(state.turn, state.pieces);
+  let count = 1;
+  for (const entry of state.history) {
+    if (positionKey(entry.turn, entry.pieces) === key) count += 1;
+  }
+  return count;
+}
+
+function positionKey(turn: CheckersSide, pieces: readonly CheckersPiece[]): string {
+  const normalized = pieces
+    .map((p) => `${p.side[0]}${p.king ? 'K' : 'M'}${p.x}:${p.y}`)
+    .sort()
+    .join(',');
+  return `${turn}|${normalized}`;
 }
 
 function squareKey(s: CheckersSquare): string {

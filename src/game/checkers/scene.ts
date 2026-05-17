@@ -5,6 +5,7 @@ import {
   createInitialCheckersState,
   generateLegalMoves,
   getGameResult,
+  getNoProgressPly,
   type CheckersResult,
   type CheckersMove,
   type CheckersPiece,
@@ -22,6 +23,7 @@ type CameraMode = 'cinematic' | 'top';
 interface CheckersResults {
   aiWins: number;
   aiLosses: number;
+  draws: number;
   hotseatGames: number;
   lastResult: string;
 }
@@ -72,7 +74,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let cameraMode: CameraMode = 'cinematic';
   let aiThinking = false;
   let gameStarted = false;
-  let recordedWinner: CheckersSide | null = null;
+  let recordedResultKey: string | null = null;
   let panelCollapsed = window.innerWidth < 920;
   let dragState: { pieceId: number; pointerId: number; startX: number; startY: number; origin: THREE.Vector3; active: boolean } | null = null;
   let dragHoverSquare: { x: number; y: number } | null = null;
@@ -175,7 +177,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   }
 
   function onPointerDown(ev: PointerEvent): void {
-    if (!gameStarted || aiThinking || state.winner || !isHumanTurn()) return;
+    if (!gameStarted || aiThinking || isGameOver() || !isHumanTurn()) return;
     const hit = hitAtPointer(ev);
     if (!hit) {
       selectedPieceId = null;
@@ -206,7 +208,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       updateDrag(ev);
       return;
     }
-    if (!gameStarted || aiThinking || state.winner || !isHumanTurn()) {
+    if (!gameStarted || aiThinking || isGameOver() || !isHumanTurn()) {
       resetCanvasCursor();
       return;
     }
@@ -394,7 +396,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   }
 
   function maybeAiMove(): void {
-    if (!gameStarted || mode !== 'ai' || state.turn !== AI_SIDE || state.winner) return;
+    if (!gameStarted || mode !== 'ai' || state.turn !== AI_SIDE || isGameOver()) return;
     aiThinking = true;
     refreshUi();
     timers.push(window.setTimeout(() => {
@@ -427,7 +429,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     legalMoves = generateLegalMoves(state);
     aiThinking = false;
     gameStarted = true;
-    recordedWinner = null;
+    recordedResultKey = null;
     resetCanvasCursor();
     root.classList.add('playing');
     syncPieces();
@@ -436,6 +438,10 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
 
   function isHumanTurn(): boolean {
     return mode === 'hotseat' || state.turn !== AI_SIDE;
+  }
+
+  function isGameOver(): boolean {
+    return Boolean(state.winner || getGameResult(state));
   }
 
   function moveForDestination(x: number, y: number): CheckersMove | null {
@@ -473,16 +479,16 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   function refreshUi(): void {
     const result = getGameResult(state);
     const winner = state.winner ?? result?.winner ?? null;
+    const isDraw = result?.winner === null;
     const captures = legalMoves.filter((m) => m.captures.length > 0);
-    hud.turn.textContent = winner ? `${labelSide(winner)} wins` : aiThinking ? 'Black thinking...' : `${labelSide(state.turn)} to move`;
+    const quietPly = getNoProgressPly(state);
+    hud.turn.textContent = isDraw ? 'Draw' : winner ? `${labelSide(winner)} wins` : aiThinking ? 'Black thinking...' : `${labelSide(state.turn)} to move`;
     hud.mode.textContent = mode === 'ai' ? 'Mode: Player vs AI' : 'Mode: Local Hotseat';
     hud.camera.textContent = cameraMode === 'cinematic' ? 'Camera: Cinematic' : 'Camera: Top';
-    hud.forced.textContent = captures.length > 0 ? 'Forced capture' : resultLabel(result) ?? 'Free move';
+    hud.forced.textContent = captures.length > 0 ? 'Forced capture' : resultLabel(result) ?? (quietPly > 0 ? `Quiet clock ${quietPly}/80` : 'Free move');
     hud.togglePanel.textContent = panelCollapsed ? 'Show Panel' : 'Hide Panel';
-    hud.gameOver.classList.toggle('show', Boolean(winner));
-    hud.gameOverCopy.innerHTML = winner
-      ? `<div class="ck-gameover-kicker">${resultLabel(result) ?? 'Match complete'}</div><div class="ck-gameover-title">${labelSide(winner)} wins</div><div class="ck-gameover-sub">${result?.reason === 'pat' ? `${labelSide(opponent(winner))} has no legal moves. Pat counts as a loss.` : `Finished in ${state.history.length} moves.`}</div>`
-      : '';
+    hud.gameOver.classList.toggle('show', Boolean(winner || isDraw));
+    hud.gameOverCopy.innerHTML = gameOverCopy(result, winner);
     hud.captured.textContent = `${12 - state.pieces.filter((p) => p.side === 'white').length} / ${12 - state.pieces.filter((p) => p.side === 'black').length}`;
     hud.undo.disabled = state.history.length === 0;
     for (const button of hud.depths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
@@ -503,18 +509,23 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   function recordResultIfNeeded(): void {
     const result = getGameResult(state);
     const winner = state.winner ?? result?.winner ?? null;
-    if (!gameStarted || !winner || recordedWinner === winner) return;
+    if (!gameStarted || !result) return;
+    const key = `${result.reason}:${winner ?? 'draw'}:${state.history.length}`;
+    if (recordedResultKey === key) return;
     const results = loadResults();
-    if (mode === 'ai') {
+    if (winner === null) {
+      results.draws += 1;
+    } else if (mode === 'ai') {
       if (winner === 'white') results.aiWins += 1;
       else results.aiLosses += 1;
     } else {
       results.hotseatGames += 1;
     }
-    const suffix = result?.reason === 'pat' ? ' by pat' : '';
-    results.lastResult = `${labelSide(winner)} won${suffix} in ${state.history.length} moves`;
+    results.lastResult = winner === null
+      ? `${resultLabel(result)} in ${state.history.length} moves`
+      : `${labelSide(winner)} won${resultSuffix(result)} in ${state.history.length} moves`;
     saveResults(results);
-    recordedWinner = winner;
+    recordedResultKey = key;
   }
 
   function refreshHighlights(): void {
@@ -826,7 +837,38 @@ function createHud(root: HTMLElement): {
 function resultLabel(result: CheckersResult | null): string | null {
   if (!result) return null;
   if (result.reason === 'pat') return 'Pat: no legal moves';
+  if (result.reason === 'king-majority') return 'Endgame adjudication';
+  if (result.reason === 'draw-repetition') return 'Draw: repeated position';
+  if (result.reason === 'draw-no-progress') return 'Draw: no progress';
   return 'No pieces left';
+}
+
+function resultSuffix(result: CheckersResult | null): string {
+  if (!result) return '';
+  if (result.reason === 'pat') return ' by pat';
+  if (result.reason === 'king-majority') return ' by king majority';
+  if (result.reason === 'no-pieces') return ' by capture';
+  return '';
+}
+
+function gameOverCopy(result: CheckersResult | null, winner: CheckersSide | null): string {
+  if (result?.winner === null) {
+    return `<div class="ck-gameover-kicker">${resultLabel(result)}</div><div class="ck-gameover-title">Draw</div><div class="ck-gameover-sub">${drawCopy(result)}</div>`;
+  }
+  if (!winner) return '';
+  return `<div class="ck-gameover-kicker">${resultLabel(result) ?? 'Match complete'}</div><div class="ck-gameover-title">${labelSide(winner)} wins</div><div class="ck-gameover-sub">${winCopy(result, winner)}</div>`;
+}
+
+function winCopy(result: CheckersResult | null, winner: CheckersSide): string {
+  if (result?.reason === 'pat') return `${labelSide(opponent(winner))} has no legal moves. Pat counts as a loss.`;
+  if (result?.reason === 'king-majority') return `${labelSide(winner)} has a clean king majority in a no-capture endgame.`;
+  return 'Opponent has no pieces left.';
+}
+
+function drawCopy(result: CheckersResult): string {
+  if (result.reason === 'draw-repetition') return 'Same position appeared three times.';
+  if (result.reason === 'draw-no-progress') return 'No capture or promotion happened for 80 plies.';
+  return 'Match complete.';
 }
 
 function opponent(side: CheckersSide): CheckersSide {
@@ -847,6 +889,7 @@ function loadResults(): CheckersResults {
     return {
       aiWins: Number(parsed.aiWins) || 0,
       aiLosses: Number(parsed.aiLosses) || 0,
+      draws: Number(parsed.draws) || 0,
       hotseatGames: Number(parsed.hotseatGames) || 0,
       lastResult: typeof parsed.lastResult === 'string' ? parsed.lastResult : 'No matches yet',
     };
@@ -860,13 +903,14 @@ function saveResults(results: CheckersResults): void {
 }
 
 function emptyResults(): CheckersResults {
-  return { aiWins: 0, aiLosses: 0, hotseatGames: 0, lastResult: 'No matches yet' };
+  return { aiWins: 0, aiLosses: 0, draws: 0, hotseatGames: 0, lastResult: 'No matches yet' };
 }
 
 function renderResults(results: CheckersResults): string {
   return `
     <div class="ck-result-row"><span>AI wins</span><b>${results.aiWins}</b></div>
     <div class="ck-result-row"><span>AI losses</span><b>${results.aiLosses}</b></div>
+    <div class="ck-result-row"><span>Draws</span><b>${results.draws}</b></div>
     <div class="ck-result-row"><span>Hotseat games</span><b>${results.hotseatGames}</b></div>
     <div class="ck-last-result">${results.lastResult}</div>
   `;

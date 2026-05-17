@@ -4,6 +4,8 @@ import {
   createInitialCheckersState,
   generateLegalMoves,
   getGameResult,
+  type CheckersHistoryEntry,
+  type CheckersMove,
   type CheckersPiece,
   type CheckersState,
 } from './rules';
@@ -15,6 +17,18 @@ function state(turn: CheckersState['turn'], pieces: CheckersPiece[]): CheckersSt
     history: [],
     winner: null,
   };
+}
+
+function quietHistoryEntry(turn: CheckersState['turn'], pieces: CheckersPiece[]): CheckersHistoryEntry {
+  const piece = pieces.find((p) => p.side === turn) ?? pieces[0]!;
+  const move: CheckersMove = {
+    pieceId: piece.id,
+    from: { x: piece.x, y: piece.y },
+    path: [{ x: piece.x, y: piece.y }],
+    captures: [],
+    promotes: false,
+  };
+  return { turn, pieces: pieces.map((p) => ({ ...p })), move };
 }
 
 describe('Russian checkers rules', () => {
@@ -119,5 +133,56 @@ describe('Russian checkers rules', () => {
     ]));
 
     expect(result).toEqual({ winner: 'black', reason: 'pat' });
+  });
+
+  it('adjudicates a clean two-kings-versus-one-kings endgame for the side with the extra king', () => {
+    const result = getGameResult(state('black', [
+      { id: 1, side: 'white', x: 1, y: 0, king: true },
+      { id: 2, side: 'white', x: 5, y: 0, king: true },
+      { id: 3, side: 'black', x: 2, y: 7, king: true },
+    ]));
+
+    expect(result).toEqual({ winner: 'white', reason: 'king-majority' });
+  });
+
+  it('does not adjudicate king-majority while an immediate capture is available', () => {
+    const result = getGameResult(state('black', [
+      { id: 1, side: 'white', x: 5, y: 5, king: true },
+      { id: 2, side: 'white', x: 0, y: 1, king: true },
+      { id: 3, side: 'black', x: 3, y: 3, king: true },
+    ]));
+
+    expect(result).toBeNull();
+  });
+
+  it('draws repeated equal-king endgames instead of letting them loop forever', () => {
+    const pieces: CheckersPiece[] = [
+      { id: 1, side: 'white', x: 1, y: 0, king: true },
+      { id: 2, side: 'black', x: 6, y: 7, king: true },
+    ];
+    const result = getGameResult({
+      ...state('white', pieces),
+      history: [
+        quietHistoryEntry('white', pieces),
+        quietHistoryEntry('black', pieces),
+        quietHistoryEntry('white', pieces),
+        quietHistoryEntry('black', pieces),
+      ],
+    });
+
+    expect(result).toEqual({ winner: null, reason: 'draw-repetition' });
+  });
+
+  it('draws equal-king endgames after a long quiet no-progress sequence', () => {
+    const pieces: CheckersPiece[] = [
+      { id: 1, side: 'white', x: 1, y: 0, king: true },
+      { id: 2, side: 'black', x: 6, y: 7, king: true },
+    ];
+    const result = getGameResult({
+      ...state('white', pieces),
+      history: Array.from({ length: 80 }, (_, i) => quietHistoryEntry(i % 2 === 0 ? 'white' : 'black', pieces)),
+    });
+
+    expect(result).toEqual({ winner: null, reason: 'draw-no-progress' });
   });
 });

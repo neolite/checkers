@@ -20,6 +20,7 @@ export function chooseAiMove(state: CheckersState, depth: number): CheckersMove 
 
 function minimax(state: CheckersState, depth: number, alpha: number, beta: number, aiSide: CheckersSide): number {
   const result = getGameResult(state);
+  if (result?.winner === null) return 0;
   if (result) return result.winner === aiSide ? WIN_SCORE + depth : -WIN_SCORE - depth;
   if (depth <= 0) return evaluate(state, aiSide);
 
