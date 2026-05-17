@@ -64,6 +64,7 @@ const DRAG_THRESHOLD_PX = 6;
 const AI_SIDE: CheckersSide = 'black';
 const RESULTS_KEY = 'sc-gens:premium-checkers-results:v1';
 const PROFILE_KEY = 'sc-gens:premium-checkers-profile:v1';
+const CITY_OPTIONS = ['Алматы', 'Астана', 'Шымкент', 'Караганда', 'Тараз', 'Бишкек', 'Ташкент', 'Москва'] as const;
 
 interface OpponentPersona {
   handle: string;
@@ -812,6 +813,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     hud.undo.disabled = state.history.length === 0;
     hud.surrender.disabled = !gameStarted || aiThinking || gameOver || !isHumanTurn();
     if (document.activeElement !== hud.profileHandle) hud.profileHandle.value = profile.handle;
+    syncCitySelect(hud.profileCity, profile.city);
     if (document.activeElement !== hud.profileCity) hud.profileCity.value = profile.city;
     hud.profileLabel.textContent = `${profile.handle} · ${profile.city}`;
     hud.skin.textContent = t(locale, 'settings.skin', { name: skinLabel(profile.skin, locale) });
@@ -1298,7 +1300,7 @@ interface CheckersHud {
   popoverOpponent: HTMLElement;
   popoverSettings: HTMLElement;
   pro: HTMLButtonElement;
-  profileCity: HTMLInputElement;
+  profileCity: HTMLSelectElement;
   profileHandle: HTMLInputElement;
   profileLabel: HTMLElement;
   restart: HTMLButtonElement;
@@ -1449,7 +1451,7 @@ function createHud(root: HTMLElement): CheckersHud {
             </label>
             <label>
               <span>City</span>
-              <input id="ck-profile-city" maxlength="24" autocomplete="off" />
+              <select id="ck-profile-city"></select>
             </label>
           </div>
           <button class="ck-btn wide" id="ck-profile-lang">Язык: Русский</button>
@@ -1540,7 +1542,7 @@ function createHud(root: HTMLElement): CheckersHud {
     popoverOpponent: overlay.querySelector('#ck-popover-opponent') as HTMLElement,
     popoverSettings: overlay.querySelector('#ck-popover-settings') as HTMLElement,
     pro: overlay.querySelector('#ck-pro') as HTMLButtonElement,
-    profileCity: overlay.querySelector('#ck-profile-city') as HTMLInputElement,
+    profileCity: overlay.querySelector('#ck-profile-city') as HTMLSelectElement,
     profileHandle: overlay.querySelector('#ck-profile-handle') as HTMLInputElement,
     profileLabel: overlay.querySelector('#ck-profile-label') as HTMLElement,
     restart: overlay.querySelector('#ck-restart') as HTMLButtonElement,
@@ -1819,6 +1821,18 @@ function loadProfile(): CheckersProfile {
 
 function saveProfile(profile: CheckersProfile): void {
   window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function syncCitySelect(select: HTMLSelectElement, city: string): void {
+  const values = CITY_OPTIONS.includes(city as (typeof CITY_OPTIONS)[number])
+    ? [...CITY_OPTIONS]
+    : [city, ...CITY_OPTIONS];
+  const currentValues = [...select.options].map((option) => option.value).join('\u0000');
+  const nextValues = values.join('\u0000');
+  if (currentValues === nextValues) return;
+  select.innerHTML = values
+    .map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)
+    .join('');
 }
 
 function emptyProfile(): CheckersProfile {
