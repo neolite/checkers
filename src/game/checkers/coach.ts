@@ -1,4 +1,5 @@
 import { chooseAiMove } from './ai';
+import { t, type Locale } from './i18n';
 import {
   applyMove,
   generateLegalMoves,
@@ -23,7 +24,7 @@ export interface CoachReport {
   insights: CoachInsight[];
 }
 
-export function buildCoachReport(history: readonly CheckersHistoryEntry[], finalState: CheckersState): CoachReport {
+export function buildCoachReport(history: readonly CheckersHistoryEntry[], finalState: CheckersState, locale: Locale = 'en'): CoachReport {
   const insights: CoachInsight[] = [];
   let score = 64;
   let captures = 0;
@@ -53,10 +54,15 @@ export function buildCoachReport(history: readonly CheckersHistoryEntry[], final
       const best = legal.find((m) => m.captures.length === maxCaptures);
       insights.push({
         tone: 'warning',
-        title: `Move ${index + 1}: bigger combo was available`,
+        title: t(locale, 'report.insight.bigger-combo.title', { n: index + 1 }),
         body: best
-          ? `${formatMove(entry.move)} took ${entry.move.captures.length}; ${formatMove(best)} could take ${maxCaptures}.`
-          : `${formatMove(entry.move)} left a stronger capture sequence on the board.`,
+          ? t(locale, 'report.insight.bigger-combo.body-known', {
+              played: formatMove(entry.move),
+              takenN: entry.move.captures.length,
+              best: formatMove(best),
+              bestN: maxCaptures,
+            })
+          : t(locale, 'report.insight.bigger-combo.body-unknown', { played: formatMove(entry.move) }),
       });
     }
 
@@ -68,8 +74,8 @@ export function buildCoachReport(history: readonly CheckersHistoryEntry[], final
       const reply = captureReplies[0]!;
       insights.push({
         tone: 'idea',
-        title: `Move ${index + 1}: opponent got a forcing reply`,
-        body: `${formatMove(entry.move)} allowed ${formatMove(reply)}. Look for moves that keep the diagonal closed.`,
+        title: t(locale, 'report.insight.forcing-reply.title', { n: index + 1 }),
+        body: t(locale, 'report.insight.forcing-reply.body', { played: formatMove(entry.move), reply: formatMove(reply) }),
       });
     }
   });
@@ -82,68 +88,78 @@ export function buildCoachReport(history: readonly CheckersHistoryEntry[], final
   if (result?.winner === null) score += 4;
 
   const boundedScore = Math.max(0, Math.min(100, score));
-  const fallbackInsight = makeFallbackInsight(captures, promotions, biggerCombosMissed, punishableQuietMoves);
+  const fallbackInsight = makeFallbackInsight(captures, promotions, biggerCombosMissed, punishableQuietMoves, locale);
   const finalInsights = insights.slice(0, 4);
   if (finalInsights.length === 0) finalInsights.push(fallbackInsight);
 
   return {
     score: boundedScore,
-    headline: headlineForScore(boundedScore),
-    summary: `${captures} captures, ${promotions} promotions, ${biggerCombosMissed} missed combo windows.`,
+    headline: headlineForScore(boundedScore, locale),
+    summary: t(locale, 'report.summary', { cap: captures, prom: promotions, miss: biggerCombosMissed }),
     insights: finalInsights,
   };
 }
 
-export function getLiveCoachTip(state: CheckersState, depth = 2): string {
+export interface LiveCoachTipMeta {
+  key: 'tip.forced-jump' | 'tip.king-row' | 'tip.center-control' | 'tip.tempo' | 'tip.no-legal';
+  vars: Record<string, string | number>;
+}
+
+export function liveCoachTipMeta(state: CheckersState, depth = 2): LiveCoachTipMeta {
   const moves = generateLegalMoves(state);
-  if (moves.length === 0) return 'No legal move. The position is decided.';
+  if (moves.length === 0) return { key: 'tip.no-legal', vars: {} };
   const captures = moves.filter((m) => m.captures.length > 0);
   if (captures.length > 0) {
     const bestCapture = captures.reduce((best, move) => (move.captures.length > best.captures.length ? move : best), captures[0]!);
-    return `Forced jump: ${formatMove(bestCapture)} wins ${bestCapture.captures.length}.`;
+    return { key: 'tip.forced-jump', vars: { move: formatMove(bestCapture), n: bestCapture.captures.length } };
   }
 
   const best = chooseAiMove(state, depth) ?? moves[0]!;
   const final = best.path[best.path.length - 1]!;
   const centerDelta = Math.abs(best.from.x - 3.5) + Math.abs(best.from.y - 3.5) - Math.abs(final.x - 3.5) - Math.abs(final.y - 3.5);
-  if (best.promotes) return `Candidate: ${formatMove(best)} reaches king row.`;
-  if (centerDelta > 0) return `Candidate: ${formatMove(best)} improves center control.`;
-  return `Candidate: ${formatMove(best)} keeps tempo without exposing a capture.`;
+  if (best.promotes) return { key: 'tip.king-row', vars: { move: formatMove(best) } };
+  if (centerDelta > 0) return { key: 'tip.center-control', vars: { move: formatMove(best) } };
+  return { key: 'tip.tempo', vars: { move: formatMove(best) } };
+}
+
+export function getLiveCoachTip(state: CheckersState, depth = 2, locale: Locale = 'en'): string {
+  const meta = liveCoachTipMeta(state, depth);
+  return t(locale, meta.key, meta.vars);
 }
 
 export function formatMove(move: CheckersMove): string {
   return `${coord(move.from)}-${move.path.map(coord).join('-')}`;
 }
 
-function makeFallbackInsight(captures: number, promotions: number, biggerCombosMissed: number, punishableQuietMoves: number): CoachInsight {
+function makeFallbackInsight(captures: number, promotions: number, biggerCombosMissed: number, punishableQuietMoves: number, locale: Locale): CoachInsight {
   if (biggerCombosMissed === 0 && punishableQuietMoves === 0) {
     return {
       tone: 'good',
-      title: 'Clean tactical profile',
+      title: t(locale, 'report.fallback.good.title'),
       body: captures > 0
-        ? `You converted ${captures} capture${captures === 1 ? '' : 's'} without leaving obvious forced replies.`
-        : 'No major tactical leaks detected. Try creating forcing capture threats earlier.',
+        ? t(locale, 'report.fallback.good.body-with-cap', { n: captures })
+        : t(locale, 'report.fallback.good.body-no-cap'),
     };
   }
   if (promotions > 0) {
     return {
       tone: 'good',
-      title: 'Promotion pressure worked',
-      body: `You reached king row ${promotions} time${promotions === 1 ? '' : 's'}. Build more plans around that lane.`,
+      title: t(locale, 'report.fallback.promotions.title'),
+      body: t(locale, 'report.fallback.promotions.body', { n: promotions }),
     };
   }
   return {
     tone: 'idea',
-    title: 'Next training focus',
-    body: 'Before every quiet move, scan the four diagonals for a forcing reply.',
+    title: t(locale, 'report.fallback.training.title'),
+    body: t(locale, 'report.fallback.training.body'),
   };
 }
 
-function headlineForScore(score: number): string {
-  if (score >= 86) return 'Masterclass';
-  if (score >= 72) return 'Strong tactical game';
-  if (score >= 55) return 'Playable, with training targets';
-  return 'High-risk game';
+function headlineForScore(score: number, locale: Locale): string {
+  if (score >= 86) return t(locale, 'report.headline.masterclass');
+  if (score >= 72) return t(locale, 'report.headline.strong');
+  if (score >= 55) return t(locale, 'report.headline.playable');
+  return t(locale, 'report.headline.risky');
 }
 
 function coord(s: { x: number; y: number }): string {

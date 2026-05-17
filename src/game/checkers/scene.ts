@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { chooseAiMove } from './ai';
-import { buildCoachReport, getLiveCoachTip } from './coach';
+import { buildCoachReport, liveCoachTipMeta } from './coach';
+import { DEFAULT_LOCALE, LOCALES, localeLabel, t, type Locale } from './i18n';
 import {
   applyMove,
   createInitialCheckersState,
@@ -24,12 +25,18 @@ type Difficulty = 2 | 4 | 6;
 type CameraMode = 'cinematic' | 'top';
 type ThemeMode = 'midnight' | 'light';
 type PieceSkin = 'classic' | 'obsidian' | 'aurora';
+interface LastResultData {
+  kind: 'win' | 'draw';
+  side?: CheckersSide;
+  reason: CheckersResult['reason'];
+  moves: number;
+}
 interface CheckersResults {
   aiWins: number;
   aiLosses: number;
   draws: number;
   hotseatGames: number;
-  lastResult: string;
+  lastResult: LastResultData | null;
 }
 interface CheckersProfile {
   handle: string;
@@ -37,7 +44,11 @@ interface CheckersProfile {
   theme: ThemeMode;
   pro: boolean;
   skin: PieceSkin;
+  locale: Locale;
+  onboarded: boolean;
 }
+
+type OnboardingStep = 1 | 2 | 3 | 'back';
 interface LeaderboardRow {
   handle: string;
   city: string;
@@ -53,6 +64,70 @@ const DRAG_THRESHOLD_PX = 6;
 const AI_SIDE: CheckersSide = 'black';
 const RESULTS_KEY = 'sc-gens:premium-checkers-results:v1';
 const PROFILE_KEY = 'sc-gens:premium-checkers-profile:v1';
+
+interface OpponentPersona {
+  handle: string;
+  rating: number;
+  tagline: string;
+  accent: string;
+  initials: string;
+  firstName: string;
+}
+
+const PERSONA_ACCENTS = { 2: '#7ef5b3', 4: '#8fd0ff', 6: '#ff9a5c' } as const;
+const PERSONA_RATINGS = { 2: 1100, 4: 1500, 6: 2000 } as const;
+const PERSONA_INITIALS = { 2: 'YB', 4: 'DE', 6: 'M8' } as const;
+const PERSONA_NAME_KEY: Record<Difficulty, 'yara' | 'dana' | 'magnus'> = { 2: 'yara', 4: 'dana', 6: 'magnus' };
+const HOTSEAT_ACCENT = '#ffd79d';
+const HOTSEAT_INITIALS = '2P';
+
+function getPersona(diff: Difficulty, locale: Locale): OpponentPersona {
+  const slug = PERSONA_NAME_KEY[diff];
+  return {
+    handle: t(locale, `persona.${slug}.handle`),
+    rating: PERSONA_RATINGS[diff],
+    tagline: t(locale, `persona.${slug}.tagline`),
+    accent: PERSONA_ACCENTS[diff],
+    initials: PERSONA_INITIALS[diff],
+    firstName: t(locale, `persona.${slug}.first`),
+  };
+}
+
+function getHotseatPersona(locale: Locale): OpponentPersona {
+  return {
+    handle: t(locale, 'persona.hotseat.handle'),
+    rating: 0,
+    tagline: t(locale, 'persona.hotseat.tagline'),
+    accent: HOTSEAT_ACCENT,
+    initials: HOTSEAT_INITIALS,
+    firstName: t(locale, 'persona.hotseat.handle'),
+  };
+}
+
+function evaluatePosition(state: CheckersState): number {
+  let score = 0;
+  for (const p of state.pieces) {
+    const v = p.king ? 3 : 1;
+    score += p.side === 'white' ? v : -v;
+  }
+  return Math.max(-12, Math.min(12, score));
+}
+
+const LOOKFOR_BY_TIP: Record<string, string> = {
+  'tip.forced-jump': 'lookfor.forced',
+  'tip.king-row': 'lookfor.king-row',
+  'tip.center-control': 'lookfor.center',
+  'tip.tempo': 'lookfor.tempo',
+  'tip.no-legal': 'lookfor.decided',
+};
+
+const TONE_BY_TIP: Record<string, 'good' | 'warning' | 'idea'> = {
+  'tip.forced-jump': 'warning',
+  'tip.king-row': 'good',
+  'tip.center-control': 'idea',
+  'tip.tempo': 'idea',
+  'tip.no-legal': 'idea',
+};
 
 export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): SceneHandle {
   const root = document.createElement('div');
@@ -94,14 +169,17 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   let aiThinking = false;
   let gameStarted = false;
   let recordedResultKey: string | null = null;
-  let panelCollapsed = window.innerWidth < 920;
+  let firstSelectionMade = false;
+  let openPopover: 'opponent' | 'settings' | null = null;
+  let onboardingStep: OnboardingStep = profile.onboarded ? 'back' : 1;
   let dragState: { pieceId: number; pointerId: number; startX: number; startY: number; origin: THREE.Vector3; active: boolean } | null = null;
   let dragHoverSquare: { x: number; y: number } | null = null;
   let dragHoverMarker: THREE.Object3D | null = null;
   let guideTimer: number | null = null;
 
   const hud = createHud(root);
-  root.classList.toggle('panel-collapsed', panelCollapsed);
+  applyLocale();
+  applyStepUI();
   buildLights(scene);
   buildBoard(board, squareMeshes);
   setCamera(camera, cameraMode);
@@ -119,32 +197,111 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   hud.restart.addEventListener('click', () => {
     startMatch();
   });
-  hud.surrender.addEventListener('click', surrender);
+  hud.surrender.addEventListener('click', () => {
+    if (hud.surrender.disabled) return;
+    closePopovers();
+    showConfirmSurrender();
+  });
+  hud.confirmCancel.addEventListener('click', hideConfirmSurrender);
+  hud.confirmConfirm.addEventListener('click', () => {
+    hideConfirmSurrender();
+    surrender();
+  });
   hud.gameOverRestart.addEventListener('click', startMatch);
+  hud.gameOverReview.addEventListener('click', openReview);
   hud.start.addEventListener('click', startMatch);
   hud.undo.addEventListener('click', undo);
-  hud.togglePanel.addEventListener('click', () => {
-    panelCollapsed = !panelCollapsed;
-    root.classList.toggle('panel-collapsed', panelCollapsed);
+  hud.camera2d.addEventListener('click', () => setCameraMode('top'));
+  hud.camera3d.addEventListener('click', () => setCameraMode('cinematic'));
+  hud.iconOpponent.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    togglePopover('opponent');
+  });
+  hud.iconSettings.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    togglePopover('settings');
+  });
+  hud.iconTheme.addEventListener('click', () => {
+    profile = { ...profile, theme: profile.theme === 'midnight' ? 'light' : 'midnight' };
+    saveProfile(profile);
+    applyTheme();
     refreshUi();
   });
-  hud.camera.addEventListener('click', () => {
-    cameraMode = cameraMode === 'cinematic' ? 'top' : 'cinematic';
-    setCamera(camera, cameraMode);
+  hud.iconPro.addEventListener('click', () => hud.pro.click());
+  function toggleLocale(): void {
+    const idx = LOCALES.indexOf(profile.locale);
+    const next = LOCALES[(idx + 1) % LOCALES.length] ?? DEFAULT_LOCALE;
+    profile = { ...profile, locale: next };
+    saveProfile(profile);
+    applyLocale();
+    applyStepUI();
     refreshUi();
+  }
+  hud.language.addEventListener('click', toggleLocale);
+  hud.profileLang.addEventListener('click', toggleLocale);
+  hud.next.addEventListener('click', () => {
+    if (onboardingStep === 1) setStep(2);
+    else if (onboardingStep === 2) setStep(3);
   });
-  hud.mode.addEventListener('click', () => {
+  hud.prev.addEventListener('click', () => {
+    if (onboardingStep === 2) setStep(1);
+    else if (onboardingStep === 3) setStep(2);
+  });
+  hud.editProfile.addEventListener('click', () => setStep(2));
+  hud.iconInvite.addEventListener('click', () => {
+    void shareChallenge();
+  });
+  for (const card of hud.opponentCards) {
+    card.addEventListener('click', () => {
+      const depth = Number(card.dataset['depth']) as Difficulty;
+      difficulty = depth;
+      if (mode === 'hotseat') mode = 'ai';
+      selectedPieceId = null;
+      closePopovers();
+      refreshUi();
+      maybeAiMove();
+    });
+  }
+  hud.hotseatBtn.addEventListener('click', () => {
     mode = mode === 'ai' ? 'hotseat' : 'ai';
     selectedPieceId = null;
+    closePopovers();
     refreshUi();
     maybeAiMove();
   });
-  for (const button of hud.depths) {
-    button.addEventListener('click', () => {
-      difficulty = Number(button.dataset['depth']) as Difficulty;
-      refreshUi();
-    });
-  }
+  hud.coach.addEventListener('click', (ev) => {
+    const target = ev.target as HTMLElement | null;
+    const action = target?.closest<HTMLElement>('[data-action]')?.dataset['action'];
+    if (action === 'open-review-from-coach') openReview();
+  });
+  hud.review.addEventListener('click', (ev) => {
+    const target = ev.target as HTMLElement | null;
+    const action = target?.closest<HTMLElement>('[data-action]')?.dataset['action'];
+    if (!action) {
+      if (target === hud.review) closeReview();
+      return;
+    }
+    if (action === 'close') closeReview();
+    if (action === 'replay') {
+      closeReview();
+      startMatch();
+    }
+    if (action === 'menu') {
+      closeReview();
+      exitToMenu();
+    }
+    if (action === 'pro') {
+      hud.pro.click();
+      refreshReviewBody();
+    }
+  });
+  document.addEventListener('click', (ev) => {
+    if (!openPopover) return;
+    const target = ev.target as HTMLElement | null;
+    if (target?.closest('.ck-popover')) return;
+    if (target?.closest('.ck-icon-btn')) return;
+    closePopovers();
+  });
   for (const button of hud.startDepths) {
     button.addEventListener('click', () => {
       difficulty = Number(button.dataset['depth']) as Difficulty;
@@ -174,12 +331,6 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     saveProfile(profile);
     refreshUi();
   });
-  hud.theme.addEventListener('click', () => {
-    profile = { ...profile, theme: profile.theme === 'midnight' ? 'light' : 'midnight' };
-    saveProfile(profile);
-    applyTheme();
-    refreshUi();
-  });
   hud.skin.addEventListener('click', () => {
     profile = { ...profile, skin: nextSkin(profile.skin, profile.pro) };
     saveProfile(profile);
@@ -190,7 +341,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     profile = { ...profile, pro: true, skin: profile.skin === 'classic' ? 'aurora' : profile.skin };
     saveProfile(profile);
     syncPieces();
-    showGuideText('Pro board skin unlocked in this prototype.');
+    showGuideText(t(profile.locale, 'guide.pro-unlocked'));
     refreshUi();
   });
   hud.share.addEventListener('click', () => {
@@ -238,10 +389,10 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     url.hash = `checkers-${mode}-${difficulty}-${citySlug}`;
     try {
       await navigator.clipboard?.writeText(url.toString());
-      showGuideText('Challenge link copied.');
+      showGuideText(t(profile.locale, 'guide.link-copied'));
     } catch {
       window.location.hash = url.hash;
-      showGuideText('Challenge link is ready in the address bar.');
+      showGuideText(t(profile.locale, 'guide.link-ready'));
     }
   }
 
@@ -251,18 +402,13 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     mode = match[1] === 'hotseat' ? 'hotseat' : 'ai';
     difficulty = Number(match[2]) as Difficulty;
     startMatch();
-    showGuideText('Challenge link loaded.');
+    showGuideText(t(profile.locale, 'guide.link-loaded'));
   }
 
   function onResize(): void {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    if (window.innerWidth < 920 && !panelCollapsed) {
-      panelCollapsed = true;
-      root.classList.add('panel-collapsed');
-      refreshUi();
-    }
   }
 
   function onPointerDown(ev: PointerEvent): void {
@@ -277,6 +423,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     if (data.kind === 'piece' && data.id !== undefined) {
       if (canSelectPiece(data.id)) {
         selectedPieceId = data.id;
+        firstSelectionMade = true;
         beginDrag(ev, data.id);
       } else {
         selectedPieceId = null;
@@ -320,7 +467,7 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       playMove(move, pieceMeshes.get(drag.pieceId)?.position.clone() ?? drag.origin.clone());
       return;
     }
-    if (drag.active) showGuideText('Drop on a highlighted square to move.');
+    if (drag.active) showGuideText(t(profile.locale, 'guide.drop-on-highlight'));
     const mesh = pieceMeshes.get(drag.pieceId);
     if (mesh) mesh.position.copy(drag.origin);
     clearDragHover();
@@ -444,9 +591,9 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
   function reasonPieceCannotMove(pieceId: number): string {
     const forced = legalMoves.filter((m) => m.captures.length > 0);
     if (forced.length > 0 && !forced.some((m) => m.pieceId === pieceId)) {
-      return 'Forced capture: another piece must jump.';
+      return t(profile.locale, 'guide.forced');
     }
-    return 'This piece has no legal move.';
+    return t(profile.locale, 'guide.no-legal');
   }
 
   function showGuideText(message: string): void {
@@ -519,11 +666,71 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     legalMoves = generateLegalMoves(state);
     aiThinking = false;
     gameStarted = true;
+    firstSelectionMade = false;
     recordedResultKey = null;
+    closePopovers();
+    hideConfirmSurrender();
+    hud.review.classList.remove('open');
     resetCanvasCursor();
     root.classList.add('playing');
+    if (!profile.onboarded) {
+      profile = { ...profile, onboarded: true };
+      saveProfile(profile);
+      onboardingStep = 'back';
+      applyStepUI();
+    }
     syncPieces();
     refreshUi();
+  }
+
+  function setStep(next: OnboardingStep): void {
+    onboardingStep = next;
+    applyStepUI();
+  }
+
+  function applyStepUI(): void {
+    const locale = profile.locale;
+    hud.hero.dataset['step'] = String(onboardingStep);
+    const startWrap = hud.hero.closest('.checkers-start') as HTMLElement | null;
+    if (startWrap) startWrap.dataset['step'] = String(onboardingStep);
+    if (onboardingStep === 1) {
+      hud.stepEyebrow.textContent = t(locale, 'onboard.welcome.eyebrow');
+      hud.stepTitle.textContent = t(locale, 'onboard.welcome.title');
+      hud.stepBody.textContent = t(locale, 'onboard.welcome.body');
+      hud.next.textContent = t(locale, 'onboard.welcome.cta');
+    } else if (onboardingStep === 2) {
+      hud.stepEyebrow.textContent = t(locale, 'onboard.profile.eyebrow');
+      hud.stepTitle.textContent = t(locale, 'onboard.profile.title');
+      hud.stepBody.textContent = t(locale, 'onboard.profile.body');
+      hud.next.textContent = t(locale, 'onboard.next');
+      hud.prev.textContent = t(locale, 'onboard.back');
+    } else if (onboardingStep === 3) {
+      hud.stepEyebrow.textContent = t(locale, 'onboard.opponent.eyebrow');
+      hud.stepTitle.textContent = t(locale, 'onboard.opponent.title');
+      hud.stepBody.textContent = t(locale, 'onboard.opponent.body');
+      hud.start.textContent = t(locale, 'onboard.opponent.cta');
+      hud.prev.textContent = t(locale, 'onboard.back');
+    } else {
+      hud.stepEyebrow.textContent = t(locale, 'welcome-back.eyebrow');
+      hud.stepTitle.textContent = t(locale, 'welcome-back.title', { name: profile.handle });
+      hud.stepBody.textContent = t(locale, 'welcome-back.body');
+      hud.start.textContent = t(locale, 'start.cta');
+      hud.editProfile.textContent = t(locale, 'welcome-back.edit');
+    }
+    if (typeof onboardingStep === 'number') {
+      const dots = [1, 2, 3].map((n) => `<span class="ck-dot ${n === onboardingStep ? 'active' : ''}"></span>`).join('');
+      hud.stepIndicator.innerHTML = `${dots}<span class="ck-step-of">${escapeHtml(t(locale, 'onboard.step-of', { n: onboardingStep, total: 3 }))}</span>`;
+    } else {
+      hud.stepIndicator.innerHTML = '';
+    }
+    hud.profileLang.textContent = t(locale, 'settings.language');
+    for (const feat of hud.feats) {
+      const n = feat.dataset['feat'];
+      const b = feat.querySelector('b');
+      const span = feat.querySelector('span');
+      if (b) b.textContent = t(locale, `onboard.welcome.feat${n}.t`);
+      if (span) span.textContent = t(locale, `onboard.welcome.feat${n}.b`);
+    }
   }
 
   function surrender(): void {
@@ -581,41 +788,242 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     const winner = state.winner ?? result?.winner ?? null;
     const isDraw = result?.winner === null;
     const captures = legalMoves.filter((m) => m.captures.length > 0);
-    const quietPly = getNoProgressPly(state);
-    hud.turn.textContent = isDraw ? 'Draw' : winner ? `${labelSide(winner)} wins` : aiThinking ? 'Black thinking...' : `${labelSide(state.turn)} to move`;
-    hud.mode.textContent = mode === 'ai' ? 'Mode: Player vs AI' : 'Mode: Local Hotseat';
-    hud.camera.textContent = cameraMode === 'cinematic' ? 'Camera: Cinematic' : 'Camera: Top';
-    hud.forced.textContent = captures.length > 0 ? 'Forced capture' : resultLabel(result) ?? (quietPly > 0 ? `Quiet clock ${quietPly}/80` : 'Free move');
-    hud.togglePanel.textContent = panelCollapsed ? 'Show Panel' : 'Hide Panel';
-    hud.gameOver.classList.toggle('show', Boolean(winner || isDraw));
-    hud.gameOverCopy.innerHTML = gameOverCopy(result, winner);
-    hud.captured.textContent = `${12 - state.pieces.filter((p) => p.side === 'white').length} / ${12 - state.pieces.filter((p) => p.side === 'black').length}`;
+    const gameOver = Boolean(winner || isDraw);
+    const locale = profile.locale;
+    hud.turn.textContent = isDraw
+      ? t(locale, 'turn.draw')
+      : winner
+        ? t(locale, 'turn.wins', { side: labelSide(winner, locale) })
+        : aiThinking
+          ? t(locale, 'turn.black-thinking')
+          : t(locale, state.turn === 'white' ? 'turn.white-to-move' : 'turn.black-to-move');
+    hud.turnPill.classList.toggle('black', !winner && !isDraw && state.turn === 'black');
+    hud.turnPill.classList.toggle('thinking', aiThinking);
+    if (captures.length > 0 && !gameOver) {
+      hud.forced.textContent = t(locale, 'turn.forced-capture');
+      hud.forced.style.display = '';
+    } else {
+      hud.forced.style.display = 'none';
+    }
+    hud.gameOver.classList.toggle('show', gameOver);
+    hud.gameOverCopy.innerHTML = gameOverCopy(result, winner, locale);
+    renderCapturedStacks(state.pieces, locale);
     hud.undo.disabled = state.history.length === 0;
-    hud.surrender.disabled = !gameStarted || aiThinking || Boolean(winner || isDraw) || !isHumanTurn();
+    hud.surrender.disabled = !gameStarted || aiThinking || gameOver || !isHumanTurn();
     if (document.activeElement !== hud.profileHandle) hud.profileHandle.value = profile.handle;
     if (document.activeElement !== hud.profileCity) hud.profileCity.value = profile.city;
     hud.profileLabel.textContent = `${profile.handle} · ${profile.city}`;
-    hud.theme.textContent = profile.theme === 'light' ? 'Theme: Light' : 'Theme: Midnight';
-    hud.skin.textContent = `Skin: ${skinLabel(profile.skin)}`;
-    hud.pro.textContent = profile.pro ? 'Pro Active' : 'Upgrade to Pro';
+    hud.skin.textContent = t(locale, 'settings.skin', { name: skinLabel(profile.skin, locale) });
+    hud.camera3d.classList.toggle('active', cameraMode === 'cinematic');
+    hud.camera2d.classList.toggle('active', cameraMode === 'top');
+    hud.help.classList.toggle('hidden', firstSelectionMade || !gameStarted || gameOver);
+    syncOpponentIcon();
+    syncOpponentPopover();
+    syncProIcon();
+    hud.pro.textContent = t(locale, profile.pro ? 'settings.pro.active' : 'settings.pro.upgrade');
     hud.pro.disabled = profile.pro;
-    for (const button of hud.depths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
+    hud.language.textContent = t(locale, 'settings.language');
     for (const button of hud.startDepths) button.classList.toggle('active', Number(button.dataset['depth']) === difficulty);
     for (const button of hud.startModes) button.classList.toggle('active', button.dataset['mode'] === mode);
-    hud.startModeLabel.textContent = mode === 'ai' ? 'Player vs AI' : 'Local Hotseat';
-    hud.startDifficultyLabel.textContent = difficultyLabel(difficulty);
-    hud.moves.innerHTML = state.history.slice(-12).map((h, i) => {
-      const n = state.history.length - state.history.slice(-12).length + i + 1;
-      const move = h.move;
-      return `<div><b>${n}.</b> ${labelSide(h.turn)} ${coord(move.from)}-${move.path.map(coord).join('-')}${move.captures.length ? ' ×' + move.captures.length : ''}</div>`;
-    }).join('');
+    hud.startModeLabel.textContent = mode === 'ai' ? t(locale, 'start.player-vs-ai') : t(locale, 'persona.hotseat.handle');
+    const dPersona = getPersona(difficulty, locale);
+    hud.startDifficultyLabel.textContent = `${dPersona.handle} · ${dPersona.rating}`;
+    hud.moves.innerHTML = renderHistory(state.history, locale);
     recordResultIfNeeded();
     const results = loadResults();
-    hud.results.innerHTML = renderResults(results);
-    hud.leaderboardTitle.textContent = `Top ${profile.city}`;
+    hud.results.innerHTML = renderResults(results, locale);
+    hud.leaderboardTitle.textContent = t(locale, 'results.top-city', { city: profile.city });
     hud.leaderboard.innerHTML = renderLeaderboard(profile, results);
-    hud.coach.innerHTML = renderCoach(gameStarted, Boolean(winner || isDraw), state);
+    hud.coach.innerHTML = renderCoachCard(gameStarted, gameOver, state, mode, difficulty, aiThinking, locale);
+    applyStepUI();
     refreshHighlights();
+  }
+
+  function syncOpponentIcon(): void {
+    const persona = mode === 'hotseat' ? getHotseatPersona(profile.locale) : getPersona(difficulty, profile.locale);
+    hud.iconOpponent.textContent = persona.initials;
+    hud.iconOpponent.style.setProperty('--persona-accent', persona.accent);
+  }
+
+  function syncOpponentPopover(): void {
+    for (const card of hud.opponentCards) {
+      const depth = Number(card.dataset['depth']) as Difficulty;
+      card.classList.toggle('active', mode === 'ai' && depth === difficulty);
+    }
+    hud.hotseatBtn.textContent = t(profile.locale, mode === 'hotseat' ? 'opponent.hotseat-on' : 'opponent.hotseat-off');
+  }
+
+  function applyLocale(): void {
+    const locale = profile.locale;
+    const root = hud.coach.closest('.checkers-root') ?? hud.coach.parentElement;
+    void root;
+    const overlay = hud.coach.closest('.checkers-overlay');
+    if (!overlay) return;
+
+    const title = overlay.querySelector('.checkers-title') as HTMLElement | null;
+    const sub = overlay.querySelector('.checkers-sub') as HTMLElement | null;
+    if (title) title.textContent = t(locale, 'header.title');
+    if (sub) sub.textContent = t(locale, 'header.subtitle');
+    hud.exit.textContent = t(locale, 'header.menu');
+
+    const histTitle = overlay.querySelector('.ck-history-title') as HTMLElement | null;
+    if (histTitle) histTitle.textContent = t(locale, 'history.title');
+
+    const oppTitle = hud.popoverOpponent.querySelector('.ck-popover-title') as HTMLElement | null;
+    if (oppTitle) oppTitle.textContent = t(locale, 'opponent.title');
+    const setTitle = hud.popoverSettings.querySelector('.ck-popover-title') as HTMLElement | null;
+    if (setTitle) setTitle.textContent = t(locale, 'settings.title');
+
+    for (const card of hud.opponentCards) {
+      const depth = Number(card.dataset['depth']) as Difficulty;
+      const persona = getPersona(depth, locale);
+      const name = card.querySelector('.ck-persona-name') as HTMLElement | null;
+      const tagline = card.querySelector('.ck-persona-sub') as HTMLElement | null;
+      const avatar = card.querySelector('.ck-persona-avatar') as HTMLElement | null;
+      if (name) name.textContent = persona.handle;
+      if (tagline) tagline.textContent = persona.tagline;
+      if (avatar) avatar.textContent = persona.initials;
+    }
+
+    hud.undo.textContent = t(locale, 'settings.undo');
+    hud.restart.textContent = t(locale, 'settings.restart');
+    hud.surrender.textContent = t(locale, 'settings.surrender');
+
+    const confirmCard = hud.confirmSurrender.querySelector('.ck-confirm-card');
+    if (confirmCard) {
+      const h3 = confirmCard.querySelector('h3') as HTMLElement | null;
+      const p = confirmCard.querySelector('p') as HTMLElement | null;
+      if (h3) h3.textContent = t(locale, 'confirm.surrender.title');
+      if (p) p.textContent = t(locale, 'confirm.surrender.body');
+    }
+    hud.confirmCancel.textContent = t(locale, 'confirm.cancel');
+    hud.confirmConfirm.textContent = t(locale, 'confirm.surrender.yes');
+
+    hud.gameOverReview.textContent = t(locale, 'gameover.review');
+    hud.gameOverRestart.textContent = t(locale, 'gameover.restart');
+
+    hud.help.textContent = t(locale, 'help.first-move');
+
+    const heroH1 = overlay.querySelector('.ck-hero-card h1') as HTMLElement | null;
+    const heroP = overlay.querySelector('.ck-hero-card p') as HTMLElement | null;
+    if (heroH1) heroH1.textContent = t(locale, 'start.title');
+    if (heroP) heroP.textContent = t(locale, 'start.sub');
+    hud.start.textContent = t(locale, 'start.cta');
+
+    const labels = overlay.querySelectorAll('.ck-choice-head span');
+    if (labels.length >= 2) {
+      (labels[0] as HTMLElement).textContent = t(locale, 'start.game-type');
+      (labels[1] as HTMLElement).textContent = t(locale, 'start.opponent');
+    }
+    const profileLabels = overlay.querySelectorAll('.ck-profile label span');
+    if (profileLabels.length >= 2) {
+      (profileLabels[0] as HTMLElement).textContent = t(locale, 'start.handle');
+      (profileLabels[1] as HTMLElement).textContent = t(locale, 'start.city');
+    }
+    for (const btn of hud.startModes) {
+      btn.textContent = btn.dataset['mode'] === 'hotseat' ? t(locale, 'start.hotseat') : t(locale, 'start.player-vs-ai');
+    }
+    for (const btn of hud.startDepths) {
+      const depth = Number(btn.dataset['depth']) as Difficulty;
+      const persona = getPersona(depth, locale);
+      btn.textContent = `${persona.firstName} · ${persona.rating}`;
+    }
+
+    hud.iconOpponent.title = t(locale, 'icon.opponent.title');
+    hud.iconTheme.title = t(locale, 'icon.theme.title');
+    hud.iconSettings.title = t(locale, 'icon.settings.title');
+    hud.iconPro.title = t(locale, 'icon.pro.title');
+    hud.iconInvite.title = t(locale, 'icon.invite.title');
+
+    const resultsTitle = overlay.querySelector('.ck-results-title') as HTMLElement | null;
+    if (resultsTitle) resultsTitle.textContent = t(locale, 'results.title');
+  }
+
+  function syncProIcon(): void {
+    let crown = hud.iconPro.querySelector('.ck-icon-crown');
+    if (profile.pro) {
+      if (!crown) {
+        crown = document.createElement('span');
+        crown.className = 'ck-icon-crown';
+        crown.textContent = '★';
+        hud.iconPro.appendChild(crown);
+      }
+    } else if (crown) {
+      crown.remove();
+    }
+  }
+
+  function renderCapturedStacks(pieces: readonly CheckersPiece[], locale: Locale): void {
+    const whiteAlive = pieces.filter((p) => p.side === 'white').length;
+    const blackAlive = pieces.filter((p) => p.side === 'black').length;
+    hud.capturedTop.innerHTML = renderCapturedStrip(t(locale, 'capture.label.white'), 'white', 12 - whiteAlive);
+    hud.capturedBottom.innerHTML = renderCapturedStrip(t(locale, 'capture.label.black'), 'black', 12 - blackAlive);
+    hud.capturedTop.classList.toggle('empty', 12 - whiteAlive === 0);
+    hud.capturedBottom.classList.toggle('empty', 12 - blackAlive === 0);
+  }
+
+  function renderCapturedStrip(label: string, color: 'white' | 'black', count: number): string {
+    if (count === 0) return `<span class="label">${escapeHtml(label)} · 0</span>`;
+    const visible = Math.min(count, 10);
+    const extra = count - visible;
+    const discs = new Array(visible).fill(0).map(() => `<span class="ck-disc ${color}"></span>`).join('');
+    return `<span class="label">${escapeHtml(label)}</span>${discs}${extra > 0 ? `<span class="ck-extra">+${extra}</span>` : ''}`;
+  }
+
+  function setCameraMode(next: CameraMode): void {
+    if (cameraMode === next) return;
+    cameraMode = next;
+    setCamera(camera, cameraMode);
+    refreshUi();
+  }
+
+  function togglePopover(name: 'opponent' | 'settings'): void {
+    if (openPopover === name) {
+      closePopovers();
+      return;
+    }
+    closePopovers();
+    openPopover = name;
+    const el = name === 'opponent' ? hud.popoverOpponent : hud.popoverSettings;
+    const anchor = name === 'opponent' ? hud.iconOpponent : hud.iconSettings;
+    el.classList.add('open');
+    anchor.classList.add('active');
+    const rect = anchor.getBoundingClientRect();
+    el.style.top = `${Math.max(64, rect.top)}px`;
+  }
+
+  function closePopovers(): void {
+    if (!openPopover) return;
+    openPopover = null;
+    hud.popoverOpponent.classList.remove('open');
+    hud.popoverSettings.classList.remove('open');
+    hud.iconOpponent.classList.remove('active');
+    hud.iconSettings.classList.remove('active');
+  }
+
+  function showConfirmSurrender(): void {
+    hud.confirmSurrender.classList.add('open');
+  }
+
+  function hideConfirmSurrender(): void {
+    hud.confirmSurrender.classList.remove('open');
+  }
+
+  function openReview(): void {
+    hud.gameOver.classList.remove('show');
+    refreshReviewBody();
+    hud.review.classList.add('open');
+  }
+
+  function closeReview(): void {
+    hud.review.classList.remove('open');
+    const result = getGameResult(state);
+    const winner = state.winner ?? result?.winner ?? null;
+    if (Boolean(winner || result?.winner === null)) hud.gameOver.classList.add('show');
+  }
+
+  function refreshReviewBody(): void {
+    hud.reviewBody.innerHTML = renderReview(state, profile);
   }
 
   function recordResultIfNeeded(): void {
@@ -634,8 +1042,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       results.hotseatGames += 1;
     }
     results.lastResult = winner === null
-      ? `${resultLabel(result)} in ${state.history.length} moves`
-      : `${labelSide(winner)} won${resultSuffix(result)} in ${state.history.length} moves`;
+      ? { kind: 'draw', reason: result.reason, moves: state.history.length }
+      : { kind: 'win', side: winner, reason: result.reason, moves: state.history.length };
     saveResults(results);
     recordedResultKey = key;
   }
@@ -843,27 +1251,54 @@ function piecePalette(piece: CheckersPiece, skin: PieceSkin): { body: number; ri
     : { body: 0x19100d, rim: 0x9f3428, crown: 0xffd989 };
 }
 
-function createHud(root: HTMLElement): {
-  camera: HTMLButtonElement;
-  captured: HTMLElement;
+interface CheckersHud {
+  camera2d: HTMLButtonElement;
+  camera3d: HTMLButtonElement;
+  capturedTop: HTMLElement;
+  capturedBottom: HTMLElement;
   coach: HTMLElement;
-  depths: HTMLButtonElement[];
+  confirmCancel: HTMLButtonElement;
+  confirmConfirm: HTMLButtonElement;
+  confirmSurrender: HTMLElement;
   exit: HTMLButtonElement;
   forced: HTMLElement;
+  editProfile: HTMLButtonElement;
+  feats: HTMLElement[];
   gameOver: HTMLElement;
   gameOverCopy: HTMLElement;
   gameOverRestart: HTMLButtonElement;
+  gameOverReview: HTMLButtonElement;
   guide: HTMLElement;
-  mode: HTMLButtonElement;
+  help: HTMLElement;
+  hero: HTMLElement;
+  hotseatBtn: HTMLButtonElement;
+  language: HTMLButtonElement;
+  profileLang: HTMLButtonElement;
+  next: HTMLButtonElement;
+  prev: HTMLButtonElement;
+  stepBody: HTMLElement;
+  stepEyebrow: HTMLElement;
+  stepIndicator: HTMLElement;
+  stepTitle: HTMLElement;
+  iconOpponent: HTMLButtonElement;
+  iconTheme: HTMLButtonElement;
+  iconSettings: HTMLButtonElement;
+  iconPro: HTMLButtonElement;
+  iconInvite: HTMLButtonElement;
   moves: HTMLElement;
   leaderboard: HTMLElement;
   leaderboardTitle: HTMLElement;
+  opponentCards: HTMLButtonElement[];
+  popoverOpponent: HTMLElement;
+  popoverSettings: HTMLElement;
   pro: HTMLButtonElement;
   profileCity: HTMLInputElement;
   profileHandle: HTMLInputElement;
   profileLabel: HTMLElement;
   restart: HTMLButtonElement;
   results: HTMLElement;
+  review: HTMLElement;
+  reviewBody: HTMLElement;
   share: HTMLButtonElement;
   skin: HTMLButtonElement;
   start: HTMLButtonElement;
@@ -873,60 +1308,134 @@ function createHud(root: HTMLElement): {
   startModes: HTMLButtonElement[];
   surrender: HTMLButtonElement;
   theme: HTMLButtonElement;
-  togglePanel: HTMLButtonElement;
   turn: HTMLElement;
+  turnPill: HTMLElement;
   undo: HTMLButtonElement;
-} {
+}
+
+function createHud(root: HTMLElement): CheckersHud {
   const overlay = document.createElement('div');
   overlay.className = 'checkers-overlay';
   overlay.innerHTML = `
     <div class="checkers-top">
       <div>
         <div class="checkers-title">Premium Checkers</div>
-        <div class="checkers-sub">Russian 8x8 · forced captures · flying kings</div>
+        <div class="checkers-sub">AI Coach · forced captures · flying kings</div>
       </div>
-      <div class="checkers-pill" id="ck-turn"></div>
-      <div class="checkers-pill warn" id="ck-forced"></div>
-      <button class="ck-btn" id="ck-toggle-panel">Hide Panel</button>
       <button class="ck-btn" id="ck-exit">Menu</button>
     </div>
-    <div class="checkers-side">
-      <button class="ck-btn wide" id="ck-mode"></button>
-      <div class="ck-row">
-        <button class="ck-btn depth" data-depth="2">Casual</button>
-        <button class="ck-btn depth" data-depth="4">Classic</button>
-        <button class="ck-btn depth" data-depth="6">Hard</button>
+
+    <div class="ck-coach-rail">
+      <div class="ck-coach-card" id="ck-coach"></div>
+      <div class="ck-history-card">
+        <div class="ck-history-title">Move History</div>
+        <div class="ck-log" id="ck-moves"></div>
       </div>
-      <button class="ck-btn wide" id="ck-camera"></button>
-      <div class="ck-row">
-        <button class="ck-btn" id="ck-theme">Theme: Midnight</button>
-        <button class="ck-btn" id="ck-skin">Skin: Classic</button>
-      </div>
-      <div class="ck-row">
-        <button class="ck-btn pro" id="ck-pro">Upgrade to Pro</button>
-        <button class="ck-btn" id="ck-share">Invite Link</button>
-      </div>
-      <div class="ck-stat"><span>Captured W/B</span><b id="ck-captured">0 / 0</b></div>
-      <div class="ck-coach" id="ck-coach"></div>
+    </div>
+
+    <div class="ck-captured-stack top" id="ck-captured-top"></div>
+    <div class="ck-captured-stack bottom" id="ck-captured-bottom"></div>
+
+    <div class="ck-turn-board" id="ck-turn-pill">
+      <span class="turn-dot"></span>
+      <span id="ck-turn"></span>
+      <span class="forced-chip" id="ck-forced" style="display:none"></span>
+    </div>
+
+    <div class="ck-camera-toggle">
+      <button id="ck-cam-3d" class="active">3D</button>
+      <button id="ck-cam-2d">2D</button>
+    </div>
+
+    <div class="ck-icon-rail">
+      <button class="ck-icon-btn opponent" id="ck-icon-opponent" title="Choose opponent">DE</button>
+      <button class="ck-icon-btn" id="ck-icon-theme" title="Switch theme" aria-label="Switch theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <button class="ck-icon-btn" id="ck-icon-settings" title="Match settings" aria-label="Match settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82c.16.36.49.62.86.74H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+      <button class="ck-icon-btn" id="ck-icon-pro" title="Pro skin" aria-label="Pro skin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l3-9 4 6 2-10 2 10 4-6 3 9z"/></svg>
+      </button>
+      <button class="ck-icon-btn" id="ck-icon-invite" title="Invite link" aria-label="Invite link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.07 0l3.54-3.54a5 5 0 1 0-7.07-7.07L11.5 4.5"/><path d="M14 11a5 5 0 0 0-7.07 0L3.39 14.54a5 5 0 1 0 7.07 7.07L12.5 19.5"/></svg>
+      </button>
+    </div>
+
+    <div class="ck-popover" id="ck-popover-opponent">
+      <div class="ck-popover-title">Choose opponent</div>
+      <button class="ck-persona-card" data-depth="2">
+        <div class="ck-persona-avatar" style="--persona-accent:#7ef5b3">YB</div>
+        <div class="ck-persona-meta"><div class="ck-persona-name">Yara Bishop</div><div class="ck-persona-sub">Tactical training</div></div>
+        <div class="ck-persona-rating">1100</div>
+      </button>
+      <button class="ck-persona-card active" data-depth="4">
+        <div class="ck-persona-avatar" style="--persona-accent:#8fd0ff">DE</div>
+        <div class="ck-persona-meta"><div class="ck-persona-name">Dana Endgame</div><div class="ck-persona-sub">Solid positional</div></div>
+        <div class="ck-persona-rating">1500</div>
+      </button>
+      <button class="ck-persona-card" data-depth="6">
+        <div class="ck-persona-avatar" style="--persona-accent:#ff9a5c">M8</div>
+        <div class="ck-persona-meta"><div class="ck-persona-name">Magnus 8</div><div class="ck-persona-sub">Punishes mistakes</div></div>
+        <div class="ck-persona-rating">2000</div>
+      </button>
+      <div class="ck-popover-divider"></div>
+      <button class="ck-btn wide" id="ck-hotseat">Switch to Local Hotseat</button>
+    </div>
+
+    <div class="ck-popover" id="ck-popover-settings">
+      <div class="ck-popover-title">Settings</div>
+      <button class="ck-btn wide" id="ck-skin">Skin: Classic</button>
+      <button class="ck-btn wide" id="ck-language">Language: Русский</button>
+      <button class="ck-btn wide" id="ck-pro">Upgrade to Pro</button>
+      <div class="ck-popover-divider"></div>
       <div class="ck-actions">
         <button class="ck-btn" id="ck-undo">Undo</button>
-        <button class="ck-btn" id="ck-surrender">Surrender</button>
         <button class="ck-btn" id="ck-restart">Restart</button>
       </div>
-      <div class="ck-log" id="ck-moves"></div>
+      <button class="ck-btn wide danger" id="ck-surrender">Surrender</button>
     </div>
+
+    <div class="ck-confirm" id="ck-confirm-surrender">
+      <div class="ck-confirm-card">
+        <h3>Surrender?</h3>
+        <p>Surrender counts as a loss in this match.</p>
+        <div class="ck-confirm-actions">
+          <button class="ck-btn" id="ck-confirm-cancel">Cancel</button>
+          <button class="ck-btn danger" id="ck-confirm-yes">Yes, surrender</button>
+        </div>
+      </div>
+    </div>
+
     <div class="checkers-gameover" id="ck-gameover">
       <div id="ck-gameover-copy"></div>
-      <button class="ck-btn" id="ck-gameover-restart">New Match</button>
+      <div class="ck-row" style="margin-top:18px">
+        <button class="ck-btn pro" id="ck-gameover-review">Open Coach Review</button>
+        <button class="ck-btn" id="ck-gameover-restart">New Match</button>
+      </div>
     </div>
+
+    <div class="ck-review" id="ck-review">
+      <div class="ck-review-card" id="ck-review-body"></div>
+    </div>
+
     <div class="checkers-guide" id="ck-guide"></div>
-    <div class="checkers-help">Click a piece, then a highlighted square. Orange means capture is forced.</div>
+    <div class="checkers-help" id="ck-help">Click a piece, then a highlighted square. Orange means capture is forced.</div>
     <div class="checkers-start">
-      <div class="ck-hero-card">
-        <h1>Premium Checkers</h1>
-        <p>Russian 8x8 rules with mandatory captures, flying kings, cinematic camera and local AI.</p>
-        <div class="ck-profile">
-          <div class="ck-profile-label" id="ck-profile-label">Guest Strategist · Almaty</div>
+      <div class="ck-hero-card" id="ck-hero" data-step="1">
+        <div class="ck-step-indicator" id="ck-step-indicator"></div>
+        <div class="ck-eyebrow" id="ck-step-eyebrow"></div>
+        <h1 id="ck-step-title"></h1>
+        <p id="ck-step-body"></p>
+
+        <div class="ck-feats" id="ck-feats">
+          <div class="ck-feat" data-feat="1"><b></b><span></span></div>
+          <div class="ck-feat" data-feat="2"><b></b><span></span></div>
+          <div class="ck-feat" data-feat="3"><b></b><span></span></div>
+        </div>
+
+        <div class="ck-profile" id="ck-profile-block">
           <div class="ck-profile-grid">
             <label>
               <span>Handle</span>
@@ -937,11 +1446,17 @@ function createHud(root: HTMLElement): {
               <input id="ck-profile-city" maxlength="24" autocomplete="off" />
             </label>
           </div>
+          <button class="ck-btn wide" id="ck-profile-lang">Язык: Русский</button>
         </div>
+
+        <div class="ck-welcome-back-meta" id="ck-wb-meta">
+          <div class="ck-profile-label" id="ck-profile-label">Guest Strategist · Almaty</div>
+        </div>
+
         <div class="ck-start-grid">
           <div class="ck-choice">
             <div class="ck-choice-head">
-              <span>Game Type</span>
+              <span data-i18n-label="start.game-type">Game Type</span>
               <b id="ck-start-mode-label">Player vs AI</b>
             </div>
             <div class="ck-row">
@@ -951,17 +1466,23 @@ function createHud(root: HTMLElement): {
           </div>
           <div class="ck-choice">
             <div class="ck-choice-head">
-              <span>Difficulty</span>
-              <b id="ck-start-difficulty-label">Classic</b>
+              <span data-i18n-label="start.opponent">Opponent</span>
+              <b id="ck-start-difficulty-label">Dana Endgame · 1500</b>
             </div>
             <div class="ck-row">
-              <button class="ck-btn start-depth" data-depth="2">Casual</button>
-              <button class="ck-btn start-depth active" data-depth="4">Classic</button>
-              <button class="ck-btn start-depth" data-depth="6">Hard</button>
+              <button class="ck-btn start-depth" data-depth="2">Yara · 1100</button>
+              <button class="ck-btn start-depth active" data-depth="4">Dana · 1500</button>
+              <button class="ck-btn start-depth" data-depth="6">Magnus · 2000</button>
             </div>
           </div>
         </div>
-        <button class="ck-start-btn" id="ck-start">Start Match</button>
+
+        <div class="ck-step-actions">
+          <button class="ck-btn" id="ck-prev">Назад</button>
+          <button class="ck-btn ghost" id="ck-edit-profile">Изменить профиль</button>
+          <button class="ck-start-btn" id="ck-next">Дальше</button>
+          <button class="ck-start-btn" id="ck-start">Начать партию</button>
+        </div>
       </div>
       <div class="ck-results-card">
         <div class="ck-results-title">Results Table</div>
@@ -973,27 +1494,54 @@ function createHud(root: HTMLElement): {
   `;
   root.appendChild(overlay);
   return {
-    camera: overlay.querySelector('#ck-camera') as HTMLButtonElement,
-    captured: overlay.querySelector('#ck-captured') as HTMLElement,
+    camera2d: overlay.querySelector('#ck-cam-2d') as HTMLButtonElement,
+    camera3d: overlay.querySelector('#ck-cam-3d') as HTMLButtonElement,
+    capturedTop: overlay.querySelector('#ck-captured-top') as HTMLElement,
+    capturedBottom: overlay.querySelector('#ck-captured-bottom') as HTMLElement,
     coach: overlay.querySelector('#ck-coach') as HTMLElement,
-    depths: [...overlay.querySelectorAll('.depth')] as HTMLButtonElement[],
+    confirmCancel: overlay.querySelector('#ck-confirm-cancel') as HTMLButtonElement,
+    confirmConfirm: overlay.querySelector('#ck-confirm-yes') as HTMLButtonElement,
+    confirmSurrender: overlay.querySelector('#ck-confirm-surrender') as HTMLElement,
+    editProfile: overlay.querySelector('#ck-edit-profile') as HTMLButtonElement,
     exit: overlay.querySelector('#ck-exit') as HTMLButtonElement,
+    feats: [...overlay.querySelectorAll('.ck-feat')] as HTMLElement[],
     forced: overlay.querySelector('#ck-forced') as HTMLElement,
     gameOver: overlay.querySelector('#ck-gameover') as HTMLElement,
     gameOverCopy: overlay.querySelector('#ck-gameover-copy') as HTMLElement,
     gameOverRestart: overlay.querySelector('#ck-gameover-restart') as HTMLButtonElement,
+    gameOverReview: overlay.querySelector('#ck-gameover-review') as HTMLButtonElement,
     guide: overlay.querySelector('#ck-guide') as HTMLElement,
-    mode: overlay.querySelector('#ck-mode') as HTMLButtonElement,
+    help: overlay.querySelector('#ck-help') as HTMLElement,
+    hero: overlay.querySelector('#ck-hero') as HTMLElement,
+    hotseatBtn: overlay.querySelector('#ck-hotseat') as HTMLButtonElement,
+    language: overlay.querySelector('#ck-language') as HTMLButtonElement,
+    profileLang: overlay.querySelector('#ck-profile-lang') as HTMLButtonElement,
+    next: overlay.querySelector('#ck-next') as HTMLButtonElement,
+    prev: overlay.querySelector('#ck-prev') as HTMLButtonElement,
+    stepBody: overlay.querySelector('#ck-step-body') as HTMLElement,
+    stepEyebrow: overlay.querySelector('#ck-step-eyebrow') as HTMLElement,
+    stepIndicator: overlay.querySelector('#ck-step-indicator') as HTMLElement,
+    stepTitle: overlay.querySelector('#ck-step-title') as HTMLElement,
+    iconOpponent: overlay.querySelector('#ck-icon-opponent') as HTMLButtonElement,
+    iconTheme: overlay.querySelector('#ck-icon-theme') as HTMLButtonElement,
+    iconSettings: overlay.querySelector('#ck-icon-settings') as HTMLButtonElement,
+    iconPro: overlay.querySelector('#ck-icon-pro') as HTMLButtonElement,
+    iconInvite: overlay.querySelector('#ck-icon-invite') as HTMLButtonElement,
     moves: overlay.querySelector('#ck-moves') as HTMLElement,
     leaderboard: overlay.querySelector('#ck-leaderboard') as HTMLElement,
     leaderboardTitle: overlay.querySelector('#ck-leaderboard-title') as HTMLElement,
+    opponentCards: [...overlay.querySelectorAll('.ck-persona-card')] as HTMLButtonElement[],
+    popoverOpponent: overlay.querySelector('#ck-popover-opponent') as HTMLElement,
+    popoverSettings: overlay.querySelector('#ck-popover-settings') as HTMLElement,
     pro: overlay.querySelector('#ck-pro') as HTMLButtonElement,
     profileCity: overlay.querySelector('#ck-profile-city') as HTMLInputElement,
     profileHandle: overlay.querySelector('#ck-profile-handle') as HTMLInputElement,
     profileLabel: overlay.querySelector('#ck-profile-label') as HTMLElement,
     restart: overlay.querySelector('#ck-restart') as HTMLButtonElement,
     results: overlay.querySelector('#ck-results') as HTMLElement,
-    share: overlay.querySelector('#ck-share') as HTMLButtonElement,
+    review: overlay.querySelector('#ck-review') as HTMLElement,
+    reviewBody: overlay.querySelector('#ck-review-body') as HTMLElement,
+    share: overlay.querySelector('#ck-icon-invite') as HTMLButtonElement,
     skin: overlay.querySelector('#ck-skin') as HTMLButtonElement,
     start: overlay.querySelector('#ck-start') as HTMLButtonElement,
     startDepths: [...overlay.querySelectorAll('.start-depth')] as HTMLButtonElement[],
@@ -1001,74 +1549,71 @@ function createHud(root: HTMLElement): {
     startModeLabel: overlay.querySelector('#ck-start-mode-label') as HTMLElement,
     startModes: [...overlay.querySelectorAll('.start-mode')] as HTMLButtonElement[],
     surrender: overlay.querySelector('#ck-surrender') as HTMLButtonElement,
-    theme: overlay.querySelector('#ck-theme') as HTMLButtonElement,
-    togglePanel: overlay.querySelector('#ck-toggle-panel') as HTMLButtonElement,
+    theme: overlay.querySelector('#ck-icon-theme') as HTMLButtonElement,
     turn: overlay.querySelector('#ck-turn') as HTMLElement,
+    turnPill: overlay.querySelector('#ck-turn-pill') as HTMLElement,
     undo: overlay.querySelector('#ck-undo') as HTMLButtonElement,
   };
 }
 
-function resultLabel(result: CheckersResult | null): string | null {
+function resultLabel(result: CheckersResult | null, locale: Locale): string | null {
   if (!result) return null;
-  if (result.reason === 'resign') return 'Resignation';
-  if (result.reason === 'pat') return 'Pat: no legal moves';
-  if (result.reason === 'king-majority') return 'Endgame adjudication';
-  if (result.reason === 'draw-repetition') return 'Draw: repeated position';
-  if (result.reason === 'draw-no-progress') return 'Draw: no progress';
-  return 'No pieces left';
+  const key = `result.${result.reason === 'no-pieces' ? 'no-pieces' : result.reason}`;
+  return t(locale, key);
 }
 
-function resultSuffix(result: CheckersResult | null): string {
-  if (!result) return '';
-  if (result.reason === 'resign') return ' by resignation';
-  if (result.reason === 'pat') return ' by pat';
-  if (result.reason === 'king-majority') return ' by king majority';
-  if (result.reason === 'no-pieces') return ' by capture';
+function resultSuffix(reason: CheckersResult['reason'] | undefined, locale: Locale): string {
+  if (!reason) return '';
+  if (reason === 'resign') return t(locale, 'result.suffix.resign');
+  if (reason === 'pat') return t(locale, 'result.suffix.pat');
+  if (reason === 'king-majority') return t(locale, 'result.suffix.king-majority');
+  if (reason === 'no-pieces') return t(locale, 'result.suffix.no-pieces');
   return '';
 }
 
-function gameOverCopy(result: CheckersResult | null, winner: CheckersSide | null): string {
+function gameOverCopy(result: CheckersResult | null, winner: CheckersSide | null, locale: Locale): string {
   if (result?.winner === null) {
-    return `<div class="ck-gameover-kicker">${resultLabel(result)}</div><div class="ck-gameover-title">Draw</div><div class="ck-gameover-sub">${drawCopy(result)}</div>`;
+    return `<div class="ck-gameover-kicker">${escapeHtml(resultLabel(result, locale) ?? '')}</div><div class="ck-gameover-title">${escapeHtml(t(locale, 'turn.draw'))}</div><div class="ck-gameover-sub">${escapeHtml(drawCopy(result, locale))}</div>`;
   }
   if (!winner) return '';
-  return `<div class="ck-gameover-kicker">${resultLabel(result) ?? 'Match complete'}</div><div class="ck-gameover-title">${labelSide(winner)} wins</div><div class="ck-gameover-sub">${winCopy(result, winner)}</div>`;
+  const kicker = resultLabel(result, locale) ?? t(locale, 'gameover.match-complete');
+  return `<div class="ck-gameover-kicker">${escapeHtml(kicker)}</div><div class="ck-gameover-title">${escapeHtml(t(locale, 'turn.wins', { side: labelSide(winner, locale) }))}</div><div class="ck-gameover-sub">${escapeHtml(winCopy(result, winner, locale))}</div>`;
 }
 
-function winCopy(result: CheckersResult | null, winner: CheckersSide): string {
-  if (result?.reason === 'resign') return `${labelSide(result.loser)} resigned.`;
-  if (result?.reason === 'pat') return `${labelSide(opponent(winner))} has no legal moves. Pat counts as a loss.`;
-  if (result?.reason === 'king-majority') return `${labelSide(winner)} has a clean king majority in a no-capture endgame.`;
-  return 'Opponent has no pieces left.';
+function winCopy(result: CheckersResult | null, winner: CheckersSide, locale: Locale): string {
+  if (result?.reason === 'resign') return t(locale, 'win.resign', { side: labelSide(result.loser, locale) });
+  if (result?.reason === 'pat') return t(locale, 'win.pat', { side: labelSide(opponent(winner), locale) });
+  if (result?.reason === 'king-majority') return t(locale, 'win.king-majority', { side: labelSide(winner, locale) });
+  return t(locale, 'win.no-pieces');
 }
 
-function drawCopy(result: CheckersResult): string {
-  if (result.reason === 'draw-repetition') return 'Same position appeared three times.';
-  if (result.reason === 'draw-no-progress') return 'No capture or promotion happened for 80 plies.';
-  return 'Match complete.';
+function drawCopy(result: CheckersResult, locale: Locale): string {
+  if (result.reason === 'draw-repetition') return t(locale, 'draw.repetition');
+  if (result.reason === 'draw-no-progress') return t(locale, 'draw.no-progress');
+  return t(locale, 'draw.generic');
 }
 
 function opponent(side: CheckersSide): CheckersSide {
   return side === 'white' ? 'black' : 'white';
 }
 
-function difficultyLabel(difficulty: Difficulty): string {
-  if (difficulty === 2) return 'Casual';
-  if (difficulty === 6) return 'Hard';
-  return 'Classic';
-}
 
 function loadResults(): CheckersResults {
   try {
     const raw = window.localStorage.getItem(RESULTS_KEY);
     if (!raw) return emptyResults();
-    const parsed = JSON.parse(raw) as Partial<CheckersResults>;
+    const parsed = JSON.parse(raw) as Partial<CheckersResults> & { lastResult?: unknown };
+    const last = parsed.lastResult;
+    const lastResult: LastResultData | null =
+      last && typeof last === 'object' && 'kind' in (last as object)
+        ? (last as LastResultData)
+        : null;
     return {
       aiWins: Number(parsed.aiWins) || 0,
       aiLosses: Number(parsed.aiLosses) || 0,
       draws: Number(parsed.draws) || 0,
       hotseatGames: Number(parsed.hotseatGames) || 0,
-      lastResult: typeof parsed.lastResult === 'string' ? parsed.lastResult : 'No matches yet',
+      lastResult,
     };
   } catch {
     return emptyResults();
@@ -1080,53 +1625,159 @@ function saveResults(results: CheckersResults): void {
 }
 
 function emptyResults(): CheckersResults {
-  return { aiWins: 0, aiLosses: 0, draws: 0, hotseatGames: 0, lastResult: 'No matches yet' };
+  return { aiWins: 0, aiLosses: 0, draws: 0, hotseatGames: 0, lastResult: null };
 }
 
-function renderResults(results: CheckersResults): string {
+function renderResults(results: CheckersResults, locale: Locale): string {
+  const last = results.lastResult;
+  let lastLine: string;
+  if (!last) {
+    lastLine = t(locale, 'results.no-matches');
+  } else if (last.kind === 'win' && last.side) {
+    lastLine = t(locale, 'results.last-win', {
+      side: labelSide(last.side, locale),
+      suffix: resultSuffix(last.reason, locale),
+      n: last.moves,
+    });
+  } else {
+    lastLine = t(locale, 'results.last-draw', {
+      reason: resultLabel({ winner: null, reason: last.reason } as CheckersResult, locale) ?? '',
+      n: last.moves,
+    });
+  }
   return `
-    <div class="ck-result-row"><span>AI wins</span><b>${results.aiWins}</b></div>
-    <div class="ck-result-row"><span>AI losses</span><b>${results.aiLosses}</b></div>
-    <div class="ck-result-row"><span>Draws</span><b>${results.draws}</b></div>
-    <div class="ck-result-row"><span>Hotseat games</span><b>${results.hotseatGames}</b></div>
-    <div class="ck-last-result">${results.lastResult}</div>
+    <div class="ck-result-row"><span>${escapeHtml(t(locale, 'results.ai-wins'))}</span><b>${results.aiWins}</b></div>
+    <div class="ck-result-row"><span>${escapeHtml(t(locale, 'results.ai-losses'))}</span><b>${results.aiLosses}</b></div>
+    <div class="ck-result-row"><span>${escapeHtml(t(locale, 'results.draws'))}</span><b>${results.draws}</b></div>
+    <div class="ck-result-row"><span>${escapeHtml(t(locale, 'results.hotseat'))}</span><b>${results.hotseatGames}</b></div>
+    <div class="ck-last-result">${escapeHtml(lastLine)}</div>
   `;
 }
 
-function renderCoach(gameStarted: boolean, gameOver: boolean, state: CheckersState): string {
+function renderHistory(history: readonly { move: CheckersMove; turn: CheckersSide }[], locale: Locale): string {
+  if (history.length === 0) return `<div class="empty">${escapeHtml(t(locale, 'history.empty'))}</div>`;
+  const rows: string[] = [];
+  for (let i = 0; i < history.length; i += 2) {
+    const first = history[i];
+    const second = history[i + 1];
+    const number = Math.floor(i / 2) + 1;
+    const firstMove = first ? `${escapeHtml(labelSide(first.turn, locale))} ${escapeHtml(formatHistoryMove(first.move))}` : '';
+    const secondMove = second ? `${escapeHtml(labelSide(second.turn, locale))} ${escapeHtml(formatHistoryMove(second.move))}` : '';
+    rows.push(`<div><b>${number}.</b> ${firstMove}${secondMove ? ` <span class="ck-history-sep">/</span> ${secondMove}` : ''}</div>`);
+  }
+  return rows.slice(-8).join('');
+}
+
+function formatHistoryMove(move: CheckersMove): string {
+  return `${coord(move.from)}-${move.path.map(coord).join('-')}${move.captures.length ? ` ×${move.captures.length}` : ''}`;
+}
+
+function renderCoachCard(gameStarted: boolean, gameOver: boolean, state: CheckersState, mode: CheckersMode, difficulty: Difficulty, aiThinking: boolean, locale: Locale): string {
+  const persona = mode === 'hotseat' ? getHotseatPersona(locale) : getPersona(difficulty, locale);
+  const head = `
+    <div class="ck-persona">
+      <div class="ck-persona-avatar" style="--persona-accent:${persona.accent}">${escapeHtml(persona.initials)}</div>
+      <div class="ck-persona-meta">
+        <div class="ck-persona-name">${escapeHtml(persona.handle)}</div>
+        <div class="ck-persona-sub">${escapeHtml(persona.tagline)}</div>
+      </div>
+      ${persona.rating > 0 ? `<div class="ck-persona-rating">${persona.rating}</div>` : ''}
+    </div>
+  `;
   if (!gameStarted) {
-    return `
-      <div class="ck-coach-head"><span>AI Coach</span><b>Ready</b></div>
-      <div class="ck-coach-copy">Start a match to get tactical suggestions and a post-game review.</div>
+    return `${head}
+      <div class="ck-coach-hint">${escapeHtml(t(locale, 'coach.idle'))}</div>
     `;
   }
   if (gameOver) {
-    const report = buildCoachReport(state.history, state);
-    return `
-      <div class="ck-coach-head"><span>AI Coach</span><b>${report.score}/100</b></div>
-      <div class="ck-coach-title">${escapeHtml(report.headline)}</div>
-      <div class="ck-coach-copy">${escapeHtml(report.summary)}</div>
+    const report = buildCoachReport(state.history, state, locale);
+    return `${head}
+      <div class="ck-coach-status"><span>${escapeHtml(t(locale, 'coach.status.complete'))}</span><span>${report.score}/100</span></div>
+      <div class="ck-coach-hint">${escapeHtml(report.headline)} — ${escapeHtml(report.summary)}</div>
+      <button class="ck-coach-review-cta" data-action="open-review-from-coach">${escapeHtml(t(locale, 'coach.review-cta'))}</button>
+      ${renderEvalBar(state, locale)}
+    `;
+  }
+  const meta = liveCoachTipMeta(state, 2);
+  const tone = TONE_BY_TIP[meta.key] ?? 'idea';
+  const lookForKey = LOOKFOR_BY_TIP[meta.key] ?? 'lookfor.default';
+  const tipText = t(locale, meta.key, meta.vars);
+  const lookForText = t(locale, lookForKey);
+  const thinkingLabel = t(locale, 'coach.status.thinking', { name: persona.firstName });
+  const liveLabel = t(locale, 'coach.status.live');
+  const moveLabel = t(locale, 'coach.status.move', { n: state.history.length + 1 });
+  const status = aiThinking
+    ? `<div class="ck-coach-status thinking"><span><span class="dot"></span> ${escapeHtml(thinkingLabel)}</span><span>${persona.rating > 0 ? persona.rating : ''}</span></div>`
+    : `<div class="ck-coach-status"><span><span class="dot"></span> ${escapeHtml(liveLabel)}</span><span>${escapeHtml(moveLabel)}</span></div>`;
+  const tipLabel = t(locale, 'coach.tip.label');
+  const body = aiThinking
+    ? `<div class="ck-coach-tip ${tone}"><div class="ck-coach-tip-label">${escapeHtml(tipLabel)}</div><div class="ck-coach-tip-skeleton"></div><div class="ck-coach-tip-skeleton" style="width:62%"></div></div>`
+    : `<div class="ck-coach-tip ${tone}"><div class="ck-coach-tip-label">${escapeHtml(tipLabel)}</div><div class="ck-coach-tip-body">${escapeHtml(tipText)}</div></div>`;
+  return `${head}${status}${body}
+    <div class="ck-coach-lookfor">
+      <div class="ck-coach-tip-label">${escapeHtml(t(locale, 'coach.lookfor.label'))}</div>
+      <div class="ck-coach-tip-body">${escapeHtml(lookForText)}</div>
+    </div>
+    ${renderEvalBar(state, locale)}
+  `;
+}
+
+function renderEvalBar(state: CheckersState, locale: Locale): string {
+  const score = evaluatePosition(state);
+  const fill = Math.max(4, Math.min(96, 50 + (score / 12) * 50));
+  const label = score === 0
+    ? t(locale, 'coach.eval.even')
+    : score > 0
+      ? t(locale, 'coach.eval.white', { n: score })
+      : t(locale, 'coach.eval.black', { n: -score });
+  return `
+    <div class="ck-eval">
+      <div class="ck-eval-head"><span>${escapeHtml(t(locale, 'coach.eval.label'))}</span><span>${escapeHtml(label)}</span></div>
+      <div class="ck-eval-bar"><div class="ck-eval-fill" style="width:${fill}%"></div><div class="ck-eval-center"></div></div>
+    </div>
+  `;
+}
+
+function renderReview(state: CheckersState, profile: CheckersProfile): string {
+  const locale = profile.locale;
+  const report = buildCoachReport(state.history, state, locale);
+  const proCta = profile.pro
+    ? ''
+    : `<div class="ck-review-pro">${t(locale, 'review.pro-upsell')} — <button class="ck-btn" data-action="pro" style="margin-left:6px">${escapeHtml(t(locale, 'review.pro-upgrade'))}</button></div>`;
+  return `
+    <div class="ck-review-head">
+      <div>
+        <div class="ck-review-eyebrow">${escapeHtml(t(locale, 'review.eyebrow'))}</div>
+        <div class="ck-review-headline">${escapeHtml(report.headline)}</div>
+      </div>
+      <div class="ck-review-score"><b>${report.score}</b><span>${escapeHtml(t(locale, 'review.score-label'))}</span></div>
+    </div>
+    <div class="ck-review-summary">${escapeHtml(report.summary)}</div>
+    <div class="ck-review-insights">
       ${report.insights.map((insight) => `
         <div class="ck-insight ${insight.tone}">
           <b>${escapeHtml(insight.title)}</b>
           <span>${escapeHtml(insight.body)}</span>
         </div>
       `).join('')}
-    `;
-  }
-  return `
-    <div class="ck-coach-head"><span>AI Coach</span><b>Live</b></div>
-    <div class="ck-coach-copy">${escapeHtml(getLiveCoachTip(state, 2))}</div>
+    </div>
+    <div class="ck-review-actions">
+      <button class="ck-btn primary" data-action="replay">${escapeHtml(t(locale, 'review.replay'))}</button>
+      <button class="ck-btn" data-action="close">${escapeHtml(t(locale, 'review.back'))}</button>
+      <button class="ck-btn" data-action="menu">${escapeHtml(t(locale, 'review.menu'))}</button>
+    </div>
+    ${proCta}
   `;
 }
 
 function renderLeaderboard(profile: CheckersProfile, results: CheckersResults): string {
+  const locale = profile.locale;
   const playerRating = 1000 + results.aiWins * 28 + results.hotseatGames * 10 + results.draws * 4 - results.aiLosses * 12;
   const rows: LeaderboardRow[] = [
-    { handle: profile.handle, city: profile.city, rating: playerRating, streak: results.aiWins > results.aiLosses ? '+form' : 'training' },
-    { handle: 'Aida.K', city: profile.city, rating: 1168, streak: '7W' },
-    { handle: 'Timur Blitz', city: profile.city, rating: 1116, streak: '3W' },
-    { handle: 'Dana Endgame', city: profile.city, rating: 1084, streak: 'coach' },
+    { handle: profile.handle, city: profile.city, rating: playerRating, streak: results.aiWins > results.aiLosses ? t(locale, 'leader.streak.form') : t(locale, 'leader.streak.training') },
+    { handle: 'Aida.K', city: profile.city, rating: 1168, streak: t(locale, 'leader.streak.win-template', { n: 7 }) },
+    { handle: 'Timur Blitz', city: profile.city, rating: 1116, streak: t(locale, 'leader.streak.win-template', { n: 3 }) },
+    { handle: t(locale, 'persona.dana.handle'), city: profile.city, rating: 1084, streak: t(locale, 'leader.streak.coach') },
   ].sort((a, b) => b.rating - a.rating);
   return rows.map((row, index) => `
     <div class="ck-leader-row ${row.handle === profile.handle ? 'me' : ''}">
@@ -1139,19 +1790,22 @@ function renderLeaderboard(profile: CheckersProfile, results: CheckersResults): 
 }
 
 function loadProfile(): CheckersProfile {
+  const defaults = emptyProfile();
   try {
     const raw = window.localStorage.getItem(PROFILE_KEY);
-    if (!raw) return emptyProfile();
+    if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<CheckersProfile>;
     return {
-      handle: sanitizeProfileValue(parsed.handle, 'Guest Strategist'),
-      city: sanitizeProfileValue(parsed.city, 'Almaty'),
+      handle: sanitizeProfileValue(parsed.handle, defaults.handle),
+      city: sanitizeProfileValue(parsed.city, defaults.city),
       theme: parsed.theme === 'light' ? 'light' : 'midnight',
       pro: Boolean(parsed.pro),
       skin: normalizeSkin(parsed.skin, Boolean(parsed.pro)),
+      locale: LOCALES.includes(parsed.locale as Locale) ? (parsed.locale as Locale) : DEFAULT_LOCALE,
+      onboarded: parsed.onboarded === undefined ? true : Boolean(parsed.onboarded),
     };
   } catch {
-    return emptyProfile();
+    return defaults;
   }
 }
 
@@ -1160,7 +1814,16 @@ function saveProfile(profile: CheckersProfile): void {
 }
 
 function emptyProfile(): CheckersProfile {
-  return { handle: 'Guest Strategist', city: 'Almaty', theme: 'midnight', pro: false, skin: 'classic' };
+  const locale = DEFAULT_LOCALE;
+  return {
+    handle: t(locale, 'start.guest'),
+    city: t(locale, 'start.default-city'),
+    theme: 'midnight',
+    pro: false,
+    skin: 'classic',
+    locale,
+    onboarded: false,
+  };
 }
 
 function sanitizeProfileValue(value: unknown, fallback: string): string {
@@ -1182,10 +1845,10 @@ function nextSkin(skin: PieceSkin, pro: boolean): PieceSkin {
   return 'classic';
 }
 
-function skinLabel(skin: PieceSkin): string {
-  if (skin === 'obsidian') return 'Obsidian';
-  if (skin === 'aurora') return 'Aurora';
-  return 'Classic';
+function skinLabel(skin: PieceSkin, locale: Locale): string {
+  if (skin === 'obsidian') return t(locale, 'skin.obsidian');
+  if (skin === 'aurora') return t(locale, 'skin.aurora');
+  return t(locale, 'skin.classic');
 }
 
 function escapeHtml(value: string): string {
@@ -1220,8 +1883,8 @@ function coord(s: { x: number; y: number }): string {
   return `${String.fromCharCode(97 + s.x)}${8 - s.y}`;
 }
 
-function labelSide(side: CheckersSide): string {
-  return side === 'white' ? 'White' : 'Black';
+function labelSide(side: CheckersSide, locale: Locale): string {
+  return t(locale, side === 'white' ? 'side.white' : 'side.black');
 }
 
 function makeWoodTexture(size: number): THREE.CanvasTexture {
