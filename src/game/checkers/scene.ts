@@ -78,6 +78,7 @@ const PERSONA_ACCENTS = { 2: '#7ef5b3', 4: '#8fd0ff', 6: '#ff9a5c' } as const;
 const PERSONA_RATINGS = { 2: 1100, 4: 1500, 6: 2000 } as const;
 const PERSONA_INITIALS = { 2: 'YB', 4: 'DE', 6: 'M8' } as const;
 const PERSONA_NAME_KEY: Record<Difficulty, 'yara' | 'dana' | 'magnus'> = { 2: 'yara', 4: 'dana', 6: 'magnus' };
+const PERSONA_AVATAR_KEY: Record<Difficulty, 'yara' | 'dana' | 'magnus'> = { 2: 'yara', 4: 'dana', 6: 'magnus' };
 const HOTSEAT_ACCENT = '#ffd79d';
 const HOTSEAT_INITIALS = '2P';
 
@@ -843,6 +844,8 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     const persona = mode === 'hotseat' ? getHotseatPersona(profile.locale) : getPersona(difficulty, profile.locale);
     hud.iconOpponent.textContent = persona.initials;
     hud.iconOpponent.style.setProperty('--persona-accent', persona.accent);
+    if (mode === 'ai') hud.iconOpponent.dataset['avatar'] = PERSONA_AVATAR_KEY[difficulty];
+    else delete hud.iconOpponent.dataset['avatar'];
   }
 
   function syncOpponentPopover(): void {
@@ -882,7 +885,10 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
       const avatar = card.querySelector('.ck-persona-avatar') as HTMLElement | null;
       if (name) name.textContent = persona.handle;
       if (tagline) tagline.textContent = persona.tagline;
-      if (avatar) avatar.textContent = persona.initials;
+      if (avatar) {
+        avatar.textContent = persona.initials;
+        avatar.dataset['avatar'] = PERSONA_AVATAR_KEY[depth];
+      }
     }
 
     hud.undo.textContent = t(locale, 'settings.undo');
@@ -1366,17 +1372,17 @@ function createHud(root: HTMLElement): CheckersHud {
     <div class="ck-popover" id="ck-popover-opponent">
       <div class="ck-popover-title">Choose opponent</div>
       <button class="ck-persona-card" data-depth="2">
-        <div class="ck-persona-avatar" style="--persona-accent:#7ef5b3">YB</div>
+        <div class="ck-persona-avatar" data-avatar="yara" style="--persona-accent:#7ef5b3">YB</div>
         <div class="ck-persona-meta"><div class="ck-persona-name">Yara Bishop</div><div class="ck-persona-sub">Tactical training</div></div>
         <div class="ck-persona-rating">1100</div>
       </button>
       <button class="ck-persona-card active" data-depth="4">
-        <div class="ck-persona-avatar" style="--persona-accent:#8fd0ff">DE</div>
+        <div class="ck-persona-avatar" data-avatar="dana" style="--persona-accent:#8fd0ff">DE</div>
         <div class="ck-persona-meta"><div class="ck-persona-name">Dana Endgame</div><div class="ck-persona-sub">Solid positional</div></div>
         <div class="ck-persona-rating">1500</div>
       </button>
       <button class="ck-persona-card" data-depth="6">
-        <div class="ck-persona-avatar" style="--persona-accent:#ff9a5c">M8</div>
+        <div class="ck-persona-avatar" data-avatar="magnus" style="--persona-accent:#ff9a5c">M8</div>
         <div class="ck-persona-meta"><div class="ck-persona-name">Magnus 8</div><div class="ck-persona-sub">Punishes mistakes</div></div>
         <div class="ck-persona-rating">2000</div>
       </button>
@@ -1674,9 +1680,10 @@ function formatHistoryMove(move: CheckersMove): string {
 
 function renderCoachCard(gameStarted: boolean, gameOver: boolean, state: CheckersState, mode: CheckersMode, difficulty: Difficulty, aiThinking: boolean, locale: Locale): string {
   const persona = mode === 'hotseat' ? getHotseatPersona(locale) : getPersona(difficulty, locale);
+  const avatarAttr = mode === 'ai' ? ` data-avatar="${PERSONA_AVATAR_KEY[difficulty]}"` : '';
   const head = `
     <div class="ck-persona">
-      <div class="ck-persona-avatar" style="--persona-accent:${persona.accent}">${escapeHtml(persona.initials)}</div>
+      <div class="ck-persona-avatar"${avatarAttr} style="--persona-accent:${persona.accent}">${escapeHtml(persona.initials)}</div>
       <div class="ck-persona-meta">
         <div class="ck-persona-name">${escapeHtml(persona.handle)}</div>
         <div class="ck-persona-sub">${escapeHtml(persona.tagline)}</div>
