@@ -834,12 +834,18 @@ export function startCheckersScene(host: HTMLElement, exitToMenu: () => void): S
     hud.moves.innerHTML = renderHistory(state.history, locale);
     recordResultIfNeeded();
     const results = loadResults();
+    syncResultsVisibility(results);
     hud.results.innerHTML = renderResults(results, locale);
     hud.leaderboardTitle.textContent = t(locale, 'results.top-city', { city: profile.city });
     hud.leaderboard.innerHTML = renderLeaderboard(profile, results);
     hud.coach.innerHTML = renderCoachCard(gameStarted, gameOver, state, mode, difficulty, aiThinking, locale);
     applyStepUI();
     refreshHighlights();
+  }
+
+  function syncResultsVisibility(results: CheckersResults): void {
+    const startWrap = hud.hero.closest('.checkers-start') as HTMLElement | null;
+    startWrap?.classList.toggle('has-results', hasResults(results));
   }
 
   function syncOpponentIcon(): void {
@@ -1634,6 +1640,10 @@ function saveResults(results: CheckersResults): void {
 
 function emptyResults(): CheckersResults {
   return { aiWins: 0, aiLosses: 0, draws: 0, hotseatGames: 0, lastResult: null };
+}
+
+function hasResults(results: CheckersResults): boolean {
+  return results.aiWins + results.aiLosses + results.draws + results.hotseatGames > 0 || Boolean(results.lastResult);
 }
 
 function renderResults(results: CheckersResults, locale: Locale): string {
